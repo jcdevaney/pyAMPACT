@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.0.0-dev">
+ <meiHead>
+  <fileDesc>
+   <titleStmt>
+    <title>Neun Variationen uber einen Marsch von E. Chr. Dressler</title>
+   </titleStmt>
+   <pubStmt />
+  </fileDesc>
+  <encodingDesc>
+   <appInfo>
+    <application isodate="2023-07-27T08:55:08" version="3.17.0-dev-2ff7066">
+     <name>Verovio</name>
+     <p>Transcoded from Humdrum</p>
+    </application>
+   </appInfo>
+  </encodingDesc>
+  <workList>
+   <work>
+    <title xml:id="title-L2" analog="humdrum:OTL" type="main">Neun Variationen uber einen Marsch von E. Chr. Dressler</title>
+    <composer analog="humdrum:COM" xml:id="person-L1">Beethoven</composer>
+   </work>
+  </workList>
+  <extMeta>
+   <frames xmlns="http://www.humdrum.org/ns/humxml">
+    <metaFrame n="0" token="!!!COM: Beethoven" xml:id="L1">
+     <frameInfo>
+      <startTime float="0" />
+      <frameType>reference</frameType>
+      <referenceKey>COM</referenceKey>
+      <referenceValue>Beethoven</referenceValue>
+     </frameInfo>
+    </metaFrame>
+    <metaFrame n="1" token="!!!OTL: Neun Variationen uber einen Marsch von E. Chr. Dressler" xml:id="L2">
+     <frameInfo>
+      <startTime float="0" />
+      <frameType>reference</frameType>
+      <referenceKey>OTL</referenceKey>
+      <referenceValue>Neun Variationen uber einen Marsch von E. Chr. Dressler</referenceValue>
+     </frameInfo>
+    </metaFrame>
+    <metaFrame n="2" token="!!!Variation: Theme a" xml:id="L3">
+     <frameInfo>
+      <startTime float="0" />
+      <frameType>reference</frameType>
+      <referenceKey>Variation</referenceKey>
+      <referenceValue>Theme a</referenceValue>
+     </frameInfo>
+    </metaFrame>
+   </frames>
+  </extMeta>
+ </meiHead>
+ <music>
+  <body>
+   <mdiv xml:id="m14e35w7">
+    <score xml:id="s1ai7ik3">
+     <scoreDef xml:id="s1w2xnsd">
+      <pgHead xml:id="ped2axh" func="first">
+       <rend xml:id="r197yew" halign="center" valign="middle">
+        <rend xml:id="ryedtqu" fontsize="large">Neun Variationen uber einen Marsch von E. Chr. Dressler</rend>
+        <lb xml:id="l15ge509" /> 
+<lb xml:id="lixddyc" /> </rend>
+       <rend xml:id="reqbibo" halign="right" valign="bottom" fontsize="small">Beethoven</rend>
+      </pgHead>
+      <staffGrp xml:id="s1n0onj7" bar.thru="true" symbol="brace">
+       <staffDef xml:id="staffdef-L4F3" n="1" lines="5">
+        <label xml:id="label-L6F3">Tenor</label>
+        <labelAbbr xml:id="labelabbr-L7F3">T</labelAbbr>
+        <clef xml:id="clef-L8F3" shape="G" line="2" />
+        <keySig xml:id="keysig-L9F3" pname="c" mode="minor" sig="3f" />
+        <meterSig xml:id="metersig-L10F3" count="4" unit="4" />
+        <instrDef xml:id="ibur90a" midi.instrnum="52" midi.instrname="Choir_Aahs" />
+       </staffDef>
+       <staffDef xml:id="staffdef-L4F1" n="2" lines="5">
+        <label xml:id="label-L6F1">Bassus</label>
+        <labelAbbr xml:id="labelabbr-L7F1">B</labelAbbr>
+        <clef xml:id="clef-L8F1" shape="F" line="4" />
+        <keySig xml:id="keysig-L9F1" pname="c" mode="minor" sig="3f" />
+        <meterSig xml:id="metersig-L10F1" count="4" unit="4" />
+        <instrDef xml:id="i1tz3fi0" midi.instrnum="52" midi.instrname="Choir_Aahs" />
+       </staffDef>
+      </staffGrp>
+     </scoreDef>
+     <section xml:id="section-L4F1">
+      <measure xml:id="measure-L1" n="1">
+       <staff xml:id="staff-L4F3" n="1">
+        <layer xml:id="layer-L1F3N1" n="1">
+         <note xml:id="note-L13F3" dur="2" oct="5" pname="c" accid.ges="n">
+          <verse xml:id="verse-L13F4" n="1">
+           <syl xml:id="syl-L13F4">1i</syl>
+          </verse>
+          <artic xml:id="artic-L13F3" artic="stacc" />
+         </note>
+         <note xml:id="note-L16F3" dur="8" oct="5" pname="f" grace="unacc" accid.ges="n" />
+         <note xml:id="note-L17F3" dur="4" oct="5" pname="e" accid.ges="f" />
+         <beam xml:id="beam-L18F3-L19F3">
+          <note xml:id="note-L18F3" dur="8" oct="5" pname="d" accid.ges="n" />
+          <note xml:id="note-L19F3" dur="8" oct="5" pname="c" accid.ges="n" />
+         </beam>
+        </layer>
+       </staff>
+       <staff xml:id="staff-L4F1" n="2">
+        <layer xml:id="layer-L1F1N1" n="1">
+         <chord xml:id="chord-L13F1" dur="4">
+          <note xml:id="note-L13F1S1" oct="3" pname="c" accid.ges="n" />
+          <note xml:id="note-L13F1S2" oct="3" pname="e" accid.ges="f" />
+          <note xml:id="note-L13F1S3" oct="3" pname="g" accid.ges="n" />
+          <verse xml:id="verse-L13F2" n="1">
+           <syl xml:id="syl-L13F2">1T</syl>
+          </verse>
+         </chord>
+         <beam xml:id="beam-L14F1-L15F1">
+          <chord xml:id="chord-L14F1" dots="1" dur="8">
+           <note xml:id="note-L14F1S1" oct="3" pname="c" accid.ges="n" />
+           <note xml:id="note-L14F1S2" oct="3" pname="e" accid.ges="f" />
+           <note xml:id="note-L14F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+          <chord xml:id="chord-L15F1" dur="16">
+           <note xml:id="note-L15F1S1" oct="3" pname="c" accid.ges="n" />
+           <note xml:id="note-L15F1S2" oct="3" pname="e" accid.ges="f" />
+           <note xml:id="note-L15F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+         </beam>
+         <chord xml:id="chord-L17F1" dur="4">
+          <note xml:id="note-L17F1S1" oct="3" pname="c" accid.ges="n" />
+          <note xml:id="note-L17F1S2" oct="3" pname="e" accid.ges="f" />
+          <note xml:id="note-L17F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+         <chord xml:id="chord-L18F1" dur="4">
+          <note xml:id="note-L18F1S1" oct="3" pname="c" accid.ges="n" />
+          <note xml:id="note-L18F1S2" oct="3" pname="e" accid.ges="f" />
+          <note xml:id="note-L18F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+        </layer>
+       </staff>
+       <slur xml:id="slur-L17F3-L19F3" staff="1" startid="#note-L17F3" endid="#note-L19F3" />
+      </measure>
+      <measure xml:id="measure-L20" n="2">
+       <staff xml:id="staff-L20F3N1" n="1">
+        <layer xml:id="layer-L20F3N1" n="1">
+         <note xml:id="note-L21F3" dur="4" oct="5" pname="f" accid="s">
+          <verse xml:id="verse-L21F4" n="1">
+           <syl xml:id="syl-L21F4">1Vb</syl>
+          </verse>
+         </note>
+         <note xml:id="note-L22F3" dur="4" oct="5" pname="g" accid.ges="n" />
+         <note xml:id="note-L24F3" dur="2" oct="5" pname="d" accid.ges="n" />
+        </layer>
+       </staff>
+       <staff xml:id="staff-L20F1N1" n="2">
+        <layer xml:id="layer-L20F1N1" n="1">
+         <chord xml:id="chord-L21F1" dur="4">
+          <note xml:id="note-L21F1S1" oct="2" pname="b" accid="n" />
+          <note xml:id="note-L21F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L21F1S3" oct="3" pname="g" accid.ges="n" />
+          <verse xml:id="verse-L21F2" n="1">
+           <syl xml:id="syl-L21F2">1D</syl>
+          </verse>
+         </chord>
+         <beam xml:id="beam-L22F1-L23F1">
+          <chord xml:id="chord-L22F1" dots="1" dur="8">
+           <note xml:id="note-L22F1S1" oct="2" pname="b" accid.ges="n" />
+           <note xml:id="note-L22F1S2" oct="3" pname="d" accid.ges="n" />
+           <note xml:id="note-L22F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+          <chord xml:id="chord-L23F1" dur="16">
+           <note xml:id="note-L23F1S1" oct="2" pname="b" accid.ges="n" />
+           <note xml:id="note-L23F1S2" oct="3" pname="d" accid.ges="n" />
+           <note xml:id="note-L23F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+         </beam>
+         <chord xml:id="chord-L24F1" dur="4">
+          <note xml:id="note-L24F1S1" oct="2" pname="b" accid.ges="n" />
+          <note xml:id="note-L24F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L24F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+         <chord xml:id="chord-L25F1" dur="4">
+          <note xml:id="note-L25F1S1" oct="2" pname="b" accid.ges="n" />
+          <note xml:id="note-L25F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L25F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+        </layer>
+       </staff>
+       <slur xml:id="slur-L21F3-L22F3" staff="1" startid="#note-L21F3" endid="#note-L22F3" />
+      </measure>
+      <measure xml:id="measure-L26" n="3">
+       <staff xml:id="staff-L26F3N1" n="1">
+        <layer xml:id="layer-L26F3N1" n="1">
+         <note xml:id="note-L27F3" dots="1" dur="4" oct="5" pname="f" accid.ges="n">
+          <verse xml:id="verse-L27F4" n="1">
+           <syl xml:id="syl-L27F4">2.V7b</syl>
+          </verse>
+         </note>
+         <beam xml:id="beam-L29F3-L30F3">
+          <note xml:id="note-L29F3" dur="16" oct="5" pname="g" accid.ges="n" />
+          <note xml:id="note-L30F3" dur="16" oct="5" pname="a" accid.ges="f" />
+         </beam>
+         <beam xml:id="beam-L31F3-L34F3">
+          <note xml:id="note-L31F3" dur="8" oct="5" pname="g" accid.ges="n" />
+          <note xml:id="note-L32F3" dur="8" oct="5" pname="f" accid.ges="n" />
+          <note xml:id="note-L33F3" dur="8" oct="5" pname="e" accid.ges="f">
+           <verse xml:id="verse-L33F4" n="1">
+            <syl xml:id="syl-L33F4">4V</syl>
+           </verse>
+          </note>
+          <note xml:id="note-L34F3" dur="8" oct="5" pname="d" accid.ges="n" />
+         </beam>
+        </layer>
+       </staff>
+       <staff xml:id="staff-L26F1N1" n="2">
+        <layer xml:id="layer-L26F1N1" n="1">
+         <chord xml:id="chord-L27F1" dur="4">
+          <note xml:id="note-L27F1S1" oct="2" pname="b" accid="n" />
+          <note xml:id="note-L27F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L27F1S3" oct="3" pname="g" accid.ges="n" />
+          <verse xml:id="verse-L27F2" n="1">
+           <syl xml:id="syl-L27F2">2.D</syl>
+          </verse>
+         </chord>
+         <beam xml:id="beam-L28F1-L30F1">
+          <chord xml:id="chord-L28F1" dots="1" dur="8">
+           <note xml:id="note-L28F1S1" oct="2" pname="b" accid.ges="n" />
+           <note xml:id="note-L28F1S2" oct="3" pname="d" accid.ges="n" />
+           <note xml:id="note-L28F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+          <chord xml:id="chord-L30F1" dur="16">
+           <note xml:id="note-L30F1S1" oct="2" pname="b" accid.ges="n" />
+           <note xml:id="note-L30F1S2" oct="3" pname="d" accid.ges="n" />
+           <note xml:id="note-L30F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+         </beam>
+         <chord xml:id="chord-L31F1" dur="4">
+          <note xml:id="note-L31F1S1" oct="2" pname="b" accid.ges="n" />
+          <note xml:id="note-L31F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L31F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+         <chord xml:id="chord-L33F1" dur="4">
+          <note xml:id="note-L33F1S1" oct="2" pname="b" accid.ges="n" />
+          <note xml:id="note-L33F1S2" oct="3" pname="d" accid.ges="n" />
+          <note xml:id="note-L33F1S3" oct="3" pname="g" accid.ges="n" />
+          <verse xml:id="verse-L33F2" n="1">
+           <syl xml:id="syl-L33F2">4D</syl>
+          </verse>
+         </chord>
+        </layer>
+       </staff>
+       <slur xml:id="slur-L27F3-L34F3" staff="1" startid="#note-L27F3" endid="#note-L34F3" />
+      </measure>
+      <measure xml:id="measure-L35" right="invis" n="4">
+       <staff xml:id="staff-L35F3N1" n="1">
+        <layer xml:id="layer-L35F3N1" n="1">
+         <note xml:id="note-L36F3" dur="4" oct="5" pname="e" accid.ges="f">
+          <verse xml:id="verse-L36F4" n="1">
+           <syl xml:id="syl-L36F4">1i</syl>
+          </verse>
+         </note>
+         <beam xml:id="beam-L37F3-L38F3">
+          <note xml:id="note-L37F3" dots="1" dur="8" oct="5" pname="c" accid.ges="n" />
+          <note xml:id="note-L38F3" dur="16" oct="5" pname="c" accid.ges="n" />
+         </beam>
+         <note xml:id="note-L39F3" dur="2" oct="5" pname="c" accid.ges="n" />
+        </layer>
+       </staff>
+       <staff xml:id="staff-L35F1N1" n="2">
+        <layer xml:id="layer-L35F1N1" n="1">
+         <chord xml:id="chord-L36F1" dur="4">
+          <note xml:id="note-L36F1S1" oct="3" pname="c" accid.ges="n" />
+          <note xml:id="note-L36F1S2" oct="3" pname="e" accid.ges="f" />
+          <note xml:id="note-L36F1S3" oct="3" pname="g" accid.ges="n" />
+          <verse xml:id="verse-L36F2" n="1">
+           <syl xml:id="syl-L36F2">1T</syl>
+          </verse>
+         </chord>
+         <beam xml:id="beam-L37F1-L38F1">
+          <chord xml:id="chord-L37F1" dots="1" dur="8">
+           <note xml:id="note-L37F1S1" oct="3" pname="c" accid.ges="n" />
+           <note xml:id="note-L37F1S2" oct="3" pname="e" accid.ges="f" />
+           <note xml:id="note-L37F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+          <chord xml:id="chord-L38F1" dur="16">
+           <note xml:id="note-L38F1S1" oct="3" pname="c" accid.ges="n" />
+           <note xml:id="note-L38F1S2" oct="3" pname="e" accid.ges="f" />
+           <note xml:id="note-L38F1S3" oct="3" pname="g" accid.ges="n" />
+          </chord>
+         </beam>
+         <chord xml:id="chord-L39F1" dur="2">
+          <note xml:id="note-L39F1S1" oct="3" pname="c" accid.ges="n" />
+          <note xml:id="note-L39F1S2" oct="3" pname="e" accid.ges="f" />
+          <note xml:id="note-L39F1S3" oct="3" pname="g" accid.ges="n" />
+         </chord>
+        </layer>
+       </staff>
+      </measure>
+     </section>
+    </score>
+   </mdiv>
+  </body>
+ </music>
+</mei>
