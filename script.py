@@ -109,19 +109,88 @@ class Score:
     if '_partList' not in self._analyses:
       parts = []
       isUnique = True
-      for i, flat_part in enumerate(self._semiFlatParts):
-        ser = pd.Series([nrc for nrc in flat_part.getElementsByClass(['Note', 'Rest', 'Chord'])], name=self.partNames[i])
-        ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
-        # ser = ser[~ser.index.duplicated(keep='last')]
-        if not ser.index.is_unique:
+      divisiStarts = []
+      divisiEnds = []
+      for ii, flat_part in enumerate(self._semiFlatParts):
+        graces, graceOffsets = [], []
+        notGraces = {}
+        for nrc in flat_part.getElementsByClass(['Note', 'Rest', 'Chord']):
+          if nrc.sortTuple()[4]:
+            if (nrc.isRest and nrc.quarterLength > 18):  # get rid of really long rests TODO: make this get rid of rests longer than the prevailing measure
+              continue
+            offset = round(float(nrc.offset), 5)
+            if offset in notGraces:
+              notGraces[offset].append(nrc)
+            else:
+              notGraces[offset] = [nrc]
+          else:
+            graces.append(nrc)
+            graceOffsets.append(round(float(nrc.offset), 5))
+          
+        ser = pd.Series(notGraces)
+        df = ser.apply(pd.Series)  # make each cell a row resulting in a df where each col is a separate synthetic voice
+        if len(df.columns > 1):  # swap elements in cols at this offset until all of them fill the space left before the next note in each col
+          for jj, ndx in enumerate(df.index):
+            # calculate dur inside the loop to avoid having to swap its elements like we do for df
+            dur = df.applymap(lambda cell: round(float(cell.quarterLength), 5), na_action='ignore')
+            for thisCol in range(len(df.columns) - 1):
+              if isinstance(df.iat[jj, thisCol], float):  # ignore NaNs
+                continue
+              thisDur = dur.iat[jj, thisCol]
+              thisNextNdx = df.iloc[jj+1:, thisCol].first_valid_index() or self.score.highestTime
+              thisPrevNdx = df.iloc[:jj, thisCol].last_valid_index() or 0
+              if thisPrevNdx > 0:
+                thisPrevDur = dur[thisCol].at[thisPrevNdx]
+                if thisPrevNdx + thisPrevDur - ndx > .00003:    # current note happens before previous note ended so swap for a NaN if there is one
+                  for otherCol in range(thisCol + 1, len(df.columns)):
+                    if isinstance(df.iat[jj, otherCol], float):
+                      df.iloc[jj, [thisCol, otherCol]] = df.iloc[jj, [otherCol, thisCol]]
+                      break
+              if abs(thisNextNdx - ndx - thisDur) < .00003:   # this nrc takes up the amount of time expected in this col so no need to swap
+                continue
+              for otherCol in range(thisCol + 1, len(df.columns)):  # look for an nrc in another col with the duration thisCol needs
+                if isinstance(df.iat[jj, otherCol], float):  # once we get a nan there's no hope of finding a valid swap at this index
+                  break
+                otherDur = dur.iat[jj, otherCol]
+                if abs(thisNextNdx - ndx - otherDur) < .00003:  # found a valid swap
+                  df.iloc[jj, [thisCol, otherCol]] = df.iloc[jj, [otherCol, thisCol]]
+                  break
+
+        if len(graces):  # add all the grace notes found to col0
+          part0 = pd.concat((pd.Series(graces, graceOffsets), df.iloc[:, 0].dropna())).sort_index(kind='mergesort')
           isUnique = False
-        parts.append(ser)
+        else:
+          part0 = df.iloc[:, 0].dropna()
+        part0.name = self.partNames[ii]
+        parts.append(part0)
+        strands = []
+        for col in range(1, len(df.columns)):  # if df has more than 1 column, iterate over the non-first columns
+          part = df.iloc[:, col].dropna()
+          dur = part.apply(lambda nrc: nrc.quarterLength).astype(float).round(5)
+          prevEnds = (dur + dur.index).shift()
+          startI = 0
+          for endI, endNdx in enumerate(part.index[startI:]):
+            endNdx = round(float(endNdx), 5)
+            nextNdx = self.score.highestTime if len(part) - 1 == endI else part.index[endI + 1]
+            thisDur = part.iat[endI].quarterLength
+            if abs(nextNdx - endNdx - thisDur) > .00003:
+              strand = part.iloc[startI:endI + 1].copy()
+              strand.name = f'{self.partNames[ii]}__{len(strands) + 1}'
+              divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI]))
+              joinNdx = endNdx + thisDur        # find a suitable endpoint to rejoin this strand
+              divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=joinNdx))
+              strands.append(strand)
+              startI = endI + 1
+        parts.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
+
+      self._analyses['_divisiStarts'] = pd.DataFrame(divisiStarts).fillna('*').sort_index()
+      self._analyses['_divisiEnds'] = pd.DataFrame(divisiEnds).fillna('*').sort_index()
       if not isUnique:
         for part in parts:
           tieBreakers = []
           nexts = part.index.to_series().shift(-1)
-          for i in range(-1, -1 - len(part.index), -1):
-            if part.index[i] == nexts.iat[i]:
+          for ii in range(-1, -1 - len(part.index), -1):
+            if part.index[ii] == nexts.iat[ii]:
               tieBreakers.append(tieBreakers[-1] - 1)
             else:
               tieBreakers.append(0)
@@ -129,6 +198,19 @@ class Score:
           part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
       self._analyses['_partList'] = parts
     return self._analyses['_partList']
+
+# TODO: 
+# 1. fix this problem where divisi ends happen halfway through a note:
+# =33	=33	=33	=33
+# (8gL	4dd]	8ff#	.
+# 8e-)	.	[4gg)	.
+# *	*v	*v	*
+# 8cJ	8ee-	.
+# =34	=34	=34
+# -> fix this by making each fork/merge its own column and ordering them by merge offset
+# 2. make add divisi starts/ends as necessary in either partList series or in parts.
+# 3. also manage how notes are filled forwards for .notes() -> probably just don't do this
+# 4. sort out the col names for basic dfs like dur, nr, etc.
 
   def _parts(self, multi_index=False):
     '''\tReturn a df of the note, rest, and chord objects in the score. The difference between
@@ -152,10 +234,12 @@ class Score:
       for i, part in enumerate(self._partList()):
         div = part.apply(lambda nrc: nrc.notes if nrc.isChord else (nrc,)).apply(pd.Series)
         if len(div.columns) > 1:
-          div.columns = [':'.join((self.partNames[i], str(j))) for j in range(1, len(div.columns) + 1)]
+          # div.columns = [':'.join((self.partNames[i], str(j))) for j in range(1, len(div.columns) + 1)]
           div.ffill(axis=1, inplace=True)
         else:
-          div.columns = [self.partNames[i]]
+          pass
+          # pdb.set_trace()
+          # div.columns = [self.partNames[i]]
         divisi.append(div)
       df = pd.concat(divisi, axis=1, sort=True)
       if not multi_index and isinstance(df.index, pd.MultiIndex):
@@ -649,56 +733,8 @@ class Score:
     not the same as creating a kern format of a score, but is an important step
     in that process.'''
     if 'kernNotes' not in self._analyses:
-      # parts = self._parts(multi_index=True)
-      sers = []
-      divisiStarts = pd.DataFrame(columns=self.partNames)
-      divisiEnds = pd.DataFrame(columns=self.partNames)
-      for ii, flat_part in enumerate(self._semiFlatParts):
-        voces = []
-        partName = self.partNames[ii]
-        for jj, vox in enumerate(flat_part.voicesToParts()):
-          flat = vox.flatten()
-          tieBreakers = []
-          ser = pd.Series(vox.flatten().getElementsByClass(['Note', 'Rest', 'Chord']), name=self.partNames[ii])
-          ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
-          nexts = ser.index.to_series().shift(-1)
-          for kk in range(-1, -1 - len(ser.index), -1):  # reversed to make the *last* event at each offset have a tieBreaker value of 0
-            # tieBreakers are the multiIndex values to handle zero-duration grace notes and non-explicit divisi
-            if ser.index[kk] == nexts.iat[kk]:
-              tieBreakers.append(tieBreakers[-1] - 1)
-            else:
-              tieBreakers.append(0)
-          tieBreakers.reverse()
-          dur = ser.apply(lambda nrc: nrc.quarterLength)
-          if jj > 0:  # create divisi records (*^ and *v) when looking at a non-first voice in part
-            starts = -dur + dur.index
-            ends = dur + dur.index
-            for val in dur.index:
-              if val not in ends.values:
-                divisiStarts.at[val, partName] = '*^'
-            for val in ends:
-              if val not in dur:
-                divisiEnds.at[val, partName] = '*v'
-          # TODO: pick up here to split things into voices even when they're not declared as separate voices
-          # tb = pd.Series(tieBreakers, index=ser.index)
-          # d1 = pd.concat([ser, tb, dur], axis=1)
-          # mask = (d1.dur > 0) & (d1.tb < 0)
-          # d2 = d1[mask]
-          # d3 = d1[~mask]
-          # d4 = d2[d2.tb < 0]
-          # d5 = d1.loc[d4.index] -> if there are any grace notes with tb < -1, also keep them in the first voice and keep searching for more in a loop
-          # ***OR*** use flat_part.getOverlaps() and iterate through each list in that dictionary and maybe stream.insertAndShift(element)
-          # pdb.set_trace()
-          ser.index = pd.MultiIndex.from_arrays((ser.index, tieBreakers))
-          ser.name = partName + f'_divisi_{jj}' if jj > 0 else partName
-          # pdb.set_trace()
-          sers.append(ser)
-      df = pd.concat(sers, axis=1)
-      df = df.applymap(self._kernNRCHelper, na_action='ignore')
-      self._analyses['_divisiStarts'] = divisiStarts.fillna('*')
-      self._analyses['_divisiEnds'] = divisiEnds.fillna('*')
-      self._analyses['kernNotes'] = df
-    return self._analyses['kernNotes'].copy()
+      self._analyses['kernNotes'] = self._parts(multi_index=True).applymap(self._kernNRCHelper, na_action='ignore')
+    return self._analyses['kernNotes']
 
   def nmats(self, bpm=60):
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
@@ -850,25 +886,30 @@ class Score:
       for i in range(len(events.columns), 0, -1):   # reverse column order because kern order is lowest staves on the left
         col = events.columns[i - 1]
         _cols.append(events[col])
+        partNum = self.partNames.index(col) + 1 if col in self.partNames else -1
         firstTokens.append('**kern')
-        partNumbers.append(f'*part{i}')
-        staves.append(f'*staff{i}')
+        partNumbers.append(f'*part{partNum}')
+        staves.append(f'*staff{partNum}')
         instruments.append('*Ivox')
         partNames.append(f'*I"{col}')
         shortNames.append(f"*I'{col[0]}")
         if includeLyrics and col in lyr.columns:
-          _cols.append(lyr[col])
+          lyrCol = lyr[col]
+          lyrCol.name = 'Text_' + lyrCol.name
+          _cols.append(lyrCol)
           firstTokens.append('**text')
-          partNumbers.append(f'*part{i}')
-          staves.append(f'*staff{i}')
+          partNumbers.append(f'*part{partNum}')
+          staves.append(f'*staff{partNum}')
           instruments.append('*')
           partNames.append('*')
           shortNames.append('*')
         if includeDynamics and col in dyn.columns:
-          _cols.append(dyn[col])
+          dynCol = dyn[col]
+          dynCol.name = 'Dynam_' + dynCol.name
+          _cols.append(dynCol)
           firstTokens.append('**dynam')
-          partNumbers.append(f'*part{i}')
-          staves.append(f'*staff{i}')
+          partNumbers.append(f'*part{partNum}')
+          staves.append(f'*staff{partNum}')
           instruments.append('*')
           partNames.append('*')
           shortNames.append('*')
@@ -887,7 +928,6 @@ class Score:
         partNames.extend([f'*{col}' for col in cdata.columns])
         shortNames.extend(['*'] * len(cdata.columns))
         events = events[~events.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
-        pdb.set_trace()
         events = pd.concat([events, cdata], axis=1)
       me = pd.concat([me.iloc[:, 0]] * len(events.columns), axis=1)
       ba = pd.concat([ba.iloc[:, 0]] * len(events.columns), axis=1)
@@ -908,21 +948,18 @@ class Score:
       partTokens.columns = events.columns
       body = pd.concat([partTokens, de, me, ds, clefs, ks, ts, events, ba]).sort_index(kind='mergesort')
       body = body.fillna('.')
-      divRows, divCols = np.where(body == '*^')
-      for ii, rowIndex in enumerate(divRows):
-        colIndex = divCols[ii]
-        colName = body.columns[colIndex]
-        targetCols = [jj for jj, col in enumerate(body.columns) if col.startswith(colName) and col != colName]
-        if ii == 0:  # delete everying in target cols up to first divisi
-          body.iloc[:rowIndex + 1, targetCols] = np.nan
-        elif ii + 1 < len(divRows):  # delete everything from the last divisi consolidation to this new divisi
-          prevConsolidation = np.where(body.iloc[:rowIndex, colIndex] == '*v')[-1]
-          body.iloc[prevConsolidation + 1:rowIndex + 1, targetCols] = np.nan
-          body.iloc[prevConsolidation, targetCols] = '*v'
-        if ii + 1 == len(divRows):  # delete everything in target cols after final consolidation
-          finalConsolidation = np.where(body.iloc[rowIndex:, colIndex] == '*v')[0][0] + rowIndex
-          body.iloc[finalConsolidation + 1:, targetCols] = np.nan
-          body.iloc[finalConsolidation, targetCols] = '*v'
+      for colName in [col for col in body.columns if '__' in col]:
+        divStarts = np.where(body.loc[:, colName] == '*^')[0]
+        divEnds = np.where(body.loc[:, colName] == '*v')[0]
+        colIndex = body.columns.get_loc(colName)
+        for _ii, startRow in enumerate(divStarts):
+          if _ii == 0:  # delete everying in target cols up to first divisi
+            body.iloc[:startRow + 1, colIndex] = np.nan
+          else:  # delete everything from the last divisi consolidation to this new divisi
+            body.iloc[divEnds[_ii - 1] + 1: startRow + 1, colIndex] = np.nan
+          if _ii + 1 == len(divStarts) and _ii < len(divEnds):  # delete everything in target cols after final consolidation
+            body.iloc[divEnds[_ii] + 1:, colIndex] = np.nan
+
       result = [self._kernHeader()]
       result.extend(body.apply(lambda row: '\t'.join(row.dropna().astype(str)), axis=1))
       result.extend((self._kernFooter(),))
