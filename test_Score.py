@@ -2,7 +2,7 @@ import os, sys; sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from script import Score
 import pandas as pd
 
-def test_sampled_piano_roll(score_path, truth_path):
+def test_sampled_piano_roll(score_path='', truth_path=''):
   print(f'Running test_sampled_piano_roll on {score_path} and {truth_path} ...')
   piece = Score(score_path)
   pianoRoll = piece.piano_roll()
@@ -15,7 +15,7 @@ def test_sampled_piano_roll(score_path, truth_path):
   slice2 = groundTruth.loc[1:127, :]
   assert(slice1.equals(slice2))
 
-def test_lyrics(score_path, shape, first, last):
+def test_lyrics(score_path='', shape=[], first='', last=''):
   print(f'Running test_lyrics on {score_path} ...')
   piece = Score(score_path)
   lyrics = piece.lyrics()
@@ -24,19 +24,19 @@ def test_lyrics(score_path, shape, first, last):
   assert(lyrics.iloc[0].at[lyrics.iloc[0].first_valid_index()] == first)
   assert(lyrics.iloc[-1].at[lyrics.iloc[-1].last_valid_index()] == last)
 
-def test_harm_spine(score_path, control, filler='forward', output='array'):
+def test_harm_spine(score_path='', control=pd.Series(), filler='forward', output='array'):
   print(f'Running test_harm_spine on {score_path} ...')
   piece = Score(score_path)
   test = piece.harmonies(filler=filler, output=output)
   assert test.equals(control)
 
-def test_harm_keys(score_path, control, filler='forward', output='array'):
+def test_harm_keys(score_path='', control=pd.Series(), filler='forward', output='array'):
   print(f'Running test_harm_keys on {score_path} ...')
   piece = Score(score_path)
   test = piece.harmKeys(filler=filler, output=output)
   assert test.equals(control)
 
-def test_function_spine(score_path, control, filler='forward', output='array'):
+def test_function_spine(score_path='', control=pd.Series(), filler='forward', output='array'):
   print(f'Running test_function_spine on {score_path} ...')
   piece = Score(score_path)
   test = piece.functions(filler=filler, output=output)
