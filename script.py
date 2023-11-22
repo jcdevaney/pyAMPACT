@@ -305,12 +305,16 @@ class Score:
     if filler != '.':
       data.replace('.', np.nan, inplace=True)
     if isinstance(filler, str):
-      if filler.lower() == 'forward':
+      filler = filler.lower()
+      if filler == 'forward':
         data.ffill(inplace=True)
       else:
-        if filler.lower() == 'nan':
-          filler = np.nan
-        data.fillna(filler, inplace=True)
+        if filler in ('nan', 'drop'):
+          data.fillna(np.nan, inplace=True)
+        else:
+          data.fillna(filler, inplace=True)
+    if filler == 'drop':
+      data.dropna(inplace=True)
     if output == 'array':
       return data.values
     else:
@@ -331,7 +335,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
@@ -362,7 +367,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the harm data as a forward-filled array. No need to specify filler='forward' because it's the default
@@ -393,7 +399,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the functional analysis as a forward-filled array. No need to specify filler='forward' because it's the default
