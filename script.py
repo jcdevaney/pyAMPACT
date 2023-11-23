@@ -500,27 +500,34 @@ class Score:
       self._analyses['_timeSignatures'] = df
     return self._analyses['_timeSignatures']
 
-  def durations(self, multi_index=False):
+  def durations(self, multi_index=False, df=None):
     '''\tReturn dataframe of durations of note and rest objects in piece.'''
-    key = ('durations', multi_index)
-    if key not in self._analyses:
-      m21objs = self._m21ObjectsNoTies()
+    if df is None:
+      key = ('durations', multi_index)
+      if key not in self._analyses:
+        m21objs = self._m21ObjectsNoTies()
+        res = m21objs.applymap(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
+        if not multi_index and isinstance(res.index, pd.MultiIndex):
+          res = res.droplevel(1)
+        self._analyses[key] = res
+      return self._analyses[key]
+    else:   # df is not None so calculate diff between cell offsets per column in passed df, skip memoization
       sers = []
-      for col in range(len(m21objs.columns)):
-        part = m21objs.iloc[:, col].dropna()
+      for col in range(len(df.columns)):
+        part = df.iloc[:, col].dropna()
         ndx = part.index.get_level_values(0)
         if len(part) > 1:
           vals = (ndx[1:] - ndx[:-1]).to_list()
         else:
           vals = []
-        vals.append(self.score.highestTime - ndx[-1])
+        if not part.empty:
+          vals.append(self.score.highestTime - ndx[-1])
         sers.append(pd.Series(vals, part.index))
-      df = pd.concat(sers, axis=1, sort=True)
-      df.columns = m21objs.columns
-      if not multi_index and isinstance(df.index, pd.MultiIndex):
-        df = df.droplevel(1)
-      self._analyses[key] = df
-    return self._analyses[key]
+      res = pd.concat(sers, axis=1, sort=True)
+      if not multi_index and isinstance(res.index, pd.MultiIndex):
+        res = res.droplevel(1)
+      res.columns = df.columns
+      return res
 
   def midiPitches(self, multi_index=False):
     '''\tReturn a dataframe of notes and rests as midi pitches. Midi does not
