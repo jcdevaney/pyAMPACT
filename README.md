@@ -1,6 +1,8 @@
-# pyAMPACT
+<h1 align="center">pyAMPACT</h1>
 
-# ![AMPACT](https://static.tumblr.com/3675cda2cf7fe706ff09e8dbb590f657/ytsja31/iXwor8hkf/tumblr_static_10unxb8apbdw4k8owooo0kg8s.jpg)
+<p align="center">
+    <img alt='AMPACT' src="https://static.tumblr.com/3675cda2cf7fe706ff09e8dbb590f657/ytsja31/iXwor8hkf/tumblr_static_10unxb8apbdw4k8owooo0kg8s.jpg"/>
+</p>
 
 pyAMPACT is a project run by [Prof. Johanna Devaney](https://www.brooklyn.cuny.edu/web/academics/schools/mediaarts/faculty_details.php?faculty=1368) of Brooklyn College. You can find out more about the project and read related papers and documentation on the [AMPACT Tumblr page](https://ampact.tumblr.com). One of primary goals of this project is to make an practical and automated connection between corresponding scores in symbolic notation, audio recordings of performances, and audio analysis.
 

@@ -389,12 +389,16 @@ class Score:
     if filler != '.':
       data.replace('.', np.nan, inplace=True)
     if isinstance(filler, str):
-      if filler.lower() == 'forward':
+      filler = filler.lower()
+      if filler == 'forward':
         data.ffill(inplace=True)
       else:
-        if filler.lower() == 'nan':
-          filler = np.nan
-        data.fillna(filler, inplace=True)
+        if filler in ('nan', 'drop'):
+          data.fillna(np.nan, inplace=True)
+        else:
+          data.fillna(filler, inplace=True)
+    if filler == 'drop':
+      data.dropna(inplace=True)
     if output == 'array':
       return data.values
     else:
@@ -415,7 +419,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
@@ -446,7 +451,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the harm data as a forward-filled array. No need to specify filler='forward' because it's the default
@@ -477,7 +483,8 @@ class Score:
     '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
     you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
     results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
+    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+    to drop all empty observations (both NaNs and humdrum periods).
 
     Usage assuming you have a Score object named `piece` in memory:
     # get the functional analysis as a forward-filled array. No need to specify filler='forward' because it's the default
@@ -577,27 +584,34 @@ class Score:
       self._analyses['_timeSignatures'] = df
     return self._analyses['_timeSignatures']
 
-  def durations(self, multi_index=False):
+  def durations(self, multi_index=False, df=None):
     '''\tReturn dataframe of durations of note and rest objects in piece.'''
-    key = ('durations', multi_index)
-    if key not in self._analyses:
-      m21objs = self._m21ObjectsNoTies()
+    if df is None:
+      key = ('durations', multi_index)
+      if key not in self._analyses:
+        m21objs = self._m21ObjectsNoTies()
+        res = m21objs.applymap(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
+        if not multi_index and isinstance(res.index, pd.MultiIndex):
+          res = res.droplevel(1)
+        self._analyses[key] = res
+      return self._analyses[key]
+    else:   # df is not None so calculate diff between cell offsets per column in passed df, skip memoization
       sers = []
-      for col in range(len(m21objs.columns)):
-        part = m21objs.iloc[:, col].dropna()
+      for col in range(len(df.columns)):
+        part = df.iloc[:, col].dropna()
         ndx = part.index.get_level_values(0)
         if len(part) > 1:
           vals = (ndx[1:] - ndx[:-1]).to_list()
         else:
           vals = []
-        vals.append(self.score.highestTime - ndx[-1])
+        if not part.empty:
+          vals.append(self.score.highestTime - ndx[-1])
         sers.append(pd.Series(vals, part.index))
-      df = pd.concat(sers, axis=1, sort=True)
-      df.columns = m21objs.columns
-      if not multi_index and isinstance(df.index, pd.MultiIndex):
-        df = df.droplevel(1)
-      self._analyses[key] = df
-    return self._analyses[key]
+      res = pd.concat(sers, axis=1, sort=True)
+      if not multi_index and isinstance(res.index, pd.MultiIndex):
+        res = res.droplevel(1)
+      res.columns = df.columns
+      return res
 
   def midiPitches(self, multi_index=False):
     '''\tReturn a dataframe of notes and rests as midi pitches. Midi does not
