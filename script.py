@@ -187,8 +187,10 @@ class Score:
         parts.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
 
       self._analyses['_divisiStarts'] = pd.DataFrame(divisiStarts).fillna('*').sort_index()
-      de = pd.DataFrame(divisiEnds).reset_index(level=1)
-      de = de.reindex([prt.name for prt in parts if prt.name not in self.partNames]).set_index('level_1')
+      de = pd.DataFrame(divisiEnds)
+      if not de.empty:
+        de = de.reset_index(level=1)
+        de = de.reindex([prt.name for prt in parts if prt.name not in self.partNames]).set_index('level_1')
       self._analyses['_divisiEnds'] = de
       if not isUnique:
         for part in parts:
