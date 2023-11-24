@@ -85,6 +85,7 @@ class Score:
       self._assignM21Attributes()
       self._import_function_harm_spines()
     self.public = '\n'.join([f'{prop.ljust(15)}{type(getattr(self, prop))}' for prop in dir(self) if not prop.startswith('_')])
+    self._partList()
   
   def _assignM21Attributes(self, path=''):
     '''\tReturn a music21 score. This method is used internally for memoization purposes.'''
@@ -104,12 +105,28 @@ class Score:
       flat.remove(toRemove)
       flat.makeMeasures(inPlace=True)
       self._flatParts.append(flat.flatten())   # you have to flatten again after calling makeMeasures
-      name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part_' + str(i + 1)
+      name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part-' + str(i + 1)
       self.partNames.append(name)
+
+  def _addTieBreakers(self, partList):
+    '''Add tie-breaker level to index. Changes parts in partList in place and returns None.'''
+    for part in partList:
+      if isinstance(part.index, pd.MultiIndex):
+        continue
+      tieBreakers = []
+      nexts = part.index.to_series().shift(-1)
+      for ii in range(-1, -1 - len(part.index), -1):
+        if part.index[ii] == nexts.iat[ii]:
+          tieBreakers.append(tieBreakers[-1] - 1)
+        else:
+          tieBreakers.append(0)
+      tieBreakers.reverse()
+      part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
 
   def _partList(self):
     '''\tReturn a list of series of the note, rest, and chord objects in a each part.'''
     if '_partList' not in self._analyses:
+      kernStrands = []
       parts = []
       isUnique = True
       divisiStarts = []
@@ -166,9 +183,14 @@ class Score:
           part0 = df.iloc[:, 0].dropna()
         part0.name = self.partNames[ii]
         parts.append(part0)
+        kernStrands.append(part0)
+
         strands = []
         for col in range(1, len(df.columns)):  # if df has more than 1 column, iterate over the non-first columns
           part = df.iloc[:, col].dropna()
+          _copy = part.copy()
+          _copy.name = f'{part0.name}_{col}'
+          parts.append(_copy)
           dur = part.apply(lambda nrc: nrc.quarterLength).astype(float).round(5)
           prevEnds = (dur + dur.index).shift()
           startI = 0
@@ -184,73 +206,39 @@ class Score:
               divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=(strand.name, joinNdx)))
               strands.append(strand)
               startI = endI + 1
-        parts.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
+        kernStrands.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
 
       self._analyses['_divisiStarts'] = pd.DataFrame(divisiStarts).fillna('*').sort_index()
       de = pd.DataFrame(divisiEnds)
       if not de.empty:
         de = de.reset_index(level=1)
-        de = de.reindex([prt.name for prt in parts if prt.name not in self.partNames]).set_index('level_1')
+        de = de.reindex([prt.name for prt in kernStrands if prt.name not in self.partNames]).set_index('level_1')
       self._analyses['_divisiEnds'] = de
       if not isUnique:
-        for part in parts:
-          tieBreakers = []
-          nexts = part.index.to_series().shift(-1)
-          for ii in range(-1, -1 - len(part.index), -1):
-            if part.index[ii] == nexts.iat[ii]:
-              tieBreakers.append(tieBreakers[-1] - 1)
-            else:
-              tieBreakers.append(0)
-          tieBreakers.reverse()
-          part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
+        self._addTieBreakers(parts)
+        self._addTieBreakers(kernStrands)
       self._analyses['_partList'] = parts
+      self._analyses['_kernStrands'] = kernStrands
     return self._analyses['_partList']
 
-# TODO: 
-# 1. fix this problem where divisi ends happen halfway through a note:
-# =33	=33	=33	=33
-# (8gL	4dd]	8ff#	.
-# 8e-)	.	[4gg)	.
-# *	*v	*v	*
-# 8cJ	8ee-	.
-# =34	=34	=34
-# -> fix this by making each fork/merge its own column and ordering them by merge offset
-# 2. make add divisi starts/ends as necessary in either partList series or in parts.
-# 3. also manage how notes are filled forwards for .notes() -> probably just don't do this
-# 4. sort out the col names for basic dfs like dur, nr, etc.
-
-  def _parts(self, multi_index=False):
+  def _parts(self, multi_index=False, kernStrands=False):
     '''\tReturn a df of the note, rest, and chord objects in the score. The difference between
     parts and divisi is that parts can have chords whereas divisi cannot. If there are chords
     in the _parts df, the divisi df will include all these notes by adding additional columns.'''
-    key = ('_parts', multi_index)
+    key = ('_parts', multi_index, kernStrands)
     if key not in self._analyses:
-      df = pd.concat(self._partList(), axis=1, sort=True)
+      if kernStrands:
+        toConcat = self._analyses('_kernStrands')
+      else:
+        toConcat = []
+        for part in self._partList():
+          listify = part.apply(lambda nrc: nrc.pitches if nrc.isChord else [nrc])
+          expanded = listify.apply(pd.Series)
+          expanded.columns = [f'{part.name}:{i}' for i in range(len(expanded.columns))]
+          toConcat.append(expanded)
+      df = pd.concat(toConcat, axis=1, sort=True)
       if not multi_index and isinstance(df.index, pd.MultiIndex):
         df.index = df.index.droplevel(1)
-      self._analyses[key] = df
-    return self._analyses[key]
-
-  def _divisi(self, multi_index=False):
-    '''\tReturn a df of the note and rest objects in the score without chords. The difference between
-    parts and divisi is that parts can have chords whereas divisi cannot. If there are chords
-    in the _parts df, the divisi df will include all these notes by adding additional columns.'''
-    key = ('_divisi', multi_index)
-    if key not in self._analyses:
-      divisi = []
-      for i, part in enumerate(self._partList()):
-        div = part.apply(lambda nrc: nrc.notes if nrc.isChord else (nrc,)).apply(pd.Series)
-        if len(div.columns) > 1:
-          # div.columns = [':'.join((self.partNames[i], str(j))) for j in range(1, len(div.columns) + 1)]
-          div.ffill(axis=1, inplace=True)
-        else:
-          pass
-          # pdb.set_trace()
-          # div.columns = [self.partNames[i]]
-        divisi.append(div)
-      df = pd.concat(divisi, axis=1, sort=True)
-      if not multi_index and isinstance(df.index, pd.MultiIndex):
-        df = df.droplevel(1)
       self._analyses[key] = df
     return self._analyses[key]
 
@@ -321,9 +309,9 @@ class Score:
     if 'cdata' not in self._analyses:
       self._analyses['cdata'] = pd.DataFrame()
 
-  def lyrics(self):
+  def lyrics(self):   # pitches don't have lyrics so if that's a problem expand pitches of chords into proper notes and propagate the lyrics to the notes too
     if 'lyrics' not in self._analyses:
-      self._analyses['lyrics'] = self._divisi().applymap(lambda cell: cell.lyric or np.nan, na_action='ignore').dropna(how='all')
+      self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
     return self._analyses['lyrics']
 
   def _clefHelper(self, clef):
@@ -545,7 +533,7 @@ class Score:
 
   def _m21ObjectsNoTies(self):
     if '_m21ObjectsNoTies' not in self._analyses:
-      self._analyses['_m21ObjectsNoTies'] = self._divisi(multi_index=True).applymap(self._remove_tied).dropna(how='all')
+      self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(self._remove_tied).dropna(how='all')
     return self._analyses['_m21ObjectsNoTies']
 
   def _measures(self, divisi=True):
@@ -625,16 +613,16 @@ class Score:
     have a representation for rests, so -1 is used as a placeholder.'''
     key = ('midiPitches', multi_index)
     if key not in self._analyses:
-      midiPitches = self._m21ObjectsNoTies().applymap(lambda noteOrRest: -1 if noteOrRest.isRest else noteOrRest.pitch.midi, na_action='ignore')
+      midiPitches = self._m21ObjectsNoTies().applymap(lambda nrp: nrp.midi if isinstance(nrp, m21.pitch.Pitch) else -1 if nrp.isRest else nrp.pitch.midi, na_action='ignore')
       if not multi_index and isinstance(midiPitches.index, pd.MultiIndex):
         midiPitches = midiPitches.droplevel(1)
       self._analyses[key] = midiPitches
     return self._analyses[key]
 
-  def _noteRestHelper(self, noteOrRest):
-    if noteOrRest.isRest:
+  def _noteRestHelper(self, nrp):
+    if hasattr(nrp, 'isRest') and nrp.isRest:
       return 'r'
-    return noteOrRest.nameWithOctave
+    return nrp.nameWithOctave
 
   def _combineRests(self, col):
       col = col.dropna()
@@ -754,7 +742,7 @@ class Score:
     not the same as creating a kern format of a score, but is an important step
     in that process.'''
     if 'kernNotes' not in self._analyses:
-      self._analyses['kernNotes'] = self._parts(multi_index=True).applymap(self._kernNRCHelper, na_action='ignore')
+      self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
     return self._analyses['kernNotes']
 
   def nmats(self, bpm=60):
