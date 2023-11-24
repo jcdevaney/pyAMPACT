@@ -96,12 +96,15 @@ class Score:
     self.score = imported_scores[self.path]
     self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer}
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
-    self._semiFlatParts = []
+    self._flatParts = []
     self.partNames = []
     for i, part in enumerate(self._partStreams):
-      part.makeMeasures(inPlace=True)
-      self._semiFlatParts.append(part.flatten())
-      name = part.partName if (part.partName and part.partName not in self.partNames) else 'Part_' + str(i + 1)
+      flat = part.flatten()
+      toRemove = [el for el in flat if el.offset < 0]
+      flat.remove(toRemove)
+      flat.makeMeasures(inPlace=True)
+      self._flatParts.append(flat.flatten())   # you have to flatten again after calling makeMeasures
+      name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part_' + str(i + 1)
       self.partNames.append(name)
 
   def _partList(self):
@@ -111,7 +114,7 @@ class Score:
       isUnique = True
       divisiStarts = []
       divisiEnds = []
-      for ii, flat_part in enumerate(self._semiFlatParts):
+      for ii, flat_part in enumerate(self._flatParts):
         graces, graceOffsets = [], []
         notGraces = {}
         for nrc in flat_part.getElementsByClass(['Note', 'Rest', 'Chord']):
@@ -332,7 +335,7 @@ class Score:
     if 'clefs' not in self._analyses:
       parts = []
       isUnique = True
-      for i, flat_part in enumerate(self._semiFlatParts):
+      for i, flat_part in enumerate(self._flatParts):
         ser = pd.Series(flat_part.getElementsByClass(['Clef']), name=self.partNames[i])
         ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
         # ser = ser[~ser.index.duplicated(keep='last')]
@@ -358,7 +361,7 @@ class Score:
 
   def dynamics(self):
     if 'dynamics' not in self._analyses:
-      dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._semiFlatParts]
+      dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._flatParts]
       dyns = pd.concat(dyns, axis=1)
       dyns.columns = self.partNames
       dyns.dropna(how='all', axis=1, inplace=True)
@@ -546,7 +549,7 @@ class Score:
     key = ('_measure', divisi)
     if key not in self._analyses:
       partMeasures = [pd.Series({m.offset: m.measureNumber for m in part.makeMeasures()}, dtype='Int16')
-                      for i, part in enumerate(self._semiFlatParts)]
+                      for i, part in enumerate(self._flatParts)]
       df = pd.concat(partMeasures, axis=1)
       df.columns = self.partNames
       self._analyses[key] = df
@@ -558,7 +561,7 @@ class Score:
     process the `highestTime` similar to music21.'''
     if "_barlines" not in self._analyses:
       partBarlines = [pd.Series({m.offset: m.measureNumber for m in part.getElementsByClass(['Barline'])})
-                      for i, part in enumerate(self._semiFlatParts)]
+                      for i, part in enumerate(self._flatParts)]
       df = pd.concat(partBarlines, axis=1)
       df.columns = self.partNames
       self._analyses["_barlines"] = df
@@ -567,7 +570,7 @@ class Score:
   def _keySignatures(self, kern=True):
     if '_keySignatures' not in self._analyses:
       kSigs = []
-      for i, part in enumerate(self._semiFlatParts):
+      for i, part in enumerate(self._flatParts):
         kSigs.append(pd.Series({ky.offset: ky for ky in part.getElementsByClass(['Key'])}, name=self.partNames[i]))          
       df = pd.concat(kSigs, axis=1).sort_index(kind='mergesort')
       if kern:
@@ -578,7 +581,7 @@ class Score:
   def _timeSignatures(self):
     if '_timeSignatures' not in self._analyses:
       tsigs = []
-      for i, part in enumerate(self._semiFlatParts):
+      for i, part in enumerate(self._flatParts):
         tsigs.append(pd.Series({ts.offset: ts.ratioString for ts in part.getTimeSignatures()}, name=self.partNames[i]))
       df = pd.concat(tsigs, axis=1).sort_index(kind='mergesort')
       self._analyses['_timeSignatures'] = df
