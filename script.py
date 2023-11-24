@@ -221,6 +221,18 @@ class Score:
       self._analyses['_kernStrands'] = kernStrands
     return self._analyses['_partList']
 
+  def _expandChord(self, chord):
+    notes = []
+    for pitch in chord.pitches:
+      note = m21.note.Note(pitch.name, octave=pitch.octave)
+      note._setPriority(chord.priority)
+      note.insertLyric(chord.lyric)
+      note.quarterLength = chord.quarterLength
+      note.offset = chord.offset
+      notes.append(note)
+    return notes
+
+
   def _parts(self, multi_index=False, kernStrands=False):
     '''\tReturn a df of the note, rest, and chord objects in the score. The difference between
     parts and divisi is that parts can have chords whereas divisi cannot. If there are chords
@@ -228,11 +240,11 @@ class Score:
     key = ('_parts', multi_index, kernStrands)
     if key not in self._analyses:
       if kernStrands:
-        toConcat = self._analyses('_kernStrands')
+        toConcat = self._analyses['_kernStrands']
       else:
         toConcat = []
         for part in self._partList():
-          listify = part.apply(lambda nrc: nrc.pitches if nrc.isChord else [nrc])
+          listify = part.apply(lambda nrc: self._expandChord(nrc) if nrc.isChord else [nrc])
           expanded = listify.apply(pd.Series)
           expanded.columns = [f'{part.name}:{i}' for i in range(len(expanded.columns))]
           toConcat.append(expanded)
@@ -309,7 +321,7 @@ class Score:
     if 'cdata' not in self._analyses:
       self._analyses['cdata'] = pd.DataFrame()
 
-  def lyrics(self):   # pitches don't have lyrics so if that's a problem expand pitches of chords into proper notes and propagate the lyrics to the notes too
+  def lyrics(self):
     if 'lyrics' not in self._analyses:
       self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
     return self._analyses['lyrics']
@@ -613,16 +625,16 @@ class Score:
     have a representation for rests, so -1 is used as a placeholder.'''
     key = ('midiPitches', multi_index)
     if key not in self._analyses:
-      midiPitches = self._m21ObjectsNoTies().applymap(lambda nrp: nrp.midi if isinstance(nrp, m21.pitch.Pitch) else -1 if nrp.isRest else nrp.pitch.midi, na_action='ignore')
+      midiPitches = self._m21ObjectsNoTies().applymap(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
       if not multi_index and isinstance(midiPitches.index, pd.MultiIndex):
         midiPitches = midiPitches.droplevel(1)
       self._analyses[key] = midiPitches
     return self._analyses[key]
 
-  def _noteRestHelper(self, nrp):
-    if hasattr(nrp, 'isRest') and nrp.isRest:
+  def _noteRestHelper(self, nr):
+    if nr.isRest:
       return 'r'
-    return nrp.nameWithOctave
+    return nr.nameWithOctave
 
   def _combineRests(self, col):
       col = col.dropna()
