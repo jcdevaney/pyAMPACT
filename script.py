@@ -11,7 +11,7 @@ import tempfile
 import re
 m21.environment.set('autoDownload', 'allow')
 
-function_pattern = re.compile('[^TPD]')
+function_pattern = re.compile('[^TtPpDd]')
 imported_scores = {}
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56: '000..',
