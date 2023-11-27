@@ -229,18 +229,6 @@ class Score:
       self._analyses['_kernStrands'] = kernStrands
     return self._analyses['_partList']
 
-  def _expandChord(self, chord):
-    notes = []
-    for pitch in chord.pitches:
-      note = m21.note.Note(pitch.name, octave=pitch.octave)
-      note._setPriority(chord.priority)
-      note.insertLyric(chord.lyric)
-      note.quarterLength = chord.quarterLength
-      note.offset = chord.offset
-      notes.append(note)
-    return notes
-
-
   def _parts(self, multi_index=False, kernStrands=False):
     '''\tReturn a df of the note, rest, and chord objects in the score. The difference between
     parts and divisi is that parts can have chords whereas divisi cannot. If there are chords
@@ -252,7 +240,7 @@ class Score:
       else:
         toConcat = []
         for part in self._partList():
-          listify = part.apply(lambda nrc: self._expandChord(nrc) if nrc.isChord else [nrc])
+          listify = part.apply(lambda nrc: nrc.notes if nrc.isChord else [nrc])
           expanded = listify.apply(pd.Series)
           expanded.columns = [f'{part.name}:{i}' for i in range(len(expanded.columns))]
           toConcat.append(expanded)
@@ -713,40 +701,7 @@ class Score:
 
   def _kernChordHelper(self, _chord):
     '''\tParse a music21 chord object into a kern chord token.'''
-    pitches = []
-    dur = _duration2Kern[round(float(_chord.quarterLength), 5)]
-    for i, _pitch in enumerate(_chord.pitches):
-      _oct = _pitch.octave
-      if _oct > 3:
-        letter = _pitch.step.lower() * (_oct - 3)
-      else:
-        letter = _pitch.step * (4 - _oct)
-      acc = _pitch.accidental
-      acc = acc.modifier if acc is not None else ''
-      longa = '' #'l' if _pitch.duration.type == 'longa' else ''
-      grace = '' if _chord.sortTuple()[4] else 'q'
-      if i == 0:  # beaming and slurs are only on the chord object, so just look for them on the chord for the first pitch
-        startBracket, endBracket, beaming = '', '', ''
-        spanners = _chord.getSpannerSites()
-        for spanner in spanners:
-          if 'Slur' in spanner.classes:
-            if spanner.isFirst(_chord):
-              startBracket = '(' + startBracket
-            elif spanner.isLast(_chord):
-              endBracket += ')'
-        beams = _chord.beams.beamsList
-        for beam in beams:
-          if beam.type == 'start':
-            beaming += 'L'
-          elif beam.type == 'stop':
-            beaming += 'J'
-        pitches.append(f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}')
-      else:
-        pitches.append(f'{dur}{letter}{acc}{longa}{grace}')
-    if len(pitches):
-      return ' '.join(pitches)
-    else:
-      return ''
+    return ' '.join([self._kernNoteHelper(note) for note in _chord.notes])
 
   def _kernNRCHelper(self, nrc):
     '''\tConvert a music21 note, rest, or chord object to its corresponding kern token.'''
