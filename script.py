@@ -762,13 +762,14 @@ class Score:
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
     columns about the notes and rests in that voice:
 
-    MEASURE    ONSET_BEAT    DURATION_BEAT    PART    MIDI    ONSET_SEC    OFFSET_SEC
+    MEASURE    ONSET_BEAT    DURATION_BEAT    PART    MIDI    ONSET_SEC    OFFSET_SEC    XML_ID
 
     In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
     inclusive, and rests are represented with -1s. The ONSET and OFFSET columns given
     in seconds are directly proportional to the ONSET_BEATS column and ONSET_BEATS +
     DURATION_BEATS columns respectively. The proportion used is determined by the `bpm`
-    argument.'''
+    argument. The XML_ID column gives the xml id of the note or rest object, if there
+    is one.'''
     key = ('nmats', bpm)
     if key not in self._analyses:
       nmats = {}
@@ -777,6 +778,7 @@ class Score:
       mp = self.midiPitches()
       mp = mp[~mp.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
       ms = self._measures()
+      ids = self.xmlIDs()
       toSeconds = 60/bpm
       for i, partName in enumerate(self.partNames):
         meas = ms.iloc[:, i]
@@ -786,8 +788,9 @@ class Score:
         part = pd.Series(partName, midi.index)
         onsetSec = onsetBeat * toSeconds
         offsetSec = (onsetBeat + durBeat) * toSeconds
-        df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec], axis=1, sort=True)
-        df.columns = ['MEASURE', 'ONSET_BEAT', 'DURATION_BEAT', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC']
+        xmlID = ids.iloc[:, i].dropna()
+        df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
+        df.columns = ['MEASURE', 'ONSET_BEAT', 'DURATION_BEAT', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
         df.MEASURE.ffill(inplace=True)
         nmats[partName] = df.dropna()
       self._analyses[key] = nmats
