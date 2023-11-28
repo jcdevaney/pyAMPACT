@@ -351,7 +351,9 @@ class Score:
       idCol = ids.iloc[:, i].dropna()
       idCol.index = part.index
       cols.append(idCol)
-    return pd.concat(cols, axis=1)
+    df = pd.concat(cols, axis=1)
+    df.columns = parts.columns
+    return df
 
   def lyrics(self):
     if 'lyrics' not in self._analyses:
