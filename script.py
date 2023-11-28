@@ -321,38 +321,44 @@ class Score:
   def xmlIDs(self):
     '''\tReturn xml ids per part in a pandas.DataFrame time-aligned with the
     objects offset.'''
-    # TODO: make this work with chords and divisi too.
-    if self.fileExtension not in ('xml', 'mei'):
-      return pd.DataFrame(index=self._parts().index, columns=self._parts().columns)
-    tree = ET.parse(self.path)
-    root = tree.getroot()
-    namespace = {'ns': root.tag.split('}')[0].strip('{')}
-    idString = [key for key in root.attrib.keys() if key.endswith('}id')][0]
-    data = {}
-    dotCoefficients = {None: 1, '1': 1.5, '2': 1.75, '3': 1.875, '4': 1.9375}
-    for staff in root.findall('.//ns:staff', namespace):
-        for layer in staff.findall('ns:layer', namespace):
+    if 'xmlIDs' in self._analyses:
+      return self._analyses['xmlIDs']
+    if self.fileExtension in ('xml', 'mei'):
+      tree = ET.parse(self.path)
+      root = tree.getroot()
+      namespace = {'ns': root.tag.split('}')[0][1:]}
+      idString = [key for key in root.attrib.keys() if key.endswith('}id')]
+      if len(idString):
+        idString = idString[0]
+        data = {}
+        dotCoefficients = {None: 1, '1': 1.5, '2': 1.75, '3': 1.875, '4': 1.9375}
+        for staff in root.findall('.//ns:staff', namespace):
+          for layer in staff.findall('ns:layer', namespace):
             column_name = f"Staff{staff.get('n')}_Layer{layer.get('n')}"
             if column_name not in data:
-                data[column_name] = []
+              data[column_name] = []
             for nrb in layer:
               if nrb.tag.endswith('note') or nrb.tag.endswith('rest') or nrb.tag.endswith('mRest'):
-                xml_id = nrb.get(idString)
-                data[column_name].append(xml_id)
+                data[column_name].append(nrb.get(idString, str(nrb.id)))
               elif nrb.tag.endswith('beam'):
                 for nr in nrb:
-                  xml_id = nr.get(idString)
-                  data[column_name].append(xml_id)
-    ids = pd.DataFrame.from_dict(data, orient='index').T
-    cols = []
-    parts = self._parts()
-    for i in range(len(parts.columns)):
-      part = parts.iloc[:, i].dropna()
-      idCol = ids.iloc[:, i].dropna()
-      idCol.index = part.index
-      cols.append(idCol)
-    df = pd.concat(cols, axis=1)
-    df.columns = parts.columns
+                  data[column_name].append(nr.get(idString, str(nr.id)))
+        ids = pd.DataFrame.from_dict(data, orient='index').T
+        cols = []
+        parts = self._parts()
+        pdb.set_trace()
+        for i in range(len(parts.columns)):
+          part = parts.iloc[:, i].dropna()
+          idCol = ids.iloc[:, i].dropna()
+          idCol.index = part.index
+          cols.append(idCol)
+        df = pd.concat(cols, axis=1)
+        df.columns = parts.columns
+        self._analyses['xmlIDs'] = df
+        return df
+    # either not xml/mei, or an idString wasn't found
+    df = self._parts().applymap(lambda obj: str(obj.id), na_action='ignore')
+    self._analyses['xmlIDs'] = df
     return df
 
   def lyrics(self):
