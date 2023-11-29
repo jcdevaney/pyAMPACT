@@ -70,7 +70,7 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
   0:       ''
 }
 
-reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work in the following way.
+_reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work in the following way.
   Get the desired analysis from the relevant spine if this piece is a kern file and has a
   that spine. The default is for the results to be returned as a 1-d array, but you can
   set `output='series'` for a pandas series instead. If you want to align these results
@@ -274,7 +274,7 @@ class Score:
         for part in self._partList():
           listify = part.apply(lambda nrc: nrc.notes if nrc.isChord else [nrc])
           expanded = listify.apply(pd.Series)
-          expanded.columns = [f'{part.name}:{i}' for i in range(len(expanded.columns))]
+          expanded.columns = [f'{part.name}:{i}' if i > 0 else part.name for i in range(len(expanded.columns))]
           toConcat.append(expanded)
       df = pd.concat(toConcat, axis=1, sort=True)
       if not multi_index and isinstance(df.index, pd.MultiIndex):
@@ -483,19 +483,19 @@ class Score:
 
   def harmKeys(self, snap_to=None, filler='forward', output='array'):
     return self._snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
-  harmKeys.__doc__ = reused_docstring
+  harmKeys.__doc__ = _reused_docstring
 
   def harmonies(self, snap_to=None, filler='forward', output='array'):
     return self._snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
-  harmonies.__doc__ = reused_docstring
+  harmonies.__doc__ = _reused_docstring
 
   def functions(self, snap_to=None, filler='forward', output='array'):
     return self._snapTo(self._analyses['function'].copy(), snap_to, filler, output)
-  functions.__doc__ = reused_docstring
+  functions.__doc__ = _reused_docstring
 
   def cdata(self, snap_to=None, filler='forward', output='dataframe'):
     return self._snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
-  cdata.__doc__ = reused_docstring
+  cdata.__doc__ = _reused_docstring
 
   def _remove_tied(self, noteOrRest):
     if hasattr(noteOrRest, 'tie') and noteOrRest.tie is not None and noteOrRest.tie.type != 'start':
