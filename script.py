@@ -339,14 +339,13 @@ class Score:
               data[column_name] = []
             for nrb in layer:
               if nrb.tag.endswith('note') or nrb.tag.endswith('rest') or nrb.tag.endswith('mRest'):
-                data[column_name].append(nrb.get(idString, str(nrb.id)))
+                data[column_name].append(nrb.get(idString))
               elif nrb.tag.endswith('beam'):
                 for nr in nrb:
-                  data[column_name].append(nr.get(idString, str(nr.id)))
+                  data[column_name].append(nr.get(idString))
         ids = pd.DataFrame.from_dict(data, orient='index').T
         cols = []
-        parts = self._parts()
-        pdb.set_trace()
+        parts = self._parts(multi_index=True)
         for i in range(len(parts.columns)):
           part = parts.iloc[:, i].dropna()
           idCol = ids.iloc[:, i].dropna()
@@ -357,7 +356,7 @@ class Score:
         self._analyses['xmlIDs'] = df
         return df
     # either not xml/mei, or an idString wasn't found
-    df = self._parts().applymap(lambda obj: str(obj.id), na_action='ignore')
+    df = self._parts(multi_index=True).applymap(lambda obj: str(obj.id), na_action='ignore')
     self._analyses['xmlIDs'] = df
     return df
 
@@ -588,16 +587,17 @@ class Score:
       self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(self._remove_tied).dropna(how='all')
     return self._analyses['_m21ObjectsNoTies']
 
-  def _measures(self, divisi=True):
+  def _measures(self):
     '''\tReturn df of the measure starting points.'''
-    key = ('_measure', divisi)
-    if key not in self._analyses:
-      partMeasures = [pd.Series({m.offset: m.measureNumber for m in part.makeMeasures()}, dtype='Int16')
-                      for i, part in enumerate(self._flatParts)]
+    if '_measures' not in self._analyses:
+      partMeasures = []
+      for i, partName in enumerate(self.partNames):
+        ser = pd.Series({m.offset: m.measureNumber for m in self._flatParts[i].makeMeasures()}, dtype='Int16')
+        partMeasures.extend([ser] * len([part for part in self._parts().columns if part.startswith(partName)]))
       df = pd.concat(partMeasures, axis=1)
-      df.columns = self.partNames
-      self._analyses[key] = df
-    return self._analyses[key]
+      df.columns = self._parts().columns
+      self._analyses['_measures'] = df
+    return self._analyses['_measures'].copy()
 
   def _barlines(self):
     '''\tReturn df of barlines specifying which barline type. Double barline, for
@@ -779,17 +779,16 @@ class Score:
     key = ('nmats', bpm)
     if key not in self._analyses:
       nmats = {}
-      dur = self.durations()
-      dur = dur[~dur.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
-      mp = self.midiPitches()
-      mp = mp[~mp.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
+      dur = self.durations(multi_index=True)
+      mp = self.midiPitches(multi_index=True)
       ms = self._measures()
+      ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
       ids = self.xmlIDs()
       toSeconds = 60/bpm
-      for i, partName in enumerate(self.partNames):
+      for i, partName in enumerate(self._parts().columns):
         meas = ms.iloc[:, i]
         midi = mp.iloc[:, i].dropna()
-        onsetBeat = midi.index.to_series()
+        onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
         durBeat = dur.iloc[:, i].dropna()
         part = pd.Series(partName, midi.index)
         onsetSec = onsetBeat * toSeconds
@@ -798,7 +797,10 @@ class Score:
         df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
         df.columns = ['MEASURE', 'ONSET_BEAT', 'DURATION_BEAT', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
         df.MEASURE.ffill(inplace=True)
-        nmats[partName] = df.dropna()
+        df.dropna(how='all', inplace=True, subset=df.columns[1:-1])
+        if isinstance(df.index, pd.MultiIndex):
+          df = df.droplevel(1)
+        nmats[partName] = df
       self._analyses[key] = nmats
     return self._analyses[key]
 
