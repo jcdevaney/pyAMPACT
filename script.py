@@ -70,6 +70,37 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
   0:      ''
 }
 
+reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work in the following way.
+  Get the desired analysis from the relevant spine if this piece is a kern file and has a
+  that spine. The default is for the results to be returned as a 1-d array, but you can
+  set `output='series'` for a pandas series instead. If you want to align these results
+  so that they match the columnar (time) axis of the pianoRoll, sampled, or mask results,
+  you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
+
+  The `sampled` and `mask` dfs often have more observations than the spine contents,
+  so you may want to fill in these new empty slots somehow. The kern format uses
+  '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
+  empty slots with this as well. If you choose some other value, say `filler='_'`, then in
+  addition to filling in the empty slots with underscores, this will also replace the kern
+  '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
+  you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
+  results, you can pass `filler='forward'` (default). This will propagate the last
+  non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
+  to drop all empty observations (both NaNs and humdrum periods).
+
+  Usage assuming you have a Score object named `piece` in memory:
+  # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
+  keys = piece.harmKeys()
+
+  # get the harmonies in the shape of the mask columns
+  mask = piece.mask()
+  harmonies = piece.harmonies(snap_to=mask)
+
+  # get the functions in the shape of the mask columns and replace kern's '.' tokens with NaNs
+  mask = piece.mask()
+  functions = piece.functions(snap_to=mask, filler='nan')'''
+
+
 class Score:
   '''\tImport score via music21 and expose AMPACT's analysis utilities which are
   generally formatted as Pandas DataFrames.'''
@@ -451,131 +482,20 @@ class Score:
       return data
 
   def harmKeys(self, snap_to=None, filler='forward', output='array'):
-    '''\tGet the key analysis from the **harm spine if this piece is a kern file and has a
-    **harm spine. The default is for the results to be returned as a 1-d array, but you can
-    set `output='series'` for a pandas series instead. If you want to align these results
-    so that they match the columnar (time) axis of the pianoRoll, sampled, or mask results,
-    you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-    The `sampled` and `mask` will almost always have more observations than the `harmKeys`
-    results, so you may want to fill in these new empty slots somehow. The kern format uses
-    '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
-    empty slots with this as well. If you choose some other value, say `filler='_'`, then in
-    addition to filling in the empty slots with underscores, this will also replace the kern
-    '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
-    you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
-    results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
-    to drop all empty observations (both NaNs and humdrum periods).
-
-    Usage assuming you have a Score object named `piece` in memory:
-    # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
-    keys = piece.harmKeys()
-
-    # get the harmonies in the shape of the mask columns
-    mask = piece.mask()
-    keys = piece.harmKeys(snap_to=mask)
-
-    # get the harmonies in the shape of the mask columns and replace kern's '.' tokens with NaNs
-    mask = piece.mask()
-    keys = piece.harmKeys(snap_to=mask, filler='nan')
-    '''
     return self._snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
+  harmKeys.__doc__ = reused_docstring
 
   def harmonies(self, snap_to=None, filler='forward', output='array'):
-    '''\tGet the harmonic analysis from the **harm spine if this piece is a kern file and has a
-    **harm spine. The default is for the results to be returned as a 1-d array, but you can
-    set `output='series'` for a pandas series instead. If you want to align these results
-    so that they match the columnar (time) axis of the pianoRoll, sampled, or mask results,
-    you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-    The `sampled` and `mask` will almost always have more observations than the `harmonies`
-    results, so you may want to fill in these new empty slots somehow. The kern format uses
-    '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
-    empty slots with this as well. If you choose some other value, say `filler='_'`, then in
-    addition to filling in the empty slots with underscores, this will also replace the kern
-    '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
-    you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
-    results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
-    to drop all empty observations (both NaNs and humdrum periods).
-
-    Usage assuming you have a Score object named `piece` in memory:
-    # get the harm data as a forward-filled array. No need to specify filler='forward' because it's the default
-    harmonies = piece.harmonies()
-
-    # get the harmonies in the shape of the mask columns
-    mask = piece.mask()
-    harmonies = piece.harmonies(snap_to=mask)
-
-    # get the harmonies in the shape of the mask columns and replace kern's '.' tokens with NaNs
-    mask = piece.mask()
-    harmonies = piece.harmonies(snap_to=mask, filler='nan')
-    '''
     return self._snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
+  harmonies.__doc__ = reused_docstring
 
   def functions(self, snap_to=None, filler='forward', output='array'):
-    '''\tGet the functional analysis from the **function spine if this piece is a kern file and
-    has a **function spine. The default is for the results to be returned as a 1-d array, but
-    you can set `output='series'` for a pandas series instead. If you want to align these results
-    so that they match the columnar (time) axis of the pianoRoll, sampled, or mask results,
-    you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-    The `sampled` and `mask` will almost always have more observations than the `harmKeys`
-    results, so you may want to fill in these new empty slots somehow. The kern format uses
-    '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
-    empty slots with this as well. If you choose some other value, say `filler='_'`, then in
-    addition to filling in the empty slots with underscores, this will also replace the kern
-    '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
-    you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
-    results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
-    to drop all empty observations (both NaNs and humdrum periods).
-
-    Usage assuming you have a Score object named `piece` in memory:
-    # get the functional analysis as a forward-filled array. No need to specify filler='forward' because it's the default
-    functions = piece.functions()
-
-    # get the functions in the shape of the mask columns
-    mask = piece.mask()
-    functions = piece.functions(snap_to=mask)
-
-    # get the functions in the shape of the mask columns and replace kern's '.' tokens with NaNs
-    mask = piece.mask()
-    functions = piece.functions(snap_to=mask, filler='nan')
-    '''
     return self._snapTo(self._analyses['function'].copy(), snap_to, filler, output)
+  functions.__doc__ = reused_docstring
 
   def cdata(self, snap_to=None, filler='forward', output='dataframe'):
-    '''\tGet the key analysis from the **cdata spine if this piece is a kern file and has a
-    **cdata spine. The default is for the results to be returned as a pandas.DataFrame. 
-    If you want to align these results so that they match the columnar (time) axis of the
-    pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask that you want to
-    align to as the `snap_to` parameter.
-
-    The `sampled` and `mask` will almost always have more observations than the `cdata`
-    results, so you may want to fill in these new empty slots somehow. The kern format uses
-    '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
-    empty slots with this as well. If you choose some other value, say `filler='_'`, then in
-    addition to filling in the empty slots with underscores, this will also replace the kern
-    '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
-    you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
-    results, you can pass `filler='forward'` (default). This will propagate the last
-    non-period ('.') observation until a new one is found.
-
-    Usage assuming you have a Score object named `piece` in memory:
-    # get the cdata as a forward-filled dataframe. No need to specify filler='forward' because it's the default
-    cdata = piece.cdata()
-
-    # get the cdata in the shape of the mask columns
-    mask = piece.mask()
-    cdata = piece.cdata(snap_to=mask)
-
-    # get the cdata in the shape of the mask columns and replace kern's '.' tokens with NaNs
-    mask = piece.mask()
-    cdata = piece.cdata(snap_to=mask, filler='nan')
-    '''
     return self._snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
+  cdata.__doc__ = reused_docstring
 
   def _remove_tied(self, noteOrRest):
     if hasattr(noteOrRest, 'tie') and noteOrRest.tie is not None and noteOrRest.tie.type != 'start':
