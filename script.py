@@ -702,8 +702,9 @@ class Score:
       dur = self.durations(multi_index=True)
       mp = self.midiPitches(multi_index=True)
       ms = self._measures()
-      ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
       ids = self.xmlIDs()
+      if isinstance(ids.index, pd.MultiIndex):
+        ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
       toSeconds = 60/bpm
       for i, partName in enumerate(self._parts().columns):
         meas = ms.iloc[:, i]
