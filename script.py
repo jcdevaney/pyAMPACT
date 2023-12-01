@@ -106,6 +106,8 @@ class Score:
   generally formatted as Pandas DataFrames.'''
   def __init__(self, score_path):
     self._analyses = {}
+    if score_path.startswith('https://github.com/'):
+      score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/')
     self.path = score_path
     self._tempFile = ''
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
