@@ -684,19 +684,18 @@ class Score:
       self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
     return self._analyses['kernNotes']
 
-  def nmats(self, bpm=60):
+  def nmats(self):
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
     columns about the notes and rests in that voice:
 
-    MEASURE    ONSET_BEAT    DURATION_BEAT    PART    MIDI    ONSET_SEC    OFFSET_SEC    XML_ID
+    MEASURE  ONSET  DURATION  PART  MIDI  XML_ID  ONSET_SEC  OFFSET_SEC
 
     In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
-    inclusive, and rests are represented with -1s. The ONSET and OFFSET columns given
-    in seconds are directly proportional to the ONSET_BEATS column and ONSET_BEATS +
-    DURATION_BEATS columns respectively. The proportion used is determined by the `bpm`
+    inclusive, and rests are represented with -1s. The ONSET_SEC and OFFSET_SEC columns given
+    in seconds based on the audio analysis from the json file. The proportion used is determined by the `bpm`
     argument. The XML_ID column gives the xml id of the note or rest object, if there
     is one.'''
-    key = ('nmats', bpm)
+    key = ('nmats',)
     if key not in self._analyses:
       nmats = {}
       dur = self.durations(multi_index=True)
@@ -705,18 +704,17 @@ class Score:
       ids = self.xmlIDs()
       if isinstance(ids.index, pd.MultiIndex):
         ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
-      toSeconds = 60/bpm
       for i, partName in enumerate(self._parts().columns):
         meas = ms.iloc[:, i]
         midi = mp.iloc[:, i].dropna()
         onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
         durBeat = dur.iloc[:, i].dropna()
         part = pd.Series(partName, midi.index)
-        onsetSec = onsetBeat * toSeconds
-        offsetSec = (onsetBeat + durBeat) * toSeconds
         xmlID = ids.iloc[:, i].dropna()
-        df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
-        df.columns = ['MEASURE', 'ONSET_BEAT', 'DURATION_BEAT', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
+        onsetSec = pd.Series()
+        offsetSec = pd.Series()
+        df = pd.concat([meas, onsetBeat, durBeat, part, midi, xmlID, onsetSec, offsetSec], axis=1, sort=True)
+        df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'XML_ID', 'ONSET_SEC', 'OFFSET_SEC']
         df.MEASURE.ffill(inplace=True)
         df.dropna(how='all', inplace=True, subset=df.columns[1:-1])
         if isinstance(df.index, pd.MultiIndex):
