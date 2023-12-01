@@ -190,6 +190,10 @@ class Score:
             graceOffsets.append(round(float(nrc.offset), 5))
           
         ser = pd.Series(notGraces)
+        if ser.empty:   # no note, rest, or chord objects detected in this part
+          ser.name = self.partNames[ii]
+          parts.append(ser)
+          continue
         df = ser.apply(pd.Series)  # make each cell a row resulting in a df where each col is a separate synthetic voice
         if len(df.columns > 1):  # swap elements in cols at this offset until all of them fill the space left before the next note in each col
           for jj, ndx in enumerate(df.index):
@@ -274,11 +278,14 @@ class Score:
       else:
         toConcat = []
         for part in self._partList():
+          if part.empty:
+            toConcat.append(part)
+            continue
           listify = part.apply(lambda nrc: nrc.notes if nrc.isChord else [nrc])
           expanded = listify.apply(pd.Series)
           expanded.columns = [f'{part.name}:{i}' if i > 0 else part.name for i in range(len(expanded.columns))]
           toConcat.append(expanded)
-      df = pd.concat(toConcat, axis=1, sort=True)
+      df = pd.concat(toConcat, axis=1, sort=True) if len(toConcat) else pd.DataFrame(columns=self.partNames)
       if not multi_index and isinstance(df.index, pd.MultiIndex):
         df.index = df.index.droplevel(1)
       self._analyses[key] = df
