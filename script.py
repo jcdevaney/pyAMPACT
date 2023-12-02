@@ -10,10 +10,11 @@ import os
 import tempfile
 import re
 import xml.etree.ElementTree as ET
+import base64
 m21.environment.set('autoDownload', 'allow')
 
-function_pattern = re.compile('[^TtPpDd]')
-imported_scores = {}
+_function_pattern = re.compile('[^TtPpDd]')
+_imported_scores = {}
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
   48:      '000.',
@@ -131,12 +132,12 @@ class Score:
   
   def _assignM21Attributes(self, path=''):
     '''\tReturn a music21 score. This method is used internally for memoization purposes.'''
-    if self.path not in imported_scores:
+    if self.path not in _imported_scores:
       if path:
-        imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
+        _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
       else:
-        imported_scores[self.path] = m21.converter.parse(self.path)
-    self.score = imported_scores[self.path]
+        _imported_scores[self.path] = m21.converter.parse(self.path)
+    self.score = _imported_scores[self.path]
     self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer}
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
     self._flatParts = []
@@ -315,7 +316,7 @@ class Score:
               continue
             else:
               if spine.spineType == 'function':
-                func = function_pattern.sub('', contents)
+                func = _function_pattern.sub('', contents)
                 if len(func):
                   vals.append(func)
                 else:
@@ -794,7 +795,29 @@ class Score:
     df = pd.DataFrame(data).T
     df.index = df.index.astype(float)
     return df
-  
+
+  def show(self, start=1, end=2):
+    '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
+    `end` measures (inclusive).'''
+    if start > end:
+      start, end = end, start
+    tk = self.toKern()
+    if start > 1:
+      m1Index = tk.index('=1')
+      startIndex = tk.index(f'={start}')
+      tk = tk[:m1Index] + tk[startIndex:]
+    if end < self._measures().iloc[:, 0].max():
+      endIndex = tk.index(f'={end}')
+      doubleBar = tk.index('*-')
+      tk = tk[:endIndex] + tk[doubleBar:]
+    encoded = base64.b64encode(tk.encode()).decode()
+    if len(encoded) > 1900:
+      print('Warning: this excerpt is too long to be passed in a url. Instead to see\
+      the whole score you can run .toKern("your_file_name"), then drag and drop that\
+      file to VHV: https://verovio.humdrum.org/')
+    else:
+      print(f'https://verovio.humdrum.org/?t={encoded}')
+
   def _kernHeader(self):
     '''\tReturn a string of the kern format header global comments.'''
     data = [
