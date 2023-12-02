@@ -13,6 +13,8 @@ import xml.etree.ElementTree as ET
 m21.environment.set('autoDownload', 'allow')
 
 function_pattern = re.compile('[^TtPpDd]')
+volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
+tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 imported_scores = {}
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
@@ -111,7 +113,7 @@ class Score:
     self.path = score_path
     self._tempFile = ''
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
-    self.fileExtension = score_path.rsplit('.', 1)[1]
+    self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
     if score_path.startswith('http') and self.fileExtension == 'krn':
       fd, tmp_path = tempfile.mkstemp()
       try:
@@ -135,9 +137,24 @@ class Score:
       if path:
         imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
       else:
-        imported_scores[self.path] = m21.converter.parse(self.path)
+        if self.fileExtension in ('', 'txt'):
+          temp = None
+          text = self.path
+          if self.fileExtension == 'txt':
+            with open(self.path, 'r') as file:
+              text = file.read()
+          if text.startswith('volpiano: ') or re.match(volpiano_pattern, text):
+            temp = m21.converter.parse(text, format='volpiano')
+          elif text.startswith('tinyNotation: ') or re.match(tinyNotation_pattern, text):
+            temp = m21.converter.parse(text, format='tinyNotation')
+          if temp is not None:
+            _score = m21.stream.Score()
+            _score.insert(0, temp)
+            imported_scores[self.path] = _score
+        else:
+          imported_scores[self.path] = m21.converter.parse(self.path)
     self.score = imported_scores[self.path]
-    self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer}
+    self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer} if self.score.metadata is not None else {}
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
     self._flatParts = []
     self.partNames = []
@@ -798,8 +815,8 @@ class Score:
   def _kernHeader(self):
     '''\tReturn a string of the kern format header global comments.'''
     data = [
-      f'!!!COM: {self.metadata["Composer"] or "Composer not found"}',
-      f'!!!OTL: {self.metadata["Title"] or "Title not found"}'
+      f'!!!COM: {self.metadata.get("Composer", "Composer not found")}',
+      f'!!!OTL: {self.metadata.get("Title", "Title not found")}'
     ]
     return '\n'.join(data)
 

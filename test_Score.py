@@ -57,6 +57,45 @@ def test_local_import():
 def test_remote_import():
   assert isinstance(Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K025/Stripped/M025_00_01a_a.krn'), Score)
 
+def test_volpiano_import_1():
+  piece = Score('1---gkjH7--klk-jkjh-ghg---jh---kl--k---jh--jk--hj---ghjh--hg---g--g--g--g7---hjh-ghjh---gf--gh--hkjklkjh--hjh-ghg---3---f--g77---3')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+def test_volpiano_import_2():
+  piece = Score('1--c--d---f--d---ed--c--d---f---g--h--j---hgf--g--h---')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_volpiano_import_3():
+  piece = Score('./test_files/volpiano_example.txt')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_volpiano_import_4():
+  piece = Score('./test_files/volpiano_explicit_example.txt')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_tinyNotation_import_1():
+  piece = Score('4/4 c4 c# c c## cn c- c-- c_Lyric c1')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_tinyNotation_import_2():
+  piece = Score('tinyNotation: 4/4 c4 trip{c8 d e} trip{f4 g a} b-1')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_tinyNotation_import_3():
+  piece = Score('./test_files/tinyNotation_example.txt')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
+def test_tinyNotation_import_4():
+  piece = Score('./test_files/tinyNotation_explicit_example.txt')
+  assert isinstance(piece, Score)
+  assert not piece.notes().empty
+
 def test_lyrics():
   check_lyrics('https://raw.githubusercontent.com/alexandermorgan/AMPACT/main/test_files/busnoys.krn', (438, 4), 'In', 'cum.')
 
