@@ -10,12 +10,21 @@ import os
 import tempfile
 import re
 import xml.etree.ElementTree as ET
+import base64
 m21.environment.set('autoDownload', 'allow')
 
-function_pattern = re.compile('[^TtPpDd]')
-volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
-tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
-imported_scores = {}
+
+_function_pattern = re.compile('[^TtPpDd]')
+_volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
+_tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
+_imported_scores = {}
+
+def _id_gen(start=1):
+  while True:
+    yield f'pyAMPACT-{start}'
+    start += 1
+_idGen = _id_gen()
+
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
   48:      '000.',
@@ -111,7 +120,6 @@ class Score:
     if score_path.startswith('https://github.com/'):
       score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/')
     self.path = score_path
-    self._tempFile = ''
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
     self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
     if score_path.startswith('http') and self.fileExtension == 'krn':
@@ -133,28 +141,67 @@ class Score:
   
   def _assignM21Attributes(self, path=''):
     '''\tReturn a music21 score. This method is used internally for memoization purposes.'''
-    if self.path not in imported_scores:
-      if path:
-        imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
-      else:
-        if self.fileExtension in ('', 'txt'):
-          temp = None
-          text = self.path
-          if self.fileExtension == 'txt':
-            with open(self.path, 'r') as file:
-              text = file.read()
-          if text.startswith('volpiano: ') or re.match(volpiano_pattern, text):
-            temp = m21.converter.parse(text, format='volpiano')
-          elif text.startswith('tinyNotation: ') or re.match(tinyNotation_pattern, text):
-            temp = m21.converter.parse(text, format='tinyNotation')
-          if temp is not None:
-            _score = m21.stream.Score()
-            _score.insert(0, temp)
-            imported_scores[self.path] = _score
-        else:
-          imported_scores[self.path] = m21.converter.parse(self.path)
-    self.score = imported_scores[self.path]
-    self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer} if self.score.metadata is not None else {}
+    if self.path not in _imported_scores:
+      if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
+        _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
+
+      elif self.fileExtension in ('xml, musicxml', 'mei'):   # these files might be mei files and could lack elements music21 needs to be able to read them
+        tree = ET.parse(self.path)
+        root = tree.getroot()
+        if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
+          ns = re.match(r'\{.*\}', root.tag)
+          ns = ns.group(0) if ns else ''
+          parseEdited = False
+          if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
+            parseEdited = True
+            scoreDef = ET.Element(f'{ns}scoreDef')
+            scoreDef.attrib.update({'xml:id': next(_idGen), 'n': '1'})
+            staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter(f'{ns}staff')}   # all the parts
+            for i, staff in enumerate(sorted(staves)):
+              staffDef = ET.Element(f'{ns}staffDef')
+              staffDef.attrib.update({'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+              label = ET.Element(f'{ns}label')
+              label.attrib.update({'text': staff, 'xml:id': next(_idGen)})
+              staffDef.append(label)
+              scoreDef.append(staffDef)
+            scoreEl = root.find(f'.//{ns}score')
+            if scoreEl is not None:
+              scoreEl.insert(0, scoreDef)
+
+          for section in root.iter(f'{ns}section'):   # make sure all events are contained in measures
+            if section.find(f'{ns}measure') is None:
+              parseEdited = True
+              measure = ET.Element(f'{ns}measure')
+              measure.set('xml:id', next(_idGen))
+              measure.extend(section)
+              section.clear()
+              section.append(measure)
+
+          if parseEdited:
+            mei_string = ET.tostring(root, encoding='unicode')
+            _imported_scores[self.path] = m21.converter.subConverters.ConverterMEI().parseData(mei_string)
+
+      elif self.fileExtension in ('', 'txt'):   # read file/string as volpiano or tinyNotation if applicable
+        temp = None
+        text = self.path
+        if self.fileExtension == 'txt':
+          with open(self.path, 'r') as file:
+            text = file.read()
+        if text.startswith('volpiano: ') or re.match(_volpiano_pattern, text):
+          temp = m21.converter.parse(text, format='volpiano')
+        elif text.startswith('tinyNotation: ') or re.match(_tinyNotation_pattern, text):
+          temp = m21.converter.parse(text, format='tinyNotation')
+        if temp is not None:
+          _score = m21.stream.Score()
+          _score.insert(0, temp)
+          _imported_scores[self.path] = _score
+
+    if self.path not in _imported_scores:   # check again to catch valid tree files
+      _imported_scores[self.path] = m21.converter.parse(self.path)
+    self.score = _imported_scores[self.path]
+    self.metadata = {'title': "Title not found", 'composer': "Composer not found"}
+    if isinstance(self.score.metadata, dict):
+      self.metadata.update(self.score.metadata)
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
     self._flatParts = []
     self.partNames = []
@@ -332,7 +379,7 @@ class Score:
               continue
             else:
               if spine.spineType == 'function':
-                func = function_pattern.sub('', contents)
+                func = _function_pattern.sub('', contents)
                 if len(func):
                   vals.append(func)
                 else:
@@ -811,12 +858,34 @@ class Score:
     df = pd.DataFrame(data).T
     df.index = df.index.astype(float)
     return df
-  
+
+  def show(self, start=None, end=None):
+    '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
+    `end` measures (inclusive).'''
+    if isinstance(start, int) and isinstance(end, int) and start > end:
+      start, end = end, start
+    tk = self.toKern()
+    if start and start > 1:
+      m1Index = tk.index('=1')
+      startIndex = tk.index(f'={start}')
+      tk = tk[:m1Index] + tk[startIndex:]
+    if end and end + 1 < self._measures().iloc[:, 0].max():
+      endIndex = tk.index(f'={end + 1}')
+      kernEnd = tk.index('*-')
+      tk = tk[:endIndex] + tk[kernEnd:]
+    encoded = base64.b64encode(tk.encode()).decode()
+    if len(encoded) > 1900:
+      print('''\nWarning: this excerpt is too long to be passed in a url. Instead to see\
+      \nthe whole score you can run .toKern("your_file_name"), then drag and drop\
+      \nthat file to VHV: https://verovio.humdrum.org/''')
+    else:
+      print(f'https://verovio.humdrum.org/?t={encoded}')
+
   def _kernHeader(self):
     '''\tReturn a string of the kern format header global comments.'''
     data = [
-      f'!!!COM: {self.metadata.get("Composer", "Composer not found")}',
-      f'!!!OTL: {self.metadata.get("Title", "Title not found")}'
+      f'!!!COM: {self.metadata["composer"]}',
+      f'!!!OTL: {self.metadata["title"]}'
     ]
     return '\n'.join(data)
 
@@ -827,10 +896,9 @@ class Score:
       '!!!RDF**kern: %=rational rhythm',
       '!!!RDF**kern: l=long note in original notation',
       '!!!RDF**kern: i=editorial accidental',
-      f'!!!ONB: Translated from a {self.fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT'
+      f'!!!ONB: Translated from a {self.fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT',
+      '!!!title: @{OTL}'
     ]
-    if 'Title' in self.metadata:
-      data.append('!!!title: @{OTL}')
     return '\n'.join(data)
 
   def toKern(self, path_name='', data='', lyrics=True, dynamics=True):

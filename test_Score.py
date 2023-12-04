@@ -1,6 +1,8 @@
 import os, sys; sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from script import Score
 import pandas as pd
+from unittest.mock import patch
+from io import StringIO
 
 def check_sampled_piano_roll(score_path, truth_path):
   piece = Score(score_path)
@@ -61,6 +63,7 @@ def test_volpiano_import_1():
   piece = Score('1---gkjH7--klk-jkjh-ghg---jh---kl--k---jh--jk--hj---ghjh--hg---g--g--g--g7---hjh-ghjh---gf--gh--hkjklkjh--hjh-ghg---3---f--g77---3')
   assert isinstance(piece, Score)
   assert not piece.notes().empty
+  
 def test_volpiano_import_2():
   piece = Score('1--c--d---f--d---ed--c--d---f---g--h--j---hgf--g--h---')
   assert isinstance(piece, Score)
@@ -110,6 +113,13 @@ def test_spine_data():
   check_harm_keys(piece, pd.Series(['D'], [0.0]), filler='drop', output='series')
   check_function_spine(piece, pd.Series(['T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T',
       'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'P', 'P', 'P', 'P', 'D', 'D', 'T', 'T', 'T'], harm_series.index), output='series')
+
+def test_show():
+  piece = Score('./test_files/showTest.krn')
+  with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+    piece.show()
+  expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKKiprZXJuCipwYXJ0MQoqc3RhZmYxCipJdm94CipJIlBhcnQtMQoqSSdQCj0xCipjbGVmRzIKKk00LzQKMWMKPT0KKi0KISEhUkRGKiprZXJuOiAlPXJhdGlvbmFsIHJoeXRobQohISFSREYqKmtlcm46IGw9bG9uZyBub3RlIGluIG9yaWdpbmFsIG5vdGF0aW9uCiEhIVJERioqa2VybjogaT1lZGl0b3JpYWwgYWNjaWRlbnRhbAohISFPTkI6IFRyYW5zbGF0ZWQgZnJvbSBhIGtybiBmaWxlIG9uIDIwMjMtMTItMDQgdmlhIEFNUEFDVAohISF0aXRsZTogQHtPVEx9\n"
+  assert mock_stdout.getvalue() == expected_output
 
 # def test_sampled():
 #   doesn't work because music21 fills in missing rests in midi pieces
