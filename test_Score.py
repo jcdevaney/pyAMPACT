@@ -75,11 +75,11 @@ def test_spine_data():
       'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'P', 'P', 'P', 'P', 'D', 'D', 'T', 'T', 'T'], harm_series.index), output='series')
 
 def test_show():
-    piece = Score('./test_files/showTest.krn')
-    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-      piece.show()
-    expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKKiprZXJuCipwYXJ0MQoqc3RhZmYxCipJdm94CipJIlBhcnQtMQoqSSdQCj0xCipjbGVmRzIKKk00LzQKMWMKPT0KKi0KISEhUkRGKiprZXJuOiAlPXJhdGlvbmFsIHJoeXRobQohISFSREYqKmtlcm46IGw9bG9uZyBub3RlIGluIG9yaWdpbmFsIG5vdGF0aW9uCiEhIVJERioqa2VybjogaT1lZGl0b3JpYWwgYWNjaWRlbnRhbAohISFPTkI6IFRyYW5zbGF0ZWQgZnJvbSBhIGtybiBmaWxlIG9uIDIwMjMtMTItMDQgdmlhIEFNUEFDVAohISF0aXRsZTogQHtPVEx9\n"
-    assert mock_stdout.getvalue() == expected_output
+  piece = Score('./test_files/showTest.krn')
+  with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+    piece.show()
+  expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKKiprZXJuCipwYXJ0MQoqc3RhZmYxCipJdm94CipJIlBhcnQtMQoqSSdQCj0xCipjbGVmRzIKKk00LzQKMWMKPT0KKi0KISEhUkRGKiprZXJuOiAlPXJhdGlvbmFsIHJoeXRobQohISFSREYqKmtlcm46IGw9bG9uZyBub3RlIGluIG9yaWdpbmFsIG5vdGF0aW9uCiEhIVJERioqa2VybjogaT1lZGl0b3JpYWwgYWNjaWRlbnRhbAohISFPTkI6IFRyYW5zbGF0ZWQgZnJvbSBhIGtybiBmaWxlIG9uIDIwMjMtMTItMDQgdmlhIEFNUEFDVAohISF0aXRsZTogQHtPVEx9\n"
+  assert mock_stdout.getvalue() == expected_output
 
 # def test_sampled():
 #   doesn't work because music21 fills in missing rests in midi pieces
