@@ -796,25 +796,25 @@ class Score:
     df.index = df.index.astype(float)
     return df
 
-  def show(self, start=1, end=2):
+  def show(self, start=None, end=None):
     '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
     `end` measures (inclusive).'''
-    if start > end:
+    if isinstance(start, int) and isinstance(end, int) and start > end:
       start, end = end, start
     tk = self.toKern()
-    if start > 1:
+    if start and start > 1:
       m1Index = tk.index('=1')
       startIndex = tk.index(f'={start}')
       tk = tk[:m1Index] + tk[startIndex:]
-    if end < self._measures().iloc[:, 0].max():
-      endIndex = tk.index(f'={end}')
-      doubleBar = tk.index('*-')
-      tk = tk[:endIndex] + tk[doubleBar:]
+    if end and end + 1 < self._measures().iloc[:, 0].max():
+      endIndex = tk.index(f'={end + 1}')
+      kernEnd = tk.index('*-')
+      tk = tk[:endIndex] + tk[kernEnd:]
     encoded = base64.b64encode(tk.encode()).decode()
     if len(encoded) > 1900:
-      print('Warning: this excerpt is too long to be passed in a url. Instead to see\
-      the whole score you can run .toKern("your_file_name"), then drag and drop that\
-      file to VHV: https://verovio.humdrum.org/')
+      print('''\nWarning: this excerpt is too long to be passed in a url. Instead to see\
+      \nthe whole score you can run .toKern("your_file_name"), then drag and drop\
+      \nthat file to VHV: https://verovio.humdrum.org/''')
     else:
       print(f'https://verovio.humdrum.org/?t={encoded}')
 
