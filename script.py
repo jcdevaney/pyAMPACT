@@ -15,6 +15,12 @@ m21.environment.set('autoDownload', 'allow')
 
 _function_pattern = re.compile('[^TtPpDd]')
 _imported_scores = {}
+def _id_gen(start=1):
+  while True:
+    yield f'pyAMPACT-{start}'
+    start += 1
+_idGen = _id_gen()
+
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
   48:      '000.',
@@ -110,7 +116,6 @@ class Score:
     if score_path.startswith('https://github.com/'):
       score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/')
     self.path = score_path
-    self._tempFile = ''
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
     self.fileExtension = score_path.rsplit('.', 1)[1]
     if score_path.startswith('http') and self.fileExtension == 'krn':
@@ -133,10 +138,46 @@ class Score:
   def _assignM21Attributes(self, path=''):
     '''\tReturn a music21 score. This method is used internally for memoization purposes.'''
     if self.path not in _imported_scores:
-      if path:
+      if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
         _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
-      else:
-        _imported_scores[self.path] = m21.converter.parse(self.path)
+      elif self.fileExtension in ('xml, musicxml', 'mei'):   # these files might be mei files and could lack elements music21 needs to be able to read them
+        tree = ET.parse(self.path)
+        root = tree.getroot()
+        if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
+          ns = re.match(r'\{.*\}', root.tag)
+          ns = ns.group(0) if ns else ''
+          parseEdited = False
+          if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
+            parseEdited = True
+            scoreDef = ET.Element(f'{ns}scoreDef')
+            scoreDef.attrib.update({'xml:id': next(_idGen), 'n': '1'})
+            staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter(f'{ns}staff')}   # all the parts
+            for i, staff in enumerate(sorted(staves)):
+              staffDef = ET.Element(f'{ns}staffDef')
+              staffDef.attrib.update({'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+              label = ET.Element(f'{ns}label')
+              label.attrib.update({'text': staff, 'xml:id': next(_idGen)})
+              staffDef.append(label)
+              scoreDef.append(staffDef)
+            scoreEl = root.find(f'.//{ns}score')
+            if scoreEl is not None:
+              scoreEl.insert(0, scoreDef)
+
+          for section in root.iter(f'{ns}section'):   # make sure all events are contained in measures
+            if section.find(f'{ns}measure') is None:
+              parseEdited = True
+              measure = ET.Element(f'{ns}measure')
+              measure.set('xml:id', next(_idGen))
+              measure.extend(section)
+              section.clear()
+              section.append(measure)
+
+          if parseEdited:
+            mei_string = ET.tostring(root, encoding='unicode')
+            _imported_scores[self.path] = m21.converter.subConverters.ConverterMEI().parseData(mei_string)
+
+    if self.path not in _imported_scores:   # check again to catch valid tree files
+      _imported_scores[self.path] = m21.converter.parse(self.path)
     self.score = _imported_scores[self.path]
     self.metadata = {'Title': self.score.metadata.title, 'Composer': self.score.metadata.composer}
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
