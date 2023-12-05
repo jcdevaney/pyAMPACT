@@ -892,9 +892,9 @@ class Score:
     performance = ET.Element(f'{ns}performance', {'xml:id': next(_idGen)})
     recording = ET.SubElement(performance, f'{ns}recording', {'xml:id': next(_idGen)})
     ET.SubElement(recording, f'{ns}avFile', {'mimetype': 'audio/aiff', 'target': 'Close to You vocals.wav', 'xml:id': next(_idGen)})
-    for ndx in data.index:
+    for ndx in df.index:
       when = ET.SubElement(recording, f'{ns}when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
-      ET.SubElement(when, f'{ns}extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{data.loc[ndx].to_dict()}]]>'})
+      ET.SubElement(when, f'{ns}extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
     performance_string = ET.tostring(performance, encoding='unicode')
     return performance_string    # maybe return the elements instead of the string
 
