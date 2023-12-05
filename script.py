@@ -23,7 +23,7 @@ def _id_gen(start=1):
   while True:
     yield f'pyAMPACT-{start}'
     start += 1
-_idGen = _id_gen()
+next(_idGen) = _id_gen()
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
@@ -154,16 +154,11 @@ class Score:
           parseEdited = False
           if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
             parseEdited = True
-            scoreDef = ET.Element(f'{ns}scoreDef')
-            scoreDef.attrib.update({'xml:id': next(_idGen), 'n': '1'})
+            scoreDef = ET.Element(f'{ns}scoreDef', {'xml:id': next(next(_idGen)), 'n': '1'})
             staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter(f'{ns}staff')}   # all the parts
             for i, staff in enumerate(sorted(staves)):
-              staffDef = ET.Element(f'{ns}staffDef')
-              staffDef.attrib.update({'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
-              label = ET.Element(f'{ns}label')
-              label.attrib.update({'text': staff, 'xml:id': next(_idGen)})
-              staffDef.append(label)
-              scoreDef.append(staffDef)
+              staffDef = ET.SubElement(scoreDef, f'{ns}staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(next(_idGen))})
+              ET.SubElement(staffDef, f'{ns}label', {'text': staff, 'xml:id': next(next(_idGen))})
             scoreEl = root.find(f'.//{ns}score')
             if scoreEl is not None:
               scoreEl.insert(0, scoreDef)
@@ -172,7 +167,7 @@ class Score:
             if section.find(f'{ns}measure') is None:
               parseEdited = True
               measure = ET.Element(f'{ns}measure')
-              measure.set('xml:id', next(_idGen))
+              measure.set('xml:id', next(next(_idGen)))
               measure.extend(section)
               section.clear()
               section.append(measure)
@@ -858,6 +853,39 @@ class Score:
     df = pd.DataFrame(data).T
     df.index = df.index.astype(float)
     return df
+
+  def _performanceElement(self, audioFilename, df, ns=''):
+    '''\tMake a <performance> element that can be inserted into an mei score given the
+    audioFilename and analysis data (`df`). The df is expected to be a pandas dataframe
+    where the column names are the keys in the CDATA json data, and the index values are
+    the xml ids of the notes that the data correspond to. The performance element will
+    nest the df data in the <performance> element in the following format:
+
+		<performance xml:id="pyAMPACT-1">
+			<recording xml:id="pyAMPACT-2">
+				<avFile mimetype="audio/aiff" target="Close to You vocals.wav" xml:id=""pyAMPACT-3"/>
+				<when absolute="00:00:12:428" xml:id="pyAMPACT-4" data="#note_1">
+					<extData xml:id="pyAMPACT-5">
+						<![CDATA[>
+							{"ppitch":221.30926295063591,"jitter":0.74273614321917725, ...}
+						]]>
+					</extData>
+				</when>
+				<when absolute="00:00:12:765" xml:id="pyAMPACT-6" data="#note_2">
+        ...
+      </recording>
+    </performance>
+
+    `ns` is the namespace to apply to the elements
+    '''
+    performance = ET.Element(f'{ns}performance', {'xml:id': next(_idGen)})
+    recording = ET.SubElement(performance, f'{ns}recording', {'xml:id': next(_idGen)})
+    ET.SubElement(recording, f'{ns}avFile', {'mimetype': 'audio/aiff', 'target': 'Close to You vocals.wav', 'xml:id': next(_idGen)})
+    for ndx in data.index:
+      when = ET.SubElement(recording, f'{ns}when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
+      ET.SubElement(when, f'{ns}extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{data.loc[ndx].to_dict()}]]>'})
+    performance_string = ET.tostring(performance, encoding='unicode')
+    return performance_string    # maybe return the elements instead of the string
 
   def show(self, start=None, end=None):
     '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
