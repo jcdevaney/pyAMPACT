@@ -115,11 +115,14 @@ def test_spine_data():
       'T', 'T', 'T', 'T', 'T', 'T', 'T', 'T', 'P', 'P', 'P', 'P', 'D', 'D', 'T', 'T', 'T'], harm_series.index), output='series')
 
 def test_show():
+  '''\tMake sure the url generation works in a very simple case. Only check the first 100 characters
+  because pyAMPACT adds the date of generation of the kern score in the footer metadata, so the full
+  string is a little different every day.'''
   piece = Score('./test_files/showTest.krn')
   with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
     piece.show()
-  expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKKiprZXJuCipwYXJ0MQoqc3RhZmYxCipJdm94CipJIlBhcnQtMQoqSSdQCj0xCipjbGVmRzIKKk00LzQKMWMKPT0KKi0KISEhUkRGKiprZXJuOiAlPXJhdGlvbmFsIHJoeXRobQohISFSREYqKmtlcm46IGw9bG9uZyBub3RlIGluIG9yaWdpbmFsIG5vdGF0aW9uCiEhIVJERioqa2VybjogaT1lZGl0b3JpYWwgYWNjaWRlbnRhbAohISFPTkI6IFRyYW5zbGF0ZWQgZnJvbSBhIGtybiBmaWxlIG9uIDIwMjMtMTItMDQgdmlhIEFNUEFDVAohISF0aXRsZTogQHtPVEx9\n"
-  assert mock_stdout.getvalue() == expected_output
+  expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKK"
+  assert mock_stdout.getvalue()[:100] == expected_output
 
 # def test_sampled():
 #   doesn't work because music21 fills in missing rests in midi pieces
