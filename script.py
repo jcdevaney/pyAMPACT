@@ -23,7 +23,7 @@ def _id_gen(start=1):
   while True:
     yield f'pyAMPACT-{start}'
     start += 1
-next(_idGen) = _id_gen()
+_idGen = _id_gen()
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
@@ -154,11 +154,11 @@ class Score:
           parseEdited = False
           if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
             parseEdited = True
-            scoreDef = ET.Element(f'{ns}scoreDef', {'xml:id': next(next(_idGen)), 'n': '1'})
+            scoreDef = ET.Element(f'{ns}scoreDef', {'xml:id': next(_idGen), 'n': '1'})
             staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter(f'{ns}staff')}   # all the parts
             for i, staff in enumerate(sorted(staves)):
-              staffDef = ET.SubElement(scoreDef, f'{ns}staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(next(_idGen))})
-              ET.SubElement(staffDef, f'{ns}label', {'text': staff, 'xml:id': next(next(_idGen))})
+              staffDef = ET.SubElement(scoreDef, f'{ns}staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+              ET.SubElement(staffDef, f'{ns}label', {'text': staff, 'xml:id': next(_idGen)})
             scoreEl = root.find(f'.//{ns}score')
             if scoreEl is not None:
               scoreEl.insert(0, scoreDef)
@@ -167,7 +167,7 @@ class Score:
             if section.find(f'{ns}measure') is None:
               parseEdited = True
               measure = ET.Element(f'{ns}measure')
-              measure.set('xml:id', next(next(_idGen)))
+              measure.set('xml:id', next(_idGen))
               measure.extend(section)
               section.clear()
               section.append(measure)
@@ -752,44 +752,55 @@ class Score:
       self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
     return self._analyses['kernNotes']
 
-  def nmats(self):
+  def nmats(self, json_path=None):
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
     columns about the notes and rests in that voice:
 
-    MEASURE  ONSET  DURATION  PART  MIDI  XML_ID  ONSET_SEC  OFFSET_SEC
+    MEASURE  ONSET  DURATION  PART  MIDI  ONSET_SEC  OFFSET_SEC  XML_ID
 
     In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
-    inclusive, and rests are represented with -1s. The ONSET_SEC and OFFSET_SEC columns given
-    in seconds based on the audio analysis from the json file. The proportion used is determined by the `bpm`
-    argument. The XML_ID column gives the xml id of the note or rest object, if there
-    is one.'''
-    key = ('nmats',)
-    if key not in self._analyses:
-      nmats = {}
-      dur = self.durations(multi_index=True)
-      mp = self.midiPitches(multi_index=True)
-      ms = self._measures()
-      ids = self.xmlIDs()
-      if isinstance(ids.index, pd.MultiIndex):
-        ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
-      for i, partName in enumerate(self._parts().columns):
-        meas = ms.iloc[:, i]
-        midi = mp.iloc[:, i].dropna()
-        onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
-        durBeat = dur.iloc[:, i].dropna()
-        part = pd.Series(partName, midi.index)
-        xmlID = ids.iloc[:, i].dropna()
-        onsetSec = pd.Series()
-        offsetSec = pd.Series()
-        df = pd.concat([meas, onsetBeat, durBeat, part, midi, xmlID, onsetSec, offsetSec], axis=1, sort=True)
-        df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'XML_ID', 'ONSET_SEC', 'OFFSET_SEC']
-        df.MEASURE.ffill(inplace=True)
-        df.dropna(how='all', inplace=True, subset=df.columns[1:-1])
-        if isinstance(df.index, pd.MultiIndex):
-          df = df.droplevel(1)
-        nmats[partName] = df
-      self._analyses[key] = nmats
-    return self._analyses[key]
+    inclusive, and rests are represented with -1s. The XML_ID column gives the xml id of
+    the note or rest object, if there is one. The ONSET_SEC and OFFSET_SEC columns are
+    taken from the audio analysis from the `json_path` file if one is given. Any other
+    data in the json file will also show up as additional columns in the nmat tables
+    following the XML_ID columns. Unlike most `Score` methods, this one does not cache
+    results.'''
+    nmats = {}
+    dur = self.durations(multi_index=True)
+    mp = self.midiPitches(multi_index=True)
+    ms = self._measures()
+    ids = self.xmlIDs()
+    data = self.fromJSON(json_path) if json_path else None
+    if isinstance(ids.index, pd.MultiIndex):
+      ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
+    for i, partName in enumerate(self._parts().columns):
+      meas = ms.iloc[:, i]
+      midi = mp.iloc[:, i].dropna()
+      onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
+      durBeat = dur.iloc[:, i].dropna()
+      part = pd.Series(partName, midi.index)
+      xmlID = ids.iloc[:, i].dropna()
+      onsetSec = pd.Series()
+      offsetSec = pd.Series()
+      df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
+      df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
+      df.MEASURE.ffill(inplace=True)
+      df.dropna(how='all', inplace=True, subset=df.columns[1:5])
+      if isinstance(df.index, pd.MultiIndex):
+        df = df.droplevel(1)
+      if json_path is not None:   # add json data if a json_path is provided
+        if len(data.index) > len(df.index):
+          data = data.iloc[:len(df.index), :]
+          print('\n\n*** Warning ***\n\nThe json data has more observations than there are notes in this part so the data was truncated.\n')
+        elif len(data.index) < len(df.index):
+          print('\n\n*** Warning ***\n\nThere are more events than there are json records in this part.\n')
+        df['ONSET_SEC'].iloc[:len(data.index)] = data.index
+        if len(data.index) > 1:
+          df['OFFSET_SEC'].iloc[:len(data.index) - 1] = data.index[1:]
+        data.index = df.index[:len(data.index)]
+        df = pd.concat((df, data), axis=1)
+      nmats[partName] = df
+    return nmats
 
   def pianoRoll(self):
     '''\tConstruct midi piano roll. NB: there are 128 possible midi pitches.'''
@@ -851,7 +862,7 @@ class Score:
     with open(json_path) as json_data:
       data = json.load(json_data)
     df = pd.DataFrame(data).T
-    df.index = df.index.astype(float)
+    df.index = df.index.astype(str)
     return df
 
   def _performanceElement(self, audioFilename, df, ns=''):
