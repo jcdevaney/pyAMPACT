@@ -11,6 +11,7 @@ import tempfile
 import re
 import xml.etree.ElementTree as ET
 import base64
+import copy
 m21.environment.set('autoDownload', 'allow')
 
 
@@ -122,6 +123,8 @@ class Score:
     self.path = score_path
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
     self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
+    self._namespace = ''
+    self._meiTree = None
     if score_path.startswith('http') and self.fileExtension == 'krn':
       fd, tmp_path = tempfile.mkstemp()
       try:
@@ -151,6 +154,9 @@ class Score:
         if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
           ns = re.match(r'\{.*\}', root.tag)
           ns = ns.group(0) if ns else ''
+          self._namespace = ns
+          self._meiTree = copy.deepcopy(root)
+
           parseEdited = False
           if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
             parseEdited = True
@@ -774,7 +780,7 @@ class Score:
       mp = self.midiPitches(multi_index=True)
       ms = self._measures()
       ids = self.xmlIDs()
-      data = self.fromJSON(json_path) if json_path else None
+      data = self.fromJSON(json_path) if json_path else pd.DataFrame()
       if isinstance(ids.index, pd.MultiIndex):
         ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
       for i, partName in enumerate(self._parts().columns):
@@ -798,9 +804,9 @@ class Score:
             print('\n\n*** Warning ***\n\nThe json data has more observations than there are notes in this part so the data was truncated.\n')
           elif len(data.index) < len(df.index):
             print('\n\n*** Warning ***\n\nThere are more events than there are json records in this part.\n')
-          df['ONSET_SEC'].iloc[:len(data.index)] = data.index
+          df.iloc[:len(data.index), 5] = data.index
           if len(data.index) > 1:
-            df['OFFSET_SEC'].iloc[:len(data.index) - 1] = data.index[1:]
+            df.iloc[:len(data.index) - 1, 6] = data.index[1:]
           data.index = df.index[:len(data.index)]
           df = pd.concat((df, data), axis=1)
           included[partName] = df
@@ -893,38 +899,70 @@ class Score:
     df.index = df.index.astype(str)
     return df
 
-  def _performanceElement(self, audioFilename, df, ns=''):
-    '''\tMake a <performance> element that can be inserted into an mei score given the
-    audioFilename and analysis data (`df`). The df is expected to be a pandas dataframe
-    where the column names are the keys in the CDATA json data, and the index values are
-    the xml ids of the notes that the data correspond to. The performance element will
-    nest the df data in the <performance> element in the following format:
+  def _indentMEI(self, elem, level=0):
+    i = "\n" + level*"  "
+    if len(elem):
+      if not elem.text or not elem.text.strip():
+        elem.text = i + "  "
+      if not elem.tail or not elem.tail.strip():
+        elem.tail = i
+      for elem in elem:
+        self._indentMEI(elem, level+1)
+      if not elem.tail or not elem.tail.strip():
+        elem.tail = i
+    else:
+      if level and (not elem.tail or not elem.tail.strip()):
+        elem.tail = i
 
-		<performance xml:id="pyAMPACT-1">
-			<recording xml:id="pyAMPACT-2">
-				<avFile mimetype="audio/aiff" target="Close to You vocals.wav" xml:id=""pyAMPACT-3"/>
-				<when absolute="00:00:12:428" xml:id="pyAMPACT-4" data="#note_1">
-					<extData xml:id="pyAMPACT-5">
-						<![CDATA[>
-							{"ppitch":221.30926295063591,"jitter":0.74273614321917725, ...}
-						]]>
-					</extData>
-				</when>
-				<when absolute="00:00:12:765" xml:id="pyAMPACT-6" data="#note_2">
+  def insertAudioAnalysis(self, output_filename, json_path, mimetype='', target=''):
+    '''\tMake a <performance> element and insert into the mei score given the
+    analysis data (`json_path`). The original score must be an mei file. The json
+    data will be extracted via the `.nmats()` method. If provided, the `mimetype`
+    and `target` get passed as attributes to the <avFile> element. The
+    performance element will nest the df data in the <performance> element in the
+    format below as a child of <music> and a sibling of <body>. A new file will
+    be saved to the output_filename in the output_files directory.
+
+    <music>
+      <performance xml:id="pyAMPACT-1">
+        <recording xml:id="pyAMPACT-2">
+          <avFile mimetype="audio/aiff" target="Close to You vocals.wav" xml:id=""pyAMPACT-3"/>
+          <when absolute="00:00:12:428" xml:id="pyAMPACT-4" data="#note_1">
+            <extData xml:id="pyAMPACT-5">
+              <![CDATA[>
+                {"ppitch":221.30926295063591,"jitter":0.74273614321917725, ...}
+              ]]>
+            </extData>
+          </when>
+          <when absolute="00:00:12:765" xml:id="pyAMPACT-6" data="#note_2">
+          ...
+        </recording>
+      </performance>
+      <body>
         ...
-      </recording>
-    </performance>
-
-    `ns` is the namespace to apply to the elements
+      </body>
+    </music>
     '''
+    ns = self._namespace
     performance = ET.Element(f'{ns}performance', {'xml:id': next(_idGen)})
     recording = ET.SubElement(performance, f'{ns}recording', {'xml:id': next(_idGen)})
-    ET.SubElement(recording, f'{ns}avFile', {'mimetype': 'audio/aiff', 'target': 'Close to You vocals.wav', 'xml:id': next(_idGen)})
+    avFile = ET.SubElement(recording, f'{ns}avFile', {'xml:id': next(_idGen)})
+    if mimetype:
+      avFile.set('mimetype', mimetype)
+    if target:
+      avFile.set('target', target)
+    nmats = self.nmats(json_path, True)
+    # TODO: how do we know which nmat to use when writing the file?
+    df = nmats[self.partNames[0]].iloc[:, 7:].set_index('XML_ID').dropna(how='all')
     for ndx in df.index:
       when = ET.SubElement(recording, f'{ns}when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
       ET.SubElement(when, f'{ns}extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
-    performance_string = ET.tostring(performance, encoding='unicode')
-    return performance_string    # maybe return the elements instead of the string
+    musicEl = self._meiTree.find(f'.//{ns}music')
+    musicEl.insert(0, performance)
+    if not output_filename.endswith('.mei'):
+      output_filename += '.mei'
+    self._indentMEI(self._meiTree)
+    ET.ElementTree(self._meiTree).write(f'./output_files/{output_filename}')
 
   def show(self, start=None, end=None):
     '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
