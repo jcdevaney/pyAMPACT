@@ -752,7 +752,7 @@ class Score:
       self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
     return self._analyses['kernNotes']
 
-  def nmats(self, json_path=None):
+  def nmats(self, json_path=None, include_cdata=False):
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
     columns about the notes and rests in that voice:
 
@@ -761,46 +761,55 @@ class Score:
     In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
     inclusive, and rests are represented with -1s. The XML_ID column gives the xml id of
     the note or rest object, if there is one. The ONSET_SEC and OFFSET_SEC columns are
-    taken from the audio analysis from the `json_path` file if one is given. Any other
-    data in the json file will also show up as additional columns in the nmat tables
-    following the XML_ID columns. Unlike most `Score` methods, this one does not cache
-    results.'''
-    nmats = {}
-    dur = self.durations(multi_index=True)
-    mp = self.midiPitches(multi_index=True)
-    ms = self._measures()
-    ids = self.xmlIDs()
-    data = self.fromJSON(json_path) if json_path else None
-    if isinstance(ids.index, pd.MultiIndex):
-      ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
-    for i, partName in enumerate(self._parts().columns):
-      meas = ms.iloc[:, i]
-      midi = mp.iloc[:, i].dropna()
-      onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
-      durBeat = dur.iloc[:, i].dropna()
-      part = pd.Series(partName, midi.index)
-      xmlID = ids.iloc[:, i].dropna()
-      onsetSec = pd.Series()
-      offsetSec = pd.Series()
-      df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
-      df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
-      df.MEASURE.ffill(inplace=True)
-      df.dropna(how='all', inplace=True, subset=df.columns[1:5])
-      if isinstance(df.index, pd.MultiIndex):
-        df = df.droplevel(1)
-      if json_path is not None:   # add json data if a json_path is provided
-        if len(data.index) > len(df.index):
-          data = data.iloc[:len(df.index), :]
-          print('\n\n*** Warning ***\n\nThe json data has more observations than there are notes in this part so the data was truncated.\n')
-        elif len(data.index) < len(df.index):
-          print('\n\n*** Warning ***\n\nThere are more events than there are json records in this part.\n')
-        df['ONSET_SEC'].iloc[:len(data.index)] = data.index
-        if len(data.index) > 1:
-          df['OFFSET_SEC'].iloc[:len(data.index) - 1] = data.index[1:]
-        data.index = df.index[:len(data.index)]
-        df = pd.concat((df, data), axis=1)
-      nmats[partName] = df
-    return nmats
+    taken from the audio analysis from the `json_path` file if one is given. If you want
+    to include the cdata from the json file in with the rest of the nmat columns listed
+    above, set `include_cdata=True`. This setting requires a `json_path` to be passed as well.'''
+    if not json_path:   # user must pass a json_path if they want the cdata to be included
+      include_cdata = False
+    key = ('nmats', json_path, include_cdata)
+    if key not in self._analyses:
+      nmats = {}
+      included = {}
+      dur = self.durations(multi_index=True)
+      mp = self.midiPitches(multi_index=True)
+      ms = self._measures()
+      ids = self.xmlIDs()
+      data = self.fromJSON(json_path) if json_path else None
+      if isinstance(ids.index, pd.MultiIndex):
+        ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
+      for i, partName in enumerate(self._parts().columns):
+        meas = ms.iloc[:, i]
+        midi = mp.iloc[:, i].dropna()
+        onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
+        durBeat = dur.iloc[:, i].dropna()
+        part = pd.Series(partName, midi.index)
+        xmlID = ids.iloc[:, i].dropna()
+        onsetSec = pd.Series()
+        offsetSec = pd.Series()
+        df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
+        df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
+        df.MEASURE.ffill(inplace=True)
+        df.dropna(how='all', inplace=True, subset=df.columns[1:5])
+        if isinstance(df.index, pd.MultiIndex):
+          df = df.droplevel(1)
+        if json_path is not None:   # add json data if a json_path is provided
+          if len(data.index) > len(df.index):
+            data = data.iloc[:len(df.index), :]
+            print('\n\n*** Warning ***\n\nThe json data has more observations than there are notes in this part so the data was truncated.\n')
+          elif len(data.index) < len(df.index):
+            print('\n\n*** Warning ***\n\nThere are more events than there are json records in this part.\n')
+          df['ONSET_SEC'].iloc[:len(data.index)] = data.index
+          if len(data.index) > 1:
+            df['OFFSET_SEC'].iloc[:len(data.index) - 1] = data.index[1:]
+          data.index = df.index[:len(data.index)]
+          df = pd.concat((df, data), axis=1)
+          included[partName] = df
+          df = df.iloc[:, :8].copy()
+        nmats[partName] = df
+      self._analyses[('nmats', json_path, False)] = nmats
+      if json_path:
+        self._analyses[('nmats', json_path, True)] = included
+    return self._analyses[key]
 
   def pianoRoll(self):
     '''\tConstruct midi piano roll. NB: there are 128 possible midi pitches.'''
@@ -853,6 +862,25 @@ class Score:
               mcol.loc[minbin : maxbin] = 1
           mask.iloc[np.where(mcol)[0], np.where(sampled.iloc[row])[0]] = 1
       self._analyses[key] = mask
+    return self._analyses[key]
+
+  def jsonCDATA(self, json_path):
+    '''\tReturns a dictionary of pandas dataframes, one for each voice. These dataframes
+    contain the cdata from the json file designated in `json_path` with each nested key
+    in the json object becoming a column name in the dataframe. The outmost keys of the
+    json cdata will become the "absolute" column. While the columns are different, there
+    are as many rows in these dataframes as there are in those of the nmats dataframes
+    for each voice.'''
+    key = ('jsonCDATA', json_path)
+    if key not in self._analyses:
+      nmats = self.nmats(json_path=json_path, include_cdata=True)
+      cols = ['ONSET_SEC'] + next(iter(nmats.values())).columns[8:].to_list()
+      post = {}
+      for partName, df in nmats.items():
+        res = df[cols].copy()
+        res.rename(columns={'ONSET_SEC': 'absolute'}, inplace=True)
+        post[partName] = res
+      self._analyses[key] = post
     return self._analyses[key]
 
   def fromJSON(self, json_path):
