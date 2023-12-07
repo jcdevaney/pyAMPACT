@@ -26,6 +26,34 @@ def _id_gen(start=1):
     start += 1
 _idGen = _id_gen()
 
+def _remove_namespaces(doc):
+  '''\tRemove namespace in the passed document in place.'''
+  root = doc.getroot()
+  namespace = ''
+  if '}' in root.tag:
+    namespace = root.tag[1:root.tag.index('}')]
+  for elem in doc.iter():
+    if '}' in elem.tag:
+      elem.tag = elem.tag[elem.tag.index('}') + 1:]
+  if namespace:
+    root.set('xmlns', namespace)
+
+def _indentMEI(elem, level=0):
+  i = "\n" + level*"\t"
+  if len(elem):
+    if not elem.text or not elem.text.strip():
+      elem.text = i + "\t"
+    if not elem.tail or not elem.tail.strip():
+      elem.tail = i
+    for elem in elem:
+      _indentMEI(elem, level+1)
+    if not elem.tail or not elem.tail.strip():
+      elem.tail = i
+  else:
+    if level and (not elem.tail or not elem.tail.strip()):
+      elem.tail = i
+
+
 _duration2Kern = {  # keys get rounded to 5 decimal places
   56:      '000..',
   48:      '000.',
@@ -115,7 +143,13 @@ _reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work
 
 class Score:
   '''\tImport score via music21 and expose AMPACT's analysis utilities which are
-  generally formatted as Pandas DataFrames.'''
+  generally formatted as pandas dataframes. This class also ports over some matlab
+  code to help with alignment of scores in symbolic notation and audio analysis of
+  recordings of those scores. `Score` objects can insert analysis into an mei file,
+  and can export any type of file to a kern format, optionally also including analysis
+  from a json file. Similarly, `Score` objects can serve clickable urls of short
+  excerpts of their associated score in symbolic notation. These links open in
+  the Verovio Humdrum Viewer.'''
   def __init__(self, score_path):
     self._analyses = {}
     if score_path.startswith('https://github.com/'):
@@ -123,7 +157,6 @@ class Score:
     self.path = score_path
     self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
     self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
-    self._namespace = ''
     self._meiTree = None
     if score_path.startswith('http') and self.fileExtension == 'krn':
       fd, tmp_path = tempfile.mkstemp()
@@ -143,36 +176,35 @@ class Score:
     self._partList()
   
   def _assignM21Attributes(self, path=''):
-    '''\tReturn a music21 score. This method is used internally for memoization purposes.'''
+    '''\tAssign the primary attributes to this `Score` object that come from music21. Primarily
+    self.score, self.partNames, self._partStreams, and self._flatParts. This method is used
+    internally for memoization purposes.'''
     if self.path not in _imported_scores:
       if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
         _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
 
       elif self.fileExtension in ('xml, musicxml', 'mei'):   # these files might be mei files and could lack elements music21 needs to be able to read them
         tree = ET.parse(self.path)
+        _remove_namespaces(tree)
         root = tree.getroot()
         if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
-          ns = re.match(r'\{.*\}', root.tag)
-          ns = ns.group(0) if ns else ''
-          self._namespace = ns
           self._meiTree = copy.deepcopy(root)
-
           parseEdited = False
-          if ns and not root.find(f'.//{ns}scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
+          if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
             parseEdited = True
-            scoreDef = ET.Element(f'{ns}scoreDef', {'xml:id': next(_idGen), 'n': '1'})
-            staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter(f'{ns}staff')}   # all the parts
+            scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
+            staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')}   # all the parts
             for i, staff in enumerate(sorted(staves)):
-              staffDef = ET.SubElement(scoreDef, f'{ns}staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
-              ET.SubElement(staffDef, f'{ns}label', {'text': staff, 'xml:id': next(_idGen)})
-            scoreEl = root.find(f'.//{ns}score')
+              staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+              ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(_idGen)})
+            scoreEl = root.find('.//score')
             if scoreEl is not None:
               scoreEl.insert(0, scoreDef)
 
-          for section in root.iter(f'{ns}section'):   # make sure all events are contained in measures
-            if section.find(f'{ns}measure') is None:
+          for section in root.iter('section'):   # make sure all events are contained in measures
+            if section.find('measure') is None:
               parseEdited = True
-              measure = ET.Element(f'{ns}measure')
+              measure = ET.Element('measure')
               measure.set('xml:id', next(_idGen))
               measure.extend(section)
               section.clear()
@@ -216,7 +248,12 @@ class Score:
       self.partNames.append(name)
 
   def _addTieBreakers(self, partList):
-    '''Add tie-breaker level to index. Changes parts in partList in place and returns None.'''
+    '''Add tie-breaker level to index. Changes parts in partList in place and returns None. This is
+    particularly useful to disambiguate the order of events that happen at the same offset, which is
+    an issue most commonly encountered with grace notes since they have no duration. This is needed
+    in several `Score` methods because you cannot append multiple pandas series (parts) if they have
+    non-unique indecies. So this method is needed internally to be able to use pd.concat to turn a
+    list of series into a single dataframe if any of those series has a repeated value in its index.'''
     for part in partList:
       if isinstance(part.index, pd.MultiIndex):
         continue
@@ -431,14 +468,13 @@ class Score:
     if self.fileExtension in ('xml', 'mei'):
       tree = ET.parse(self.path)
       root = tree.getroot()
-      namespace = {'ns': root.tag.split('}')[0][1:]}
       idString = [key for key in root.attrib.keys() if key.endswith('}id')]
       if len(idString):
         idString = idString[0]
         data = {}
         dotCoefficients = {None: 1, '1': 1.5, '2': 1.75, '3': 1.875, '4': 1.9375}
-        for staff in root.findall('.//ns:staff', namespace):
-          for layer in staff.findall('ns:layer', namespace):
+        for staff in root.findall('.//staff'):
+          for layer in staff.findall('layer'):   # doesn't need './/' because only looks for direct children of staff elements
             column_name = f"Staff{staff.get('n')}_Layer{layer.get('n')}"
             if column_name not in data:
               data[column_name] = []
@@ -762,12 +798,13 @@ class Score:
     '''\tReturn a dictionary of dataframes, one for each voice, each with the following
     columns about the notes and rests in that voice:
 
-    MEASURE  ONSET  DURATION  PART  MIDI  ONSET_SEC  OFFSET_SEC  XML_ID
+    MEASURE  ONSET  DURATION  PART  MIDI  ONSET_SEC  OFFSET_SEC
 
     In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
     inclusive, and rests are represented with -1s. The XML_ID column gives the xml id of
     the note or rest object, if there is one. The ONSET_SEC and OFFSET_SEC columns are
-    taken from the audio analysis from the `json_path` file if one is given. If you want
+    taken from the audio analysis from the `json_path` file if one is given. The XML_IDs
+    of each note or rest serve as the index for this dataframe. If you want
     to include the cdata from the json file in with the rest of the nmat columns listed
     above, set `include_cdata=True`. This setting requires a `json_path` to be passed as well.'''
     if not json_path:   # user must pass a json_path if they want the cdata to be included
@@ -796,8 +833,7 @@ class Score:
         df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
         df.MEASURE.ffill(inplace=True)
         df.dropna(how='all', inplace=True, subset=df.columns[1:5])
-        if isinstance(df.index, pd.MultiIndex):
-          df = df.droplevel(1)
+        df = df.set_index('XML_ID')
         if json_path is not None:   # add json data if a json_path is provided
           if len(data.index) > len(df.index):
             data = data.iloc[:len(df.index), :]
@@ -810,7 +846,7 @@ class Score:
           data.index = df.index[:len(data.index)]
           df = pd.concat((df, data), axis=1)
           included[partName] = df
-          df = df.iloc[:, :8].copy()
+          df = df.iloc[:, :7].copy()
         nmats[partName] = df
       self._analyses[('nmats', json_path, False)] = nmats
       if json_path:
@@ -880,7 +916,7 @@ class Score:
     key = ('jsonCDATA', json_path)
     if key not in self._analyses:
       nmats = self.nmats(json_path=json_path, include_cdata=True)
-      cols = ['ONSET_SEC'] + next(iter(nmats.values())).columns[8:].to_list()
+      cols = ['ONSET_SEC'] + next(iter(nmats.values())).columns[7:].to_list()
       post = {}
       for partName, df in nmats.items():
         res = df[cols].copy()
@@ -898,21 +934,6 @@ class Score:
     df = pd.DataFrame(data).T
     df.index = df.index.astype(str)
     return df
-
-  def _indentMEI(self, elem, level=0):
-    i = "\n" + level*"  "
-    if len(elem):
-      if not elem.text or not elem.text.strip():
-        elem.text = i + "  "
-      if not elem.tail or not elem.tail.strip():
-        elem.tail = i
-      for elem in elem:
-        self._indentMEI(elem, level+1)
-      if not elem.tail or not elem.tail.strip():
-        elem.tail = i
-    else:
-      if level and (not elem.tail or not elem.tail.strip()):
-        elem.tail = i
 
   def insertAudioAnalysis(self, output_filename, json_path, mimetype='', target=''):
     '''\tMake a <performance> element and insert into the mei score given the
@@ -943,26 +964,35 @@ class Score:
       </body>
     </music>
     '''
-    ns = self._namespace
-    performance = ET.Element(f'{ns}performance', {'xml:id': next(_idGen)})
-    recording = ET.SubElement(performance, f'{ns}recording', {'xml:id': next(_idGen)})
-    avFile = ET.SubElement(recording, f'{ns}avFile', {'xml:id': next(_idGen)})
+    performance = ET.Element('performance', {'xml:id': next(_idGen)})
+    recording = ET.SubElement(performance, 'recording', {'xml:id': next(_idGen)})
+    avFile = ET.SubElement(recording, 'avFile', {'xml:id': next(_idGen)})
     if mimetype:
       avFile.set('mimetype', mimetype)
     if target:
       avFile.set('target', target)
     nmats = self.nmats(json_path, True)
     # TODO: how do we know which nmat to use when writing the file?
-    df = nmats[self.partNames[0]].iloc[:, 7:].set_index('XML_ID').dropna(how='all')
+    df = nmats[self.partNames[0]].iloc[:, 7:].dropna(how='all')
     for ndx in df.index:
-      when = ET.SubElement(recording, f'{ns}when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
-      ET.SubElement(when, f'{ns}extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
-    musicEl = self._meiTree.find(f'.//{ns}music')
+      when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
+      ET.SubElement(when, 'extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
+    musicEl = self._meiTree.find('.//music')
     musicEl.insert(0, performance)
-    if not output_filename.endswith('.mei'):
-      output_filename += '.mei'
-    self._indentMEI(self._meiTree)
-    ET.ElementTree(self._meiTree).write(f'./output_files/{output_filename}')
+    if not output_filename.endswith('.mei.xml'):
+      output_filename = output_filename.split('.', 1)[0] + '.mei.xml'
+    _indentMEI(self._meiTree)
+    # get header/ xml descriptor from original file
+    with open(self.path, 'r') as f:
+      lines = []
+      for line in f:
+        if '<mei ' in line:
+          break
+        lines.append(line)
+    header = ''.join(lines)
+    with open(f'./output_files/{output_filename}', 'w') as f:
+      f.write(header)
+      ET.ElementTree(self._meiTree).write(f, encoding='unicode')
 
   def show(self, start=None, end=None):
     '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
