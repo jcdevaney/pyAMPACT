@@ -110,7 +110,7 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
   0:       ''
 }
 
-_reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work in the following way.
+_reused_docstring =  '''\t.harmKeys, .harm, .functions, .chords, and .cdata all work in the following way.
   Get the desired analysis from the relevant spine if this piece is a kern file and has a
   that spine. The default is for the results to be returned as a 1-d array, but you can
   set `output='series'` for a pandas series instead. If you want to align these results
@@ -132,9 +132,9 @@ _reused_docstring =  '''\t.harmKeys, .harmonies, .functions, and .cdata all work
   # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
   keys = piece.harmKeys()
 
-  # get the harmonies in the shape of the mask columns
+  # get the humdrum harm spine data in the shape of the mask columns
   mask = piece.mask()
-  harmonies = piece.harmonies(snap_to=mask)
+  harm = piece.harm(snap_to=mask)
 
   # get the functions in the shape of the mask columns and replace kern's '.' tokens with NaNs
   mask = piece.mask()
@@ -233,8 +233,9 @@ class Score:
       _imported_scores[self.path] = m21.converter.parse(self.path)
     self.score = _imported_scores[self.path]
     self.metadata = {'title': "Title not found", 'composer': "Composer not found"}
-    if isinstance(self.score.metadata, dict):
-      self.metadata.update(self.score.metadata)
+    if self.score.metadata is not None:
+      self.metadata['title'] = self.score.metadata.title or 'Title not found'
+      self.metadata['composer'] = self.score.metadata.composer or 'Composer not found'
     self._partStreams = self.score.getElementsByClass(m21.stream.Part)
     self._flatParts = []
     self.partNames = []
@@ -398,7 +399,7 @@ class Score:
       humFile = m21.humdrum.spineParser.HumdrumFile(path or self.path)
       humFile.parseFilename()
       for spine in humFile.spineCollection:
-        if spine.spineType in ('harm', 'function', 'cdata'):
+        if spine.spineType in ('harm', 'function', 'chord', 'cdata'):
           start = False
           vals, valPositions = [], []
           if spine.spineType == 'harm':
@@ -451,12 +452,9 @@ class Score:
             ser.index.name = ''
             self._analyses[keyName] = ser
 
-    if 'function' not in self._analyses:
-      self._analyses['function'] = pd.Series()
-    if 'harm' not in self._analyses:
-      self._analyses['harm'] = pd.Series()
-    if 'harmKeys' not in self._analyses:
-      self._analyses['harmKeys'] = pd.Series()
+    for spine in ('function', 'harm', 'harmKeys', 'chord'):
+      if spine not in self._analyses:
+        self._analyses[spine] = pd.Series()
     if 'cdata' not in self._analyses:
       self._analyses['cdata'] = pd.DataFrame()
 
@@ -565,12 +563,12 @@ class Score:
     return self._analyses['_priority']
 
   def _snapTo(self, data, snap_to=None, filler='forward', output='array'):
-    '''\tTakes a `harmonies`, `harmKeys`, `functions`, or `cdata` as `data` and the
-    `snap_to` and `filler` parameters as described in the former three's doc strings.
+    '''\tTakes a `harm`, `harmKeys`, `functions`, `chords`, or `cdata` as `data` and
+    the `snap_to` and `filler` parameters as described in the former three's doc strings.
     The passed data is returned in the shape of the snap_to dataframe's columns, and any
     filling operations are applied. The output will be in the form of a 1D numpy array
-    unless `output` is changed, in which case a series will be returned for harmonies,
-    harmKeys, and functions data, and a dataframe for cdata data.'''
+    unless `output` is changed, in which case a series will be returned for harm,
+    harmKeys, functions, and chords data, and a dataframe for cdata data.'''
     if snap_to is not None:
       data = data.reindex(snap_to.columns)
     if filler != '.':
@@ -595,13 +593,17 @@ class Score:
     return self._snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
   harmKeys.__doc__ = _reused_docstring
 
-  def harmonies(self, snap_to=None, filler='forward', output='array'):
+  def harm(self, snap_to=None, filler='forward', output='array'):
     return self._snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
-  harmonies.__doc__ = _reused_docstring
+  harm.__doc__ = _reused_docstring
 
   def functions(self, snap_to=None, filler='forward', output='array'):
     return self._snapTo(self._analyses['function'].copy(), snap_to, filler, output)
   functions.__doc__ = _reused_docstring
+
+  def chords(self, snap_to=None, filler='forward', output='array'):
+    return self._snapTo(self._analyses['chord'].copy(), snap_to, filler, output)
+  chords.__doc__ = _reused_docstring
 
   def cdata(self, snap_to=None, filler='forward', output='dataframe'):
     return self._snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
