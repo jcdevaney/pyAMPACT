@@ -25,7 +25,7 @@ def check_lyrics(score_path, shape, first, last):
   assert(lyrics.iloc[-1].at[lyrics.iloc[-1].last_valid_index()] == last)
 
 def check_harm_spine(score, control, filler='forward', output='array'):
-  test = score.harmonies(filler=filler, output=output)
+  test = score.harm(filler=filler, output=output)
   if output == 'array':
     assert all(test == control)
   else:  # data are pandas series
