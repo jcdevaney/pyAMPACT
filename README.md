@@ -11,4 +11,4 @@ This code repository translates some of the existing tooling written in matlab t
 2. The `./sym_functions` directory houses the functionality of the symbolic and MIDI processing, housed in the `script.py` file, and called from the parent directory as needed.
 3. The `./unit_tests` directory houses choice testing scripts for functions throughout the application, with the `./unit_test/in_progress` directory housing in-flight tests, tests to be used later, or tests that were once used on deprecated functions.
 4. Similarly, the `./unused_scripts` directory houses functions to be used later, or sometimes ones that have been deprecated or refactored.
-5. Finally, `./placeholders` houses any hardcoded files necessary for filling in gaps of functionality as the application is developed.
+5. Finally, `./test_files` houses any hardcoded files necessary for filling in gaps of functionality as the application is developed.

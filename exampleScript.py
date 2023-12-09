@@ -161,8 +161,7 @@ for i in range(len(cents)):
     smoothed_f0s.append(smoothed_f0)        
 
     # Find the steady-state portion of a note
-    steady = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)
-    print(steady)
+    steady = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)    
     # steady.append([steady_start, steady_end])
 
     # # Compute the DCT of a signal and approximate it with the first 3 coefficients

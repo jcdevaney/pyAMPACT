@@ -113,9 +113,9 @@ def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=Fal
     # vpath = hmm.ViterbiHMM(starting_state, trans, pr_like)
 
     # Define the filename
-    # pLikeData = "./placeholders/priorlike_oneNote_runHMM.csv"
-    pLikeData = "./placeholders/priorlike_threeNote_runHMM.csv"
-    # pLikeData = "./placeholders/priorlike_sixNote_runHMM.csv"
+    # pLikeData = "./test_files/priorlike_oneNote_runHMM.csv"
+    pLikeData = "./test_files/priorlike_threeNote_runHMM.csv"
+    # pLikeData = "./test_files/priorlike_sixNote_runHMM.csv"
     
     # Read the data from the file
     dtype = {'index': str, 'value': float}
