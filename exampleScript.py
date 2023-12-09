@@ -123,8 +123,6 @@ nmat_new = [
 
 # Get cent values for each note
 # THIS NEEDS SOME CALCULATION ON THE YINRES RETURN, AS IT IS GIVING HZ AND NOT ??? FROM MATLAB
-# print(yin_res['f0'])
-
 cents = get_cent_vals(times, yin_res, target_sr)  # Original
 
 # Calculate intervals size, perceived pitch, vibrato rate, and vibrato depth
@@ -141,7 +139,8 @@ dct_vals = []
 approx = []
 
 
-# # THIS IS ONLY FOR NON-ONENOTE - All pass unit testing
+# CHECK FOR COMPARISON TO MATLAB.  SPECIFICALLY, FOR EXAMPLE:
+# Line 147 is actually: min_idx[i], max_idx[i] = find_peaks(cents[i], win_ms, int(target_sr/32), 60)
 for i in range(len(cents)):    
     # Find peaks and troughs in the F0 trace for each note    
     
@@ -150,17 +149,19 @@ for i in range(len(cents)):
     maxes.append(max_idx)
 
 
-    # # Find midpoints between mins and maxes
-    # x_mid, y_mid = find_mids(cents[i], mins[i], maxes[i], 100, int(target_sr/32))
-    # x_mids.append(x_mid)
-    # y_mids.append(y_mid)
+    # Find midpoints between mins and maxes
+    x_mid, y_mid = find_mids(cents[i], mins[i], maxes[i], 100, int(target_sr/32))
+    x_mids.append(x_mid)
+    y_mids.append(y_mid)    
 
-    # # Generate a smoothed trajectory of a note by connecting the midpoints
-    # smoothed_f0 = smooth_note(cents[i], x_mid, y_mid)
-    # smoothed_f0s.append(smoothed_f0)
 
-    # # Find the steady-state portion of a note
-    # steady_start, steady_end = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)
+    # Generate a smoothed trajectory of a note by connecting the midpoints,
+    # Currently BUGGED - You could leave this if you get hung up!
+    smoothed_f0 = smooth_note(cents[i], x_mid, y_mid)
+    smoothed_f0s.append(smoothed_f0)        
+
+    # Find the steady-state portion of a note
+    steady = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)    
     # steady.append([steady_start, steady_end])
 
     # # Compute the DCT of a signal and approximate it with the first 3 coefficients

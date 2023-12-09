@@ -94,8 +94,8 @@ def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=Fal
     starting_state = np.zeros(4 * notes + 1)
     starting_state[0] = 1
 
-    prior = fill_priormat_gauss(obs.shape[0], prior_ons, prior_offs, 5)
-
+    prior = fill_priormat_gauss(obs.shape[0], prior_ons, prior_offs, 5)    
+    
     if learnparams:
         # Use the fit function from the hmmlearn library to learn the HMM parameters
         model = hmm.GMMHMM(n_components=5, n_mix=1,
@@ -113,10 +113,10 @@ def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=Fal
     # vpath = hmm.ViterbiHMM(starting_state, trans, pr_like)
 
     # Define the filename
-    # pLikeData = "./placeholders/priorlike_oneNote_runHMM.csv"
-    pLikeData = "./placeholders/priorlike_threeNote_runHMM.csv"
-    # pLikeData = "./placeholders/priorlike_sixNote_runHMM.csv"
-
+    # pLikeData = "./test_files/priorlike_oneNote_runHMM.csv"
+    pLikeData = "./test_files/priorlike_threeNote_runHMM.csv"
+    # pLikeData = "./test_files/priorlike_sixNote_runHMM.csv"
+    
     # Read the data from the file
     dtype = {'index': str, 'value': float}
     pr_like = pd.read_csv(pLikeData, dtype=dtype,

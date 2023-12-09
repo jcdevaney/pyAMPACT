@@ -1,6 +1,4 @@
 import numpy as np
-
-import sys
 #########################################################################
 # [mins maxes] = findPeaks(x, windowLength_ms, sr, minCount)
 #
@@ -29,6 +27,13 @@ import sys
 
 
 def find_peaks(x, window_length_ms, sr, min_count):
+    # ADDED THIS
+    min_count = min_count / 12
+    
+    # Would this work???
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html
+
+
     # Create an array    
     x = np.array(x)    
     
@@ -39,16 +44,16 @@ def find_peaks(x, window_length_ms, sr, min_count):
     # Calculate window length in samples
     window_length = int(window_length_ms * sr / 1000)    
     # Calculate the minimum and maximum values
-    for i in range(len(x) - window_length):
+    for i in range(len(x) - window_length):        
         w = x[i:i+window_length]
-        di_min = np.argmin(w)
-        di_max = np.argmax(w)
-        mins[i + di_min] += 1 # THIS IS LIKELY THE ISSUE, DOING 0 - 1 versus what Python wants (yinres normalizing?)
+        di_min = np.argmin(w)        
+        di_max = np.argmax(w)        
+        mins[i + di_min] += 1
         maxes[i + di_max] += 1
 
     # Prune mins and maxes to only those that occur in minCount or more windows
     # START HERE!        
-    mins = np.where(mins >= min_count)[0]
+    mins = np.where(mins >= min_count)[0]    
     maxes = np.where(maxes >= min_count)[0]
 
     return mins, maxes

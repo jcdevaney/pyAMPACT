@@ -5,6 +5,9 @@ import pretty_midi
 
 import sys
 from runDTWAlignment import runDTWAlignment
+from pytimbre.yin import yin
+from pwr import pwr
+
 
 
 def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, win_ms):
@@ -45,15 +48,43 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
     }
 
 
-    # Run YIN on audiofile
-    f0, voiced_flag, voiced_probs = librosa.pyin(
-        audiofile, sr=P['sr'], hop_length=P['hop'], fmax=P['maxf0'], fmin=P['minf0'], n_thresholds=P['thresh'])
+    # # Run YIN on audiofile
+    # f0, voiced_flag, voiced_probs = librosa.pyin(
+    #     audiofile, sr=P['sr'], hop_length=P['hop'], fmax=P['maxf0'], fmin=P['minf0'], n_thresholds=P['thresh'])
 
-    
+# Parameters
+#     ----------
+#     x : ndarray [shape=(L, )], real - valued
+#         Audio signal
+#     Fs : int
+#         Sampling frequency
+#     N : int
+#         Window size
+#     H : int
+#         Hop size
+#     F_min : float
+#         Minimal frequency
+#     F_max : float
+#         Maximal frequency
+#     threshold : float
+#         Threshold for cumulative mean normalized difference function
+#     verbose : bool
+#         Switch to activate/deactivate status bar
+
+    f02, t, ap = yin(x=audiofile, Fs=P['sr'], N=win_ms, H=P['hop'], F_max=P['maxf0'], F_min=P['minf0'], threshold=P['thresh'])
+
+    x, t, power = pwr(x=audiofile, Fs=P['sr'], N=win_ms, H=P['hop'], F_max=P['maxf0'], F_min=P['minf0'], threshold=P['thresh'])
+        
+    # yinres = {
+    #     'f0': f0,  # good
+    #     'ap': voiced_flag,  # not the same
+    #     'pwr': voiced_probs  # not the same
+    # }
+
     yinres = {
-        'f0': f0,  # good
-        'ap': voiced_flag,  # not the same
-        'pwr': voiced_probs  # not the same
-    }
-
+        'f0': f02, 
+        'ap': ap,  # Good?
+        'pwr': power  # Placeholder
+    }    
+    
     return res, yinres, spec, dtw
