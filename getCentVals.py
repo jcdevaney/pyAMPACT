@@ -1,5 +1,6 @@
 import numpy as np
-
+import math
+import sys
 def get_cent_vals(times, yinres, sr):
     # CENTS IN BETWEEN SEQUENTIAL NOTES
     # Check the reference of yin in MATLAB vs yin in librosa
@@ -17,31 +18,37 @@ def get_cent_vals(times, yinres, sr):
 
     cents = []
 
-    # Index into f0 estimates in YIN structure with onset and offset times        
-    oct = np.log2(yinres['f0'] / 440)
-    
-    # midi_notes = 12 * np.log2(yinres['f0'] / 440) + 69    
-    # oct = (midi_notes - 67) / 12    
+    # Index into f0 estimates in YIN structure with onset and offset times
     for i in range(len(times['ons'])):
+        # Define the reference pitch (A4 = 440 Hz)
+        ref_pitch = 440.0
+
         onset_index = round(times['ons'][i] / 32 * sr)
         offset_index = round(times['offs'][i] / 32 * sr)                        
-        pitch_segment = oct[onset_index:offset_index] * 1200
-        cents.append(pitch_segment)
+
+        # Example array of frequencies
+        frequencies = yinres['f0'][onset_index:offset_index]
+
+        # Calculate the cent values for each frequency
+        cent = 1200 * np.log2(frequencies / ref_pitch)
+        
+
+        # average_cent = np.mean(cent)        
+        # WITHOUT AVERAGING        
+        # cents.append(cent)
+
+        # Check if the array is not empty and contains finite values
+        if np.any(np.isfinite(cent)):
+        # Calculate the mean only if the array is not empty and has finite values
+            # average_cent = np.nanmean(cent)
+            # cents.append(average_cent)
+            cents.append(cent)            
+        else:
+            break
+        
+    
+   
+
     return cents
 
-
-# # COMPLETE NEEDS TESTING
-
-# def get_cent_vals(times, yinres):
-#     cents = []
-
-#     # Index into f0 estimates in YIN structure with onset and offset times
-#     for i in range(len(times['ons'])):
-#         onset_sample = int(times['ons'][i] / 32 * yinres['sr'])
-#         offset_sample = int(times['offs'][i] / 32 * yinres['sr'])
-
-#         # Extract the corresponding portion of f0 and convert to cents
-#         f0_segment = yinres['f0'][onset_sample:offset_sample] * 1200
-#         cents.append(f0_segment)
-
-#     return cents
+    

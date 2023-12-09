@@ -1,6 +1,7 @@
 # Specific files
 notes.txt
 sandbox.py
+debug-notes.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

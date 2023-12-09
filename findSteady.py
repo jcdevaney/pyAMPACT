@@ -1,7 +1,7 @@
 # PASS - see test notes
 import numpy as np
 
-def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
+def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):    
     # Find extrema that are far enough away from the midpoints    
     peaks = np.sort(np.concatenate((mins, maxes)))       
     excursion = y_mids - x[peaks[:-1]]        
@@ -26,7 +26,6 @@ def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
     start_idx = np.argmax(x_mids > steadyPeaks[0])
     end_idx = len(x_mids) - np.argmax(x_mids[::-1] < steadyPeaks[1]) - 1
 
-    steady = x_mids[start_idx : end_idx + 1]
-    
+    steady = x_mids[start_idx : end_idx + 1]    
     return steady
 
