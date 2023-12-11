@@ -21,13 +21,33 @@ _tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 _imported_scores = {}
 
 def _id_gen(start=1):
+  """
+  Generate a unique ID for each instance of the Score class.
+
+  This function generates a unique ID for each instance of the Score class 
+  by incrementing a counter starting from the provided start value. The ID 
+  is in the format 'pyAMPACT-{start}'.
+
+  :param start: An integer representing the starting value for the ID 
+                counter. Default is 1.
+  :yield: A string representing the unique ID.
+  """
   while True:
     yield f'pyAMPACT-{start}'
     start += 1
 _idGen = _id_gen()
 
 def _remove_namespaces(doc):
-  '''\tRemove namespace in the passed document in place.'''
+  """
+  Indent an MEI (Music Encoding Initiative) element for better readability.
+
+  This function recursively indents an MEI element and its children, improving 
+  the readability of the MEI XML structure. It modifies the input element in-place.
+
+  :param elem: An xml.etree.ElementTree.Element representing the MEI element.
+  :param level: An integer representing the current indentation level. Default is 0.
+  :return: None
+  """
   root = doc.getroot()
   namespace = ''
   if '}' in root.tag:
@@ -110,46 +130,51 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
   0:       ''
 }
 
-_reused_docstring =  '''\t.harmKeys, .harm, .functions, .chords, and .cdata all work in the following way.
-  Get the desired analysis from the relevant spine if this piece is a kern file and has a
-  that spine. The default is for the results to be returned as a 1-d array, but you can
-  set `output='series'` for a pandas series instead. If you want to align these results
-  so that they match the columnar (time) axis of the pianoRoll, sampled, or mask results,
-  you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
+_reused_docstring =  """
+  The methods .harmKeys, .harm, .functions, .chords, and .cdata all work in 
+  the following way. They get the desired analysis from the relevant spine if 
+  this piece is a kern file and has that spine. The default is for the results 
+  to be returned as a 1-d array, but you can set `output='series'` for a pandas 
+  series instead. If you want to align these results so that they match the 
+  columnar (time) axis of the pianoRoll, sampled, or mask results, you can pass 
+  the pianoRoll or mask that you want to align to as the `snap_to` parameter.
 
-  The `sampled` and `mask` dfs often have more observations than the spine contents,
-  so you may want to fill in these new empty slots somehow. The kern format uses
-  '.' as a filler token so you can pass this as the `filler` parameter to fill all the new
-  empty slots with this as well. If you choose some other value, say `filler='_'`, then in
-  addition to filling in the empty slots with underscores, this will also replace the kern
-  '.' observations with '_'. If you want to fill them in with NaN's as pandas usually does,
-  you can pass `filler='nan'` as a convenience. If you want to "forward fill" these
-  results, you can pass `filler='forward'` (default). This will propagate the last
-  non-period ('.') observation until a new one is found. Finally, you can pass filler='drop'
-  to drop all empty observations (both NaNs and humdrum periods).
+  The `sampled` and `mask` dfs often have more observations than the spine 
+  contents, so you may want to fill in these new empty slots somehow. The kern 
+  format uses '.' as a filler token so you can pass this as the `filler` 
+  parameter to fill all the new empty slots with this as well. If you choose 
+  some other value, say `filler='_'`, then in addition to filling in the empty 
+  slots with underscores, this will also replace the kern '.' observations with 
+  '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+  pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+  results, you can pass `filler='forward'` (default). This will propagate the 
+  last non-period ('.') observation until a new one is found. Finally, you can 
+  pass filler='drop' to drop all empty observations (both NaNs and humdrum
+  periods).
 
-  Usage assuming you have a Score object named `piece` in memory:
-  # get the key data as a forward-filled array. No need to specify filler='forward' because it's the default
-  keys = piece.harmKeys()
-
-  # get the humdrum harm spine data in the shape of the mask columns
-  mask = piece.mask()
-  harm = piece.harm(snap_to=mask)
-
-  # get the functions in the shape of the mask columns and replace kern's '.' tokens with NaNs
-  mask = piece.mask()
-  functions = piece.functions(snap_to=mask, filler='nan')'''
+  :param snap_to: A pandas DataFrame to align the results to. Default is None.
+  :param filler: A string representing the filler token. Default is 'forward'.
+  :param output: A string representing the output format. Default is 'array'.
+  :return: A numpy array or pandas Series representing the harmonic keys
+      analysis.
+  """
 
 
 class Score:
-  '''\tImport score via music21 and expose AMPACT's analysis utilities which are
-  generally formatted as pandas dataframes. This class also ports over some matlab
-  code to help with alignment of scores in symbolic notation and audio analysis of
-  recordings of those scores. `Score` objects can insert analysis into an mei file,
-  and can export any type of file to a kern format, optionally also including analysis
-  from a json file. Similarly, `Score` objects can serve clickable urls of short
-  excerpts of their associated score in symbolic notation. These links open in
-  the Verovio Humdrum Viewer.'''
+  """
+  A class to import a musical score via music21 and expose AMPACT's analysis utilities.
+
+  The analysis utilities are generally formatted as pandas dataframes. This class also 
+  ports over some matlab code to help with alignment of scores in symbolic notation and 
+  audio analysis of recordings of those scores. `Score` objects can insert analysis into 
+  an MEI file, and can export any type of file to a kern format, optionally also including 
+  analysis from a JSON file. Similarly, `Score` objects can serve clickable URLs of short 
+  excerpts of their associated score in symbolic notation. These links open in the Verovio 
+  Humdrum Viewer.
+
+  :param score_path: A string representing the path to the score file.
+  :return: A Score object.
+  """
   def __init__(self, score_path):
     self._analyses = {}
     if score_path.startswith('https://github.com/'):
@@ -176,9 +201,12 @@ class Score:
     self._partList()
   
   def _assignM21Attributes(self, path=''):
-    '''\tAssign the primary attributes to this `Score` object that come from music21. Primarily
-    self.score, self.partNames, self._partStreams, and self._flatParts. This method is used
-    internally for memoization purposes.'''
+    """
+    Assign music21 attributes to a given object.
+
+    :param obj: A music21 object.
+    :return: None
+    """
     if self.path not in _imported_scores:
       if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
         _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
@@ -249,12 +277,22 @@ class Score:
       self.partNames.append(name)
 
   def _addTieBreakers(self, partList):
-    '''Add tie-breaker level to index. Changes parts in partList in place and returns None. This is
-    particularly useful to disambiguate the order of events that happen at the same offset, which is
-    an issue most commonly encountered with grace notes since they have no duration. This is needed
-    in several `Score` methods because you cannot append multiple pandas series (parts) if they have
-    non-unique indecies. So this method is needed internally to be able to use pd.concat to turn a
-    list of series into a single dataframe if any of those series has a repeated value in its index.'''
+    """
+    Add tie-breaker level to index. Changes parts in partList in place and 
+    returns None. 
+
+    This is particularly useful to disambiguate the order of events that 
+    happen at the same offset, which is an issue most commonly encountered 
+    with grace notes since they have no duration. This is needed in several 
+    `Score` methods because you cannot append multiple pandas series (parts) 
+    if they have non-unique indices. So this method is needed internally to 
+    be able to use pd.concat to turn a list of series into a single dataframe 
+    if any of those series has a repeated value in its index.
+
+    :param partList: A list of pandas Series, each representing a part in 
+        the score.
+    :return: None
+    """
     for part in partList:
       if isinstance(part.index, pd.MultiIndex):
         continue
@@ -269,7 +307,11 @@ class Score:
       part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
 
   def _partList(self):
-    '''\tReturn a list of series of the note, rest, and chord objects in a each part.'''
+    """
+    Return a list of series of the note, rest, and chord objects in each part.
+
+    :return: A list of pandas Series, each representing a part in the score.
+    """
     if '_partList' not in self._analyses:
       kernStrands = []
       parts = []
@@ -371,9 +413,20 @@ class Score:
     return self._analyses['_partList']
 
   def _parts(self, multi_index=False, kernStrands=False):
-    '''\tReturn a df of the note, rest, and chord objects in the score. The difference between
-    parts and divisi is that parts can have chords whereas divisi cannot. If there are chords
-    in the _parts df, the divisi df will include all these notes by adding additional columns.'''
+    """
+    Return a DataFrame of the note, rest, and chord objects in the score.
+
+    The difference between parts and kernStrands is that parts can have voices
+    whereas kernStrands cannot. If there are voices in the _parts DataFrame, the
+    kernStrands DataFrame will include all these notes by adding additional
+    columns.
+
+    :param multi_index: Boolean, default False. If True, the returned DataFrame
+        will have a MultiIndex.
+    :param kernStrands: Boolean, default False. If True, the method will use the
+        '_kernStrands' analysis.
+    :return: A DataFrame of the note, rest, and chord objects in the score.
+    """
     key = ('_parts', multi_index, kernStrands)
     if key not in self._analyses:
       if kernStrands:
@@ -395,6 +448,13 @@ class Score:
     return self._analyses[key]
 
   def _import_function_harm_spines(self, path=''):
+    """
+    Import the harmonic function spines from a given path.
+
+    :param path: A string representing the path to the file containing the 
+        harmonic function spines.
+    :return: A pandas DataFrame representing the harmonic function spines.
+    """
     if self.fileExtension == 'krn' or path:
       humFile = m21.humdrum.spineParser.HumdrumFile(path or self.path)
       humFile.parseFilename()
@@ -459,8 +519,13 @@ class Score:
       self._analyses['cdata'] = pd.DataFrame()
 
   def xmlIDs(self):
-    '''\tReturn xml ids per part in a pandas.DataFrame time-aligned with the
-    objects offset.'''
+    """
+    Return xml ids per part in a pandas.DataFrame time-aligned with the
+    objects offset. If the file is not xml or mei, or an idString wasn't found,
+    return a DataFrame of the ids of the music21 objects.
+
+    :return: A pandas DataFrame representing the xml ids in the score.
+    """
     if 'xmlIDs' in self._analyses:
       return self._analyses['xmlIDs']
     if self.fileExtension in ('xml', 'mei'):
@@ -500,12 +565,26 @@ class Score:
     return df
 
   def lyrics(self):
+    """
+    Extract the lyrics from the score. 
+
+    The lyrics are extracted from each part and returned as a pandas DataFrame 
+    where each column represents a part and each row represents a lyric. The 
+    DataFrame is indexed by the offset of the lyrics.
+
+    :return: A pandas DataFrame representing the lyrics in the score.
+    """
     if 'lyrics' not in self._analyses:
       self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
     return self._analyses['lyrics']
 
   def _clefHelper(self, clef):
-    '''\tParse a music21 clef object into the corresponding humdrum syntax token.'''
+    """
+    Parse a music21 clef object into the corresponding humdrum syntax token.
+
+    :param clef: A music21 clef object.
+    :return: A string representing the humdrum syntax token for the clef.
+    """
     octaveChange = ''
     if clef.octaveChange > 0:
       octaveChange = '^' * clef.octaveChange
@@ -514,6 +593,15 @@ class Score:
     return f'*clef{clef.sign}{octaveChange}{clef.line}'
 
   def _clefs(self):
+    """
+    Extract the clefs from the score. 
+
+    The clefs are extracted from each part and returned as a pandas DataFrame 
+    where each column represents a part and each row represents a clef. The 
+    DataFrame is indexed by the offset of the clefs.
+
+    :return: A pandas DataFrame representing the clefs in the score.
+    """
     if 'clefs' not in self._analyses:
       parts = []
       isUnique = True
@@ -542,6 +630,15 @@ class Score:
     return self._analyses['clefs']
 
   def dynamics(self):
+    """
+    Extract the dynamics from the score. 
+
+    The dynamics are extracted from each part and returned as a pandas DataFrame 
+    where each column represents a part and each row represents a dynamic 
+    marking. The DataFrame is indexed by the offset of the dynamic markings.
+
+    :return: A pandas DataFrame representing the dynamics in the score.
+    """
     if 'dynamics' not in self._analyses:
       dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._flatParts]
       dyns = pd.concat(dyns, axis=1)
@@ -551,8 +648,13 @@ class Score:
     return self._analyses['dynamics']
 
   def _priority(self):
-    '''\tFor .krn files, get the line numbers of the events in the piece, which music21
-    often calls "priority". For other encoding formats return an empty dataframe.'''
+    """
+    For .krn files, get the line numbers of the events in the piece, which 
+    music21 often calls "priority". For other encoding formats return an 
+    empty dataframe.
+
+    :return: A DataFrame containing the priority values.
+    """
     if '_priority' not in self._analyses:
       if self.fileExtension != 'krn':
         priority = pd.DataFrame()
@@ -563,12 +665,28 @@ class Score:
     return self._analyses['_priority']
 
   def _snapTo(self, data, snap_to=None, filler='forward', output='array'):
-    '''\tTakes a `harm`, `harmKeys`, `functions`, `chords`, or `cdata` as `data` and
-    the `snap_to` and `filler` parameters as described in the former three's doc strings.
-    The passed data is returned in the shape of the snap_to dataframe's columns, and any
-    filling operations are applied. The output will be in the form of a 1D numpy array
-    unless `output` is changed, in which case a series will be returned for harm,
-    harmKeys, functions, and chords data, and a dataframe for cdata data.'''
+    """"
+    Takes a `harm`, `harmKeys`, `functions`, `chords`, or `cdata` as `data` and
+    the `snap_to` and `filler` parameters as described in the former three's 
+    doc strings.
+
+    The passed data is returned in the shape of the snap_to dataframe's columns,
+    and any filling operations are applied. The output will be in the form of a 
+    1D numpy array unless `output` is changed, in which case a series will be 
+    returned for harm, harmKeys, functions, and chords data, and a dataframe for 
+    cdata data.
+
+    :param data: Can be `harm`, `harmKeys`, `functions`, `chords`, or `cdata`.
+    :param snap_to: Described in the docstrings of `harm`, `harmKeys`, and 
+        `functions`.
+    :param filler: Described in the docstrings of `harm`, `harmKeys`, and 
+        `functions`.
+    :param output: If changed, a series will be returned for `harm`, `harmKeys`, 
+        `functions`, and `chords` data, and a dataframe for `cdata` data. Default 
+        is a 1D numpy array.
+    :return: The passed data in the shape of the `snap_to` dataframe's columns 
+        with any filling operations applied.
+    """
     if snap_to is not None:
       data = data.reindex(snap_to.columns)
     if filler != '.':
@@ -609,18 +727,41 @@ class Score:
     return self._snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
   cdata.__doc__ = _reused_docstring
 
-  def _remove_tied(self, noteOrRest):
+  def _removeTied(self, noteOrRest):
+    """
+    Helper function for the `_m21ObjectsNoTies` method. 
+
+    Remove tied notes in a given note or rest. Only the first note in a tied 
+    group will be kept.
+
+    :param noteOrRest: A music21 note or rest object.
+    :return: np.nan if the note is tied and not the first in the group, 
+        otherwise the original note or rest.
+    """
     if hasattr(noteOrRest, 'tie') and noteOrRest.tie is not None and noteOrRest.tie.type != 'start':
       return np.nan
     return noteOrRest
 
   def _m21ObjectsNoTies(self):
+    """
+    Remove tied notes in a given voice. Only the first note in a tied group 
+    will be kept.
+
+    :param voice: A music21 stream Voice object.
+    :return: A list of music21 objects with ties removed.
+    """
     if '_m21ObjectsNoTies' not in self._analyses:
-      self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(self._remove_tied).dropna(how='all')
+      self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(self._removeTied).dropna(how='all')
     return self._analyses['_m21ObjectsNoTies']
 
   def _measures(self):
-    '''\tReturn df of the measure starting points.'''
+    """
+    Return a DataFrame of the measure starting points.
+
+    :return: A DataFrame where each column corresponds to a part in the score,
+        and each row index is the offset of a measure start. The values are 
+        the measure numbers.
+    """
     if '_measures' not in self._analyses:
       partMeasures = []
       for i, partName in enumerate(self.partNames):
@@ -632,9 +773,16 @@ class Score:
     return self._analyses['_measures'].copy()
 
   def _barlines(self):
-    '''\tReturn df of barlines specifying which barline type. Double barline, for
-    example, can help detect section divisions, and the final barline can help
-    process the `highestTime` similar to music21.'''
+    """
+    Return a DataFrame of barlines specifying which barline type.
+
+    Double barline, for example, can help detect section divisions, and the 
+    final barline can help process the `highestTime` similar to music21.
+
+    :return: A DataFrame where each column corresponds to a part in the score,
+        and each row index is the offset of a barline. The values are the 
+        barline types.
+    """
     if "_barlines" not in self._analyses:
       partBarlines = [pd.Series({m.offset: m.measureNumber for m in part.getElementsByClass(['Barline'])})
                       for i, part in enumerate(self._flatParts)]
@@ -644,6 +792,15 @@ class Score:
     return self._analyses["_barlines"]
 
   def _keySignatures(self, kern=True):
+    """
+    Return a DataFrame of key signatures for each part in the score.
+
+    :param kern: Boolean, default True. If True, the key signatures are 
+        returned in the **kern format.
+    :return: A DataFrame where each column corresponds to a part in the score,
+        and each row index is the offset of a key signature. The values are 
+        the key signatures.
+    """
     if '_keySignatures' not in self._analyses:
       kSigs = []
       for i, part in enumerate(self._flatParts):
@@ -655,6 +812,13 @@ class Score:
     return self._analyses['_keySignatures']
 
   def _timeSignatures(self):
+    """
+    Return a DataFrame of time signatures for each part in the score.
+
+    :return: A DataFrame where each column corresponds to a part in the score,
+        and each row index is the offset of a time signature. The values are 
+        the time signatures in ratio string format.
+    """
     if '_timeSignatures' not in self._analyses:
       tsigs = []
       for i, part in enumerate(self._flatParts):
@@ -664,7 +828,19 @@ class Score:
     return self._analyses['_timeSignatures']
 
   def durations(self, multi_index=False, df=None):
-    '''\tReturn dataframe of durations of note and rest objects in piece.'''
+    """
+    Return a DataFrame of durations of note and rest objects in the piece.
+
+    If a DataFrame is provided as `df`, the method calculates the difference 
+    between cell offsets per column in the passed DataFrame, skipping 
+    memoization.
+
+    :param multi_index: Boolean, default False. If True, the returned DataFrame 
+        will have a MultiIndex.
+    :param df: Optional DataFrame. If provided, the method calculates the 
+        difference between cell offsets per column in this DataFrame.
+    :return: A DataFrame of durations of note and rest objects in the piece.
+    """
     if df is None:
       key = ('durations', multi_index)
       if key not in self._analyses:
@@ -693,8 +869,17 @@ class Score:
       return res
 
   def midiPitches(self, multi_index=False):
-    '''\tReturn a dataframe of notes and rests as midi pitches. Midi does not
-    have a representation for rests, so -1 is used as a placeholder.'''
+    """
+    Return a DataFrame of notes and rests as MIDI pitches.
+
+    MIDI does not have a representation for rests, so -1 is used as a 
+    placeholder.
+
+    :param multi_index: Boolean, default False. If True, the returned DataFrame 
+        will have a MultiIndex.
+    :return: A DataFrame of notes and rests as MIDI pitches. Rests are 
+        represented as -1.
+    """
     key = ('midiPitches', multi_index)
     if key not in self._analyses:
       midiPitches = self._m21ObjectsNoTies().applymap(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
@@ -704,26 +889,62 @@ class Score:
     return self._analyses[key]
 
   def _noteRestHelper(self, nr):
+    """
+    Helper function for the `notes` method. 
+
+    If the note/rest object `nr` is a rest, return 'r'. Otherwise, return the 
+    note's name with octave.
+
+    :param nr: A note/rest object.
+    :return: 'r' if `nr` is a rest, otherwise the note's name with octave.
+    """
+
     if nr.isRest:
       return 'r'
     return nr.nameWithOctave
 
   def _combineRests(self, col):
-      col = col.dropna()
-      return col[(col != 'r') | ((col == 'r') & (col.shift(1) != 'r'))]
+    """
+    Helper function for the `notes` method. 
+
+    Combine consecutive rests in a given voice. Non-first consecutive rests 
+    will be removed.
+
+    :param col: A pandas Series representing a voice.
+    :return: The same pandas Series with consecutive rests combined.
+    """
+    col = col.dropna()
+    return col[(col != 'r') | ((col == 'r') & (col.shift(1) != 'r'))]
 
   def _combineUnisons(self, col):
-      col = col.dropna()
-      return col[(col == 'r') | (col != col.shift(1))]
+    """
+    Helper function for the `notes` method. 
+
+    Combine consecutive unisons in a given voice. Non-first consecutive unisons 
+    will be removed.
+
+    :param col: A pandas Series representing a voice.
+    :return: The same pandas Series with consecutive unisons combined.
+    """
+    col = col.dropna()
+    return col[(col == 'r') | (col != col.shift(1))]
 
   def notes(self, combine_rests=True, combine_unisons=False):
-    '''\tReturn a dataframe of the notes and rests given in American Standard Pitch
+    """
+    Return a DataFrame of the notes and rests given in American Standard Pitch
     Notation where middle C is C4. Rests are designated with the string "r".
 
     If `combine_rests` is True (default), non-first consecutive rests will be
     removed, effectively combining consecutive rests in each voice.
     `combine_unisons` works the same way for consecutive attacks on the same
-    pitch in a given voice, however, `combine_unisons` defaults to False.'''
+    pitch in a given voice, however, `combine_unisons` defaults to False.
+
+    :param combine_rests: Boolean, default True. If True, non-first consecutive 
+        rests will be removed.
+    :param combine_unisons: Boolean, default False. If True, consecutive attacks 
+        on the same pitch in a given voice will be combined.
+    :return: A DataFrame of notes and rests in American Standard Pitch Notation.
+    """
     if 'notes' not in self._analyses:
       df = self._m21ObjectsNoTies().applymap(self._noteRestHelper, na_action='ignore')
       self._analyses['notes'] = df
@@ -737,7 +958,16 @@ class Score:
     return ret
 
   def _kernNoteHelper(self, _note):
-    '''\tParse a music21 note object into a kern note token.'''
+    """
+    Parse a music21 note object into a kern note token.
+
+    This method handles the conversion of various musical notations such as 
+    ties, slurs, beams, durations, octaves, accidentals, longas, and grace 
+    notes into the kern format.
+
+    :param _note: A music21 note object to be converted into a kern note token.
+    :return: A string representing the kern note token.
+    """
     # TODO: this doesn't seem to be detecting longas in scores. Does m21 just not detect longas in kern files? Test with mei, midi, and xml
     startBracket, endBracket, beaming = '', '', ''
     if hasattr(_note, 'tie') and _note.tie is not None:
@@ -776,11 +1006,30 @@ class Score:
     return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}'
 
   def _kernChordHelper(self, _chord):
-    '''\tParse a music21 chord object into a kern chord token.'''
+    """
+    Parse a music21 chord object into a kern chord token.
+
+    This method uses the `_kernNoteHelper` method to convert each note in the 
+    chord into a kern note token. The tokens are then joined together with 
+    spaces to form the kern chord token.
+
+    :param _chord: A music21 chord object to be converted into a kern chord token.
+    :return: A string representing the kern chord token.
+    """
     return ' '.join([self._kernNoteHelper(note) for note in _chord.notes])
 
   def _kernNRCHelper(self, nrc):
-    '''\tConvert a music21 note, rest, or chord object to its corresponding kern token.'''
+    """
+    Convert a music21 note, rest, or chord object to its corresponding kern token.
+
+    This method uses the `_kernNoteHelper` and `_kernChordHelper` methods to 
+    convert note and chord objects, respectively. Rest objects are converted 
+    directly in this method.
+
+    :param nrc: A music21 note, rest, or chord object to be converted into a 
+        kern token.
+    :return: A string representing the kern token.
+    """
     if nrc.isNote:
       return self._kernNoteHelper(nrc)
     elif nrc.isRest:
@@ -789,26 +1038,39 @@ class Score:
       return self._kernChordHelper(nrc)
 
   def kernNotes(self):
-    '''\tReturn a dataframe of the notes and rests given in kern notation. This is
-    not the same as creating a kern format of a score, but is an important step
-    in that process.'''
+    """
+    Return a DataFrame of the notes and rests given in kern notation.
+
+    This is not the same as creating a kern format of a score, but is an 
+    important step in that process.
+
+    :return: A DataFrame of notes and rests in kern notation.
+    """
     if 'kernNotes' not in self._analyses:
       self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
     return self._analyses['kernNotes']
 
   def nmats(self, json_path=None, include_cdata=False):
-    '''\tReturn a dictionary of dataframes, one for each voice, each with the following
-    columns about the notes and rests in that voice:
+    """
+    Return a dictionary of DataFrames, one for each voice, with information 
+    about the notes and rests in that voice.
 
+    Each DataFrame has the following columns:
+    
     MEASURE  ONSET  DURATION  PART  MIDI  ONSET_SEC  OFFSET_SEC
+    
+    In the MIDI column, notes are represented 
+    with their MIDI pitch numbers (0 to 127), and rests are represented with -1s. 
+    The ONSET_SEC and OFFSET_SEC columns are taken from the audio analysis from 
+    the `json_path` file if one is given. The XML_IDs of each note or rest serve 
+    as the index for this DataFrame. If `include_cdata` is True and a `json_path` 
+    is provided, the cdata from the json file is included in the DataFrame.
 
-    In the MIDI column, notes are represented with their midi pitch numbers 0 to 127
-    inclusive, and rests are represented with -1s. The XML_ID column gives the xml id of
-    the note or rest object, if there is one. The ONSET_SEC and OFFSET_SEC columns are
-    taken from the audio analysis from the `json_path` file if one is given. The XML_IDs
-    of each note or rest serve as the index for this dataframe. If you want
-    to include the cdata from the json file in with the rest of the nmat columns listed
-    above, set `include_cdata=True`. This setting requires a `json_path` to be passed as well.'''
+    :param json_path: Optional path to a JSON file containing audio analysis data.
+    :param include_cdata: Boolean, default False. If True and a `json_path` is 
+        provided, the cdata from the json file is included in the DataFrame.
+    :return: A dictionary of DataFrames, one for each voice.
+    """
     if not json_path:   # user must pass a json_path if they want the cdata to be included
       include_cdata = False
     key = ('nmats', json_path, include_cdata)
@@ -856,7 +1118,15 @@ class Score:
     return self._analyses[key]
 
   def pianoRoll(self):
-    '''\tConstruct midi piano roll. NB: there are 128 possible midi pitches.'''
+    """
+    Construct a MIDI piano roll.
+
+    Note: There are 128 possible MIDI pitches.
+
+    :return: A DataFrame representing the MIDI piano roll. Each row corresponds 
+        to a MIDI pitch (0 to 127), and each column corresponds to an offset in 
+        the score. The values are 1 for a note onset and 0 otherwise.
+    """
     if 'pianoRoll' not in self._analyses:
       mp = self.midiPitches()
       mp = mp[~mp.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
@@ -870,7 +1140,16 @@ class Score:
     return self._analyses['pianoRoll']
 
   def sampled(self, bpm=60, obs=20):
-    '''\tSample the score according to bpm, and the desired observations per second, `obs`.'''
+    """
+    Sample the score according to the given beats per minute (bpm) and the 
+    desired observations per second (obs).
+
+    :param bpm: Integer, default 60. The beats per minute to use for sampling.
+    :param obs: Integer, default 20. The desired observations per second.
+    :return: A DataFrame representing the sampled score. Each row corresponds 
+        to a MIDI pitch (0 to 127), and each column corresponds to a timepoint 
+        in the sampled score. The values are 1 for a note onset and 0 otherwise.
+    """
     key = ('sampled', bpm, obs)
     if key not in self._analyses:
       slices = 60/bpm * obs
@@ -883,7 +1162,22 @@ class Score:
 
   def mask(self, winms=100, sample_rate=2000, num_harmonics=1, width=0,
           bpm=60, aFreq=440, base_note=0, tuning_factor=1, obs=20):
-    '''\tConstruct a mask from the sampled piano roll using width and harmonics.'''
+    """
+    Construct a mask from the sampled piano roll using width and harmonics.
+
+    :param winms: Integer, default 100. The window size in milliseconds.
+    :param sample_rate: Integer, default 2000. The sample rate in Hz.
+    :param num_harmonics: Integer, default 1. The number of harmonics to use.
+    :param width: Integer, default 0. The width of the mask.
+    :param bpm: Integer, default 60. The beats per minute to use for sampling.
+    :param aFreq: Integer, default 440. The frequency of A4 in Hz.
+    :param base_note: Integer, default 0. The base MIDI note to use.
+    :param tuning_factor: Float, default 1. The tuning factor to use.
+    :param obs: Integer, default 20. The desired observations per second.
+    :return: A DataFrame representing the mask. Each row corresponds to a 
+        frequency bin, and each column corresponds to a timepoint in the 
+        sampled score. The values are 1 for a note onset and 0 otherwise.
+    """
     key = ('mask', winms, sample_rate, num_harmonics, width, bpm, aFreq, base_note, tuning_factor)
     if key not in self._analyses:
       width_semitone_factor = 2 ** ((width / 2) / 12)
@@ -909,12 +1203,17 @@ class Score:
     return self._analyses[key]
 
   def jsonCDATA(self, json_path):
-    '''\tReturns a dictionary of pandas dataframes, one for each voice. These dataframes
-    contain the cdata from the json file designated in `json_path` with each nested key
-    in the json object becoming a column name in the dataframe. The outmost keys of the
-    json cdata will become the "absolute" column. While the columns are different, there
-    are as many rows in these dataframes as there are in those of the nmats dataframes
-    for each voice.'''
+    """
+    Return a dictionary of pandas DataFrames, one for each voice. These 
+    DataFrames contain the cdata from the JSON file designated in `json_path` 
+    with each nested key in the JSON object becoming a column name in the 
+    DataFrame. The outermost keys of the JSON cdata will become the "absolute" 
+    column. While the columns are different, there are as many rows in these 
+    DataFrames as there are in those of the nmats DataFrames for each voice.
+
+    :param json_path: Path to a JSON file containing cdata.
+    :return: A dictionary of pandas DataFrames, one for each voice.
+    """
     key = ('jsonCDATA', json_path)
     if key not in self._analyses:
       nmats = self.nmats(json_path=json_path, include_cdata=True)
@@ -928,9 +1227,16 @@ class Score:
     return self._analyses[key]
 
   def fromJSON(self, json_path):
-    '''\tReturn a pandas dataframe of the JSON file. The outermost keys will get
-    interpretted as the index values of the table and should be in seconds with
-    decimal places allowed, and the second-level keys will be the columns.'''
+    """
+    Load a JSON file into a pandas DataFrame.
+
+    The outermost keys of the JSON object are interpreted as the index values of 
+    the DataFrame and should be in seconds with decimal places allowed. The 
+    second-level keys become the columns of the DataFrame.
+
+    :param json_path: Path to a JSON file.
+    :return: A pandas DataFrame representing the JSON data.
+    """
     with open(json_path) as json_data:
       data = json.load(json_data)
     df = pd.DataFrame(data).T
@@ -938,34 +1244,42 @@ class Score:
     return df
 
   def insertAudioAnalysis(self, output_filename, json_path, mimetype='', target=''):
-    '''\tMake a <performance> element and insert into the mei score given the
-    analysis data (`json_path`). The original score must be an mei file. The json
-    data will be extracted via the `.nmats()` method. If provided, the `mimetype`
-    and `target` get passed as attributes to the <avFile> element. The
-    performance element will nest the df data in the <performance> element in the
-    format below as a child of <music> and a sibling of <body>. A new file will
-    be saved to the output_filename in the output_files directory.
+    """
+    Insert a <performance> element into the MEI score given the analysis data 
+    (`json_path`). The original score must be an MEI file. The JSON data will be 
+    extracted via the `.nmats()` method. If provided, the `mimetype` and `target` 
+    get passed as attributes to the <avFile> element. The performance element 
+    will nest the DataFrame data in the <performance> element as a child of 
+    <music> and a sibling of <body>. A new file will be saved to the 
+    `output_filename` in the output_files directory.
 
-    <music>
-      <performance xml:id="pyAMPACT-1">
-        <recording xml:id="pyAMPACT-2">
-          <avFile mimetype="audio/aiff" target="Close to You vocals.wav" xml:id=""pyAMPACT-3"/>
-          <when absolute="00:00:12:428" xml:id="pyAMPACT-4" data="#note_1">
-            <extData xml:id="pyAMPACT-5">
-              <![CDATA[>
-                {"ppitch":221.30926295063591,"jitter":0.74273614321917725, ...}
-              ]]>
-            </extData>
-          </when>
-          <when absolute="00:00:12:765" xml:id="pyAMPACT-6" data="#note_2">
+    ` <music>
+        <performance xml:id="pyAMPACT-1">
+          <recording xml:id="pyAMPACT-2">
+            <avFile mimetype="audio/aiff" target="Close to You vocals.wav" xml:id=""pyAMPACT-3"/>
+            <when absolute="00:00:12:428" xml:id="pyAMPACT-4" data="#note_1">
+              <extData xml:id="pyAMPACT-5">
+                <![CDATA[>
+                  {"ppitch":221.30926295063591,"jitter":0.74273614321917725, ...}
+                ]]>
+              </extData>
+            </when>
+            <when absolute="00:00:12:765" xml:id="pyAMPACT-6" data="#note_2">
+            ...
+          </recording>
+        </performance>
+        <body>
           ...
-        </recording>
-      </performance>
-      <body>
-        ...
-      </body>
-    </music>
-    '''
+        </body>
+      </music>`
+
+    :param output_filename: The name of the output file.
+    :param json_path: Path to a JSON file containing analysis data.
+    :param mimetype: Optional MIME type to be set as an attribute to the <avFile> 
+        element.
+    :param target: Optional target to be set as an attribute to the <avFile> 
+        element.
+    """
     performance = ET.Element('performance', {'xml:id': next(_idGen)})
     recording = ET.SubElement(performance, 'recording', {'xml:id': next(_idGen)})
     avFile = ET.SubElement(recording, 'avFile', {'xml:id': next(_idGen)})
@@ -997,8 +1311,14 @@ class Score:
       ET.ElementTree(self._meiTree).write(f, encoding='unicode')
 
   def show(self, start=None, end=None):
-    '''\tPrint a VerovioHumdrumViewer link to the score in between the `start` and
-    `end` measures (inclusive).'''
+    """
+    Print a VerovioHumdrumViewer link to the score in between the `start` and
+    `end` measures (inclusive).
+
+    :param start: Optional integer representing the starting measure. If `start` 
+        is greater than `end`, they will be swapped.
+    :param end: Optional integer representing the ending measure.
+    """
     if isinstance(start, int) and isinstance(end, int) and start > end:
       start, end = end, start
     tk = self.toKern()
@@ -1019,7 +1339,13 @@ class Score:
       print(f'https://verovio.humdrum.org/?t={encoded}')
 
   def _kernHeader(self):
-    '''\tReturn a string of the kern format header global comments.'''
+    """
+    Return a string of the kern format header global comments.
+
+    The header includes the composer and title metadata.
+
+    :return: A string representing the kern format header.
+    """
     data = [
       f'!!!COM: {self.metadata["composer"]}',
       f'!!!OTL: {self.metadata["title"]}'
@@ -1027,7 +1353,13 @@ class Score:
     return '\n'.join(data)
 
   def _kernFooter(self):
-    '''Return a string of the kern format footer global comments.'''
+    """
+    Return a string of the kern format footer global comments.
+
+    The footer includes the translation date and other relevant metadata.
+
+    :return: A string representing the kern format footer.
+    """
     from datetime import datetime
     data = [
       '!!!RDF**kern: %=rational rhythm',
@@ -1039,13 +1371,24 @@ class Score:
     return '\n'.join(data)
 
   def toKern(self, path_name='', data='', lyrics=True, dynamics=True):
-    '''\t*** WIP: currently not outputting valid kern files. ***
+    """
     Create a kern representation of the score. If no `path_name` variable is
-    passed, then returns a pandas DataFrame of the kern representation. Otherwise
-    a file is created or overwritten at the `path_name` path. If path_name does not
-    end in '.krn' then this file extension will be added to the path.
-    If `lyrics` is `True` (default) then the lyrics for each part will be added to
-    the output, if there are lyrics. The same applies to `dynamics`'''
+    passed, then returns a pandas DataFrame of the kern representation. 
+    Otherwise a file is created or overwritten at the `path_name` path. If 
+    path_name does not end in '.krn' then this file extension will be added 
+    to the path. If `lyrics` is `True` (default) then the lyrics for each part 
+    will be added to the output, if there are lyrics. The same applies to 
+    `dynamics`.
+
+    :param path_name: Optional string representing the path to save the kern 
+        file.
+    :param data: Optional string representing the data to be converted to kern 
+        format.
+    :param lyrics: Boolean, default True. If True, lyrics for each part will 
+        be added.
+    :param dynamics: Boolean, default True. If True, dynamics for each part 
+        will be added.
+    """
     key = ('toKern', data)
     if key not in self._analyses:
       _me = self._measures()
