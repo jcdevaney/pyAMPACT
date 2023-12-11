@@ -3,7 +3,6 @@ import numpy as np
 import music21 as m21
 import math
 import ast
-import pdb
 import json
 import requests
 import os
@@ -26,11 +25,17 @@ def _id_gen(start=1):
 
   This function generates a unique ID for each instance of the Score class 
   by incrementing a counter starting from the provided start value. The ID 
-  is in the format 'pyAMPACT-{start}'.
+  is in the format 'pyAMPACT-{start}'. This isn't meant to be used directly
+  so see the example below for usage.
 
   :param start: An integer representing the starting value for the ID 
                 counter. Default is 1.
   :yield: A string representing the unique ID.
+
+  Example:
+  --------
+  .. code-block:: python
+      newID = next(_idGen)
   """
   while True:
     yield f'pyAMPACT-{start}'
@@ -157,23 +162,37 @@ _reused_docstring =  """
   :param output: A string representing the output format. Default is 'array'.
   :return: A numpy array or pandas Series representing the harmonic keys
       analysis.
+
+  Example:
+  --------
+  .. code-block:: python
+      piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+      piece.harm()
   """
 
 
 class Score:
   """
-  A class to import a musical score via music21 and expose AMPACT's analysis utilities.
+  A class to import a musical score via music21 and expose AMPACT's analysis 
+  utilities.
 
-  The analysis utilities are generally formatted as pandas dataframes. This class also 
-  ports over some matlab code to help with alignment of scores in symbolic notation and 
-  audio analysis of recordings of those scores. `Score` objects can insert analysis into 
-  an MEI file, and can export any type of file to a kern format, optionally also including 
-  analysis from a JSON file. Similarly, `Score` objects can serve clickable URLs of short 
-  excerpts of their associated score in symbolic notation. These links open in the Verovio 
+  The analysis utilities are generally formatted as pandas dataframes. This 
+  class also ports over some matlab code to help with alignment of scores in 
+  symbolic notation and audio analysis of recordings of those scores. `Score` 
+  objects can insert analysis into an MEI file, and can export any type of 
+  file to a kern format, optionally also including analysis from a JSON file. 
+  Similarly, `Score` objects can serve clickable URLs of short excerpts of 
+  their associated score in symbolic notation. These links open in the Verovio 
   Humdrum Viewer.
 
   :param score_path: A string representing the path to the score file.
   :return: A Score object.
+
+  Example:
+  --------
+  .. code-block:: python
+      url_or_path = 'https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn'
+      piece = Score(url_or_path)
   """
   def __init__(self, score_path):
     self._analyses = {}
@@ -525,6 +544,12 @@ class Score:
     return a DataFrame of the ids of the music21 objects.
 
     :return: A pandas DataFrame representing the xml ids in the score.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.xmlIDs()
     """
     if 'xmlIDs' in self._analyses:
       return self._analyses['xmlIDs']
@@ -573,6 +598,12 @@ class Score:
     DataFrame is indexed by the offset of the lyrics.
 
     :return: A pandas DataFrame representing the lyrics in the score.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://raw.githubusercontent.com/alexandermorgan/AMPACT/main/test_files/busnoys.krn')
+        piece.lyrics()
     """
     if 'lyrics' not in self._analyses:
       self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
@@ -638,6 +669,12 @@ class Score:
     marking. The DataFrame is indexed by the offset of the dynamic markings.
 
     :return: A pandas DataFrame representing the dynamics in the score.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.dynamics()
     """
     if 'dynamics' not in self._analyses:
       dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._flatParts]
@@ -840,6 +877,12 @@ class Score:
     :param df: Optional DataFrame. If provided, the method calculates the 
         difference between cell offsets per column in this DataFrame.
     :return: A DataFrame of durations of note and rest objects in the piece.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.durations()
     """
     if df is None:
       key = ('durations', multi_index)
@@ -879,6 +922,12 @@ class Score:
         will have a MultiIndex.
     :return: A DataFrame of notes and rests as MIDI pitches. Rests are 
         represented as -1.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.midiPitches()
     """
     key = ('midiPitches', multi_index)
     if key not in self._analyses:
@@ -898,7 +947,6 @@ class Score:
     :param nr: A note/rest object.
     :return: 'r' if `nr` is a rest, otherwise the note's name with octave.
     """
-
     if nr.isRest:
       return 'r'
     return nr.nameWithOctave
@@ -944,6 +992,12 @@ class Score:
     :param combine_unisons: Boolean, default False. If True, consecutive attacks 
         on the same pitch in a given voice will be combined.
     :return: A DataFrame of notes and rests in American Standard Pitch Notation.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.notes()
     """
     if 'notes' not in self._analyses:
       df = self._m21ObjectsNoTies().applymap(self._noteRestHelper, na_action='ignore')
@@ -1045,6 +1099,12 @@ class Score:
     important step in that process.
 
     :return: A DataFrame of notes and rests in kern notation.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.kernNotes()
     """
     if 'kernNotes' not in self._analyses:
       self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
@@ -1070,6 +1130,12 @@ class Score:
     :param include_cdata: Boolean, default False. If True and a `json_path` is 
         provided, the cdata from the json file is included in the DataFrame.
     :return: A dictionary of DataFrames, one for each voice.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K179/Krn/K179.krn')
+        piece.nmats()
     """
     if not json_path:   # user must pass a json_path if they want the cdata to be included
       include_cdata = False
@@ -1126,6 +1192,12 @@ class Score:
     :return: A DataFrame representing the MIDI piano roll. Each row corresponds 
         to a MIDI pitch (0 to 127), and each column corresponds to an offset in 
         the score. The values are 1 for a note onset and 0 otherwise.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.pianoRoll()
     """
     if 'pianoRoll' not in self._analyses:
       mp = self.midiPitches()
@@ -1149,6 +1221,12 @@ class Score:
     :return: A DataFrame representing the sampled score. Each row corresponds 
         to a MIDI pitch (0 to 127), and each column corresponds to a timepoint 
         in the sampled score. The values are 1 for a note onset and 0 otherwise.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.sampled()
     """
     key = ('sampled', bpm, obs)
     if key not in self._analyses:
@@ -1177,6 +1255,12 @@ class Score:
     :return: A DataFrame representing the mask. Each row corresponds to a 
         frequency bin, and each column corresponds to a timepoint in the 
         sampled score. The values are 1 for a note onset and 0 otherwise.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+        piece.mask()
     """
     key = ('mask', winms, sample_rate, num_harmonics, width, bpm, aFreq, base_note, tuning_factor)
     if key not in self._analyses:
@@ -1213,6 +1297,12 @@ class Score:
 
     :param json_path: Path to a JSON file containing cdata.
     :return: A dictionary of pandas DataFrames, one for each voice.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('./test_files/CloseToYou.mei.xml')
+        piece.jsonCDATA(json_path='./test_files/CloseToYou.json')
     """
     key = ('jsonCDATA', json_path)
     if key not in self._analyses:
@@ -1236,6 +1326,12 @@ class Score:
 
     :param json_path: Path to a JSON file.
     :return: A pandas DataFrame representing the JSON data.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('./test_files/CloseToYou.mei.xml')
+        piece.fromJSON(json_path='./test_files/CloseToYou.json')
     """
     with open(json_path) as json_data:
       data = json.load(json_data)
@@ -1279,6 +1375,15 @@ class Score:
         element.
     :param target: Optional target to be set as an attribute to the <avFile> 
         element.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('./test_files/CloseToYou.mei.xml')
+        piece.insertAudioAnalysis(output_filename='newfile.mei.xml'
+            json_path='./test_files/CloseToYou.json',
+            mimetype='audio/aiff',
+            target='Close to You vocals.wav')
     """
     performance = ET.Element('performance', {'xml:id': next(_idGen)})
     recording = ET.SubElement(performance, 'recording', {'xml:id': next(_idGen)})
@@ -1318,6 +1423,12 @@ class Score:
     :param start: Optional integer representing the starting measure. If `start` 
         is greater than `end`, they will be swapped.
     :param end: Optional integer representing the ending measure.
+
+    Example:
+    --------
+    .. code-block:: python
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K398/Krn/K398.krn')
+        piece.show(5, 10)
     """
     if isinstance(start, int) and isinstance(end, int) and start > end:
       start, end = end, start
@@ -1388,6 +1499,13 @@ class Score:
         be added.
     :param dynamics: Boolean, default True. If True, dynamics for each part 
         will be added.
+
+    Example:
+    --------
+    .. code-block:: python
+        # create a kern file from a different symbolic notation file
+        piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K179/Krn/K179.xml')
+        piece.toKern()
     """
     key = ('toKern', data)
     if key not in self._analyses:
