@@ -32,6 +32,11 @@ def _id_gen(start=1):
                 counter. Default is 1.
   :yield: A string representing the unique ID.
 
+  See Also
+  --------
+  :meth:`insertAudioAnalysis`
+  :meth:`xmlIDs`
+
   Example:
   --------
   .. code-block:: python
@@ -162,6 +167,14 @@ _reused_docstring =  """
   :param output: A string representing the output format. Default is 'array'.
   :return: A numpy array or pandas Series representing the harmonic keys
       analysis.
+
+  See Also
+  --------
+  :meth:`cdata`
+  :meth:`chords`
+  :meth:`functions`
+  :meth:`harm`
+  :meth:`harmKeys`
 
   Example:
   --------
@@ -545,6 +558,10 @@ class Score:
 
     :return: A pandas DataFrame representing the xml ids in the score.
 
+    See Also
+    --------
+    :meth:`nmats`
+
     Example:
     --------
     .. code-block:: python
@@ -598,6 +615,10 @@ class Score:
     DataFrame is indexed by the offset of the lyrics.
 
     :return: A pandas DataFrame representing the lyrics in the score.
+
+    See Also
+    --------
+    :meth:`dynamics`
 
     Example:
     --------
@@ -669,6 +690,10 @@ class Score:
     marking. The DataFrame is indexed by the offset of the dynamic markings.
 
     :return: A pandas DataFrame representing the dynamics in the score.
+
+    See Also
+    --------
+    :meth:`lyrics`
 
     Example:
     --------
@@ -878,6 +903,12 @@ class Score:
         difference between cell offsets per column in this DataFrame.
     :return: A DataFrame of durations of note and rest objects in the piece.
 
+    See Also
+    --------
+    :meth:`notes`
+        Return a DataFrame of the notes and rests given in American Standard
+        Pitch Notation
+
     Example:
     --------
     .. code-block:: python
@@ -922,6 +953,14 @@ class Score:
         will have a MultiIndex.
     :return: A DataFrame of notes and rests as MIDI pitches. Rests are 
         represented as -1.
+
+    See Also
+    --------
+    :meth:`kernNotes`
+        Return a DataFrame of the notes and rests given in kern notation.
+    :meth:`notes`
+        Return a DataFrame of the notes and rests given in American Standard
+        Pitch Notation
 
     Example:
     --------
@@ -992,6 +1031,12 @@ class Score:
     :param combine_unisons: Boolean, default False. If True, consecutive attacks 
         on the same pitch in a given voice will be combined.
     :return: A DataFrame of notes and rests in American Standard Pitch Notation.
+
+    See Also
+    --------
+    :meth:`kernNotes`
+        Return a DataFrame of the notes and rests given in kern notation.
+    :meth:`midiPitches`
 
     Example:
     --------
@@ -1100,6 +1145,13 @@ class Score:
 
     :return: A DataFrame of notes and rests in kern notation.
 
+    See Also
+    --------
+    :meth: `midiPitches`
+    :meth:`notes`
+        Return a DataFrame of the notes and rests given in American Standard
+        Pitch Notation
+
     Example:
     --------
     .. code-block:: python
@@ -1130,6 +1182,13 @@ class Score:
     :param include_cdata: Boolean, default False. If True and a `json_path` is 
         provided, the cdata from the json file is included in the DataFrame.
     :return: A dictionary of DataFrames, one for each voice.
+
+    See Also
+    --------
+    :meth:`fromJSON`
+    :meth:`insertAudioAnalysis`
+    :meth:`jsonCDATA`
+    :meth:`xmlIDs`
 
     Example:
     --------
@@ -1193,6 +1252,11 @@ class Score:
         to a MIDI pitch (0 to 127), and each column corresponds to an offset in 
         the score. The values are 1 for a note onset and 0 otherwise.
 
+    See Also
+    --------
+    :meth:`mask`
+    :meth:`sampled`
+
     Example:
     --------
     .. code-block:: python
@@ -1221,6 +1285,11 @@ class Score:
     :return: A DataFrame representing the sampled score. Each row corresponds 
         to a MIDI pitch (0 to 127), and each column corresponds to a timepoint 
         in the sampled score. The values are 1 for a note onset and 0 otherwise.
+
+    See Also
+    --------
+    :meth:`mask`
+    :meth:`pianoRoll`
 
     Example:
     --------
@@ -1255,6 +1324,11 @@ class Score:
     :return: A DataFrame representing the mask. Each row corresponds to a 
         frequency bin, and each column corresponds to a timepoint in the 
         sampled score. The values are 1 for a note onset and 0 otherwise.
+
+    See Also
+    --------
+    :meth:`pianoRoll`
+    :meth:`sampled`
 
     Example:
     --------
@@ -1298,6 +1372,13 @@ class Score:
     :param json_path: Path to a JSON file containing cdata.
     :return: A dictionary of pandas DataFrames, one for each voice.
 
+    See Also
+    --------
+    :meth:`fromJSON`
+    :meth:`insertAudioAnalysis`
+    :meth:`nmats`
+    :meth:`xmlIDs`
+
     Example:
     --------
     .. code-block:: python
@@ -1326,6 +1407,11 @@ class Score:
 
     :param json_path: Path to a JSON file.
     :return: A pandas DataFrame representing the JSON data.
+
+    See Also
+    --------
+    :meth:`jsonCDATA`
+    :meth:`nmats`
 
     Example:
     --------
@@ -1376,6 +1462,11 @@ class Score:
     :param target: Optional target to be set as an attribute to the <avFile> 
         element.
 
+    See Also
+    --------
+    :meth:`nmats`
+    :meth:`toKern`
+
     Example:
     --------
     .. code-block:: python
@@ -1423,6 +1514,10 @@ class Score:
     :param start: Optional integer representing the starting measure. If `start` 
         is greater than `end`, they will be swapped.
     :param end: Optional integer representing the ending measure.
+
+    See Also
+    --------
+    :meth:`toKern`
 
     Example:
     --------
@@ -1499,6 +1594,10 @@ class Score:
         be added.
     :param dynamics: Boolean, default True. If True, dynamics for each part 
         will be added.
+
+    See Also
+    --------
+    :meth:`show`
 
     Example:
     --------
