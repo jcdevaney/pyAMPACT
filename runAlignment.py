@@ -6,6 +6,10 @@ from getVals import get_vals
 from runHMMAlignment import run_HMM_alignment
 from selectStates import select_states
 
+import os
+curr_dir = os.getcwd()
+from script import Score
+
 import sys
 
 
@@ -98,10 +102,25 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     #                         [2.5440, 3.8480, 0],
     #                         [1.0000, 1.0000, 1.0000]])
 
-    # Three Notes
+    # Three Notes - selectstate construction
+    # piece = Score(midiname)
+    # # end_times = piece.durations()
+    # nmat_from_script = piece.nmats() 
+    # end_times = nmat_from_script['Piano'].values        
+    # end_times = [row[1] for row in end_times]
+    # selectstate = np.empty((3, len(note_num)))
+    # # end_times = end_times['Piano'].keys()        
+    # selectstate[0, :] = state_ord[:len(note_num)]
+    # selectstate[1, :] = note_num
+    # selectstate[2, :] = np.pad(end_times, (0, len(note_num) - len(end_times)), mode='constant')
+    # print(selectstate)
+    
+    
+    
     selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
                             [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
                             [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
+    
 
     # # Six Notes
     # selectstate = np.array([

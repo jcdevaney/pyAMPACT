@@ -1,23 +1,24 @@
 # COMPLETE/TESTED
 import numpy as np
-from synthtrax import synthtrax
+# from synthtrax import synthtrax
 from perceivedPitch import perceived_pitch
 from calculateVibrato import calculate_vibrato
 
 def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=1):
     
-    # Return to this later...if necessary
-    if X is None: # nargs < 8
-        win_s = 0.064
-        WIN = int(win_s * SR)
-        nHOP = int(WIN / 4)
+    # # Return to this later...if necessary
+    # # This constructs X based on matrices, don't need?
+    # if X is None: # nargs < 8
+    #     win_s = 0.064
+    #     WIN = int(win_s * SR)
+    #     nHOP = int(WIN / 4)
 
-        # Filter out rows with zero magnitude sum
-        M2 = M[np.sum(M, axis=1) != 0, :]
-        F2 = F[np.sum(M, axis=1) != 0, :]
+    #     # Filter out rows with zero magnitude sum
+    #     M2 = M[np.sum(M, axis=1) != 0, :]
+    #     F2 = F[np.sum(M, axis=1) != 0, :]
 
         
-        X = synthtrax(F2, M2, SR, WIN, nHOP)
+    #     X = synthtrax(F2, M2, SR, WIN, nHOP)
 
     # Perceived pitch
     res_ppitch = perceived_pitch(f0_vals, SR / hop, 1)
@@ -40,7 +41,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     if gt_flag:
         M = np.abs(M) ** 2
     
-    res_spec_centroid = np.sum(F * M) / np.sum(M)
+    # res_spec_centroid = np.sum(F * M) / np.sum(M)
 
     # Spectral Slope                
     mu_x = np.mean(M, axis=0)        
@@ -73,7 +74,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
         "shimmer": res_shimmer,
         "pwr_vals": res_pwr_vals,
         "f0_vals": res_f0_vals,        
-        "spec_centroid": res_spec_centroid,
+        # "spec_centroid": res_spec_centroid,
         "spec_slope": res_spec_slope,
         "mean_spec_slope": res_mean_spec_slope,
         "spec_flux": res_spec_flux,

@@ -3,6 +3,11 @@ import librosa
 # import pretty_midi
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
+
+import os
+curr_dir = os.getcwd()
+from script import Score
 
 from mido import MidiFile, MidiTrack, Message
 # import functions
@@ -13,18 +18,22 @@ from getTimingData import get_timing_data
 from nmat2midi import nmat2midi
 from getCentVals import get_cent_vals
 from unused_scripts.getPitchVibratoData import get_pitch_vibrato_data
+from perceivedPitch import perceived_pitch
 from findPeaks import find_peaks
 from findMids import find_mids
 from smoothNote import smooth_note
 from findSteady import find_steady
 from noteDct import note_dct
+from freqAndMagMatrices import freq_and_mag_matrices
+from estimatePerceptualParameters import estimate_perceptual_parameters
 
 import sys
+
 
 # # ONE NOTES - GOOD!
 # # Specify audio and MIDI file NAMES
 # audio_file = './audio_files/exampleOneNote.wav'
-# midi_file = './audio_files/monophonic1note.mid'
+# midi_file = './test_files/monophonic1note.mid'
 
 # # Number of notes to align
 # num_notes = 1
@@ -37,20 +46,26 @@ import sys
 # # THREE NOTES - GOOD!
 # Specify audio and MIDI file NAMES
 audio_file = './audio_files/example3note.wav'
-midi_file = './audio_files/monophonic3notes.mid'
+midi_file = './test_files/monophonic3notes.mid'
+piece = Score(midi_file)
+notes = piece.midiPitches()
 
 # Number of notes to align
-num_notes = 3
+num_notes = 0;
+for note in notes['Piano']: # Hardcoded.  Fix this
+    if note != -1: # Exclude rests
+        num_notes += 1        
+
 
 # Define state order and note numbers
-state_ord = np.array([1, 3, 2, 3, 2, 3])
-note_num = np.array([1, 1, 2, 2, 3, 3])
+state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
+note_num = np.repeat(np.arange(1, num_notes + 1), 2)
 
 
 # # # SIX NOTES
 # # Specify audio and MIDI file NAMES
 # audio_file = './audio_files/example.wav'
-# midi_file = './audio_files/monophonic6notes.mid'
+# midi_file = './test_files/monophonic6notes.mid'
 
 # # Number of notes to align
 # num_notes = 6
@@ -79,13 +94,16 @@ all_state, select_state, spec, yin_res = run_alignment(
     audio_file, midi_file, num_notes, state_ord, note_num, means, covars, learn_params, width, target_sr, n_harm, win_ms)
 
 
+
 # Load audio and MIDI data
 audio, _ = librosa.load(audio_file, sr=target_sr)
 midi_data = MidiFile(midi_file)
 
 
 # Visualize the alignment
-alignment_visualizer(select_state, midi_file, spec, 1)
+# alignment_visualizer(select_state, midi_file, spec, 1)
+
+
 
 # Get onset and offset times
 times = get_ons_offs(select_state)
@@ -102,17 +120,65 @@ fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None)
 times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
 
 
+
+#Build JSON
+durations = piece.durations()
+f0_values = yin_res['f0']
+
+#Placeholders
+power_placeholder = np.array([[42]]) # Should also be pulled from yin
+F = np.array([[42]]) # Should also be pulled from yin
+M = np.array([[42]]) # Should also be pulled from yin
+
+# perceived_pitch1, perceived_pitch2 = perceived_pitch(f0_values, target_sr)
+
+# pwr_vales, F, M, and gt_flag need to be found.  Check utility functions for proper inputs, or if F and M can
+# be pulled from the symolic script functions
+
+# Construct frequency and magnitude matrices
+freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
+
+res = estimate_perceptual_parameters(f0_values, pwr_vals=power_placeholder,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
+
+
+# Create a dictionary
+params_dict = {
+    "dur": durations,
+    "f0Vals": f0_values,
+    "ppitch1": res['ppitch'][0],
+    "ppitch2": res['ppitch'][1],
+    "jitter": res['jitter'],
+    "vibratoDepth": res['vibrato_depth'],
+    "vibratoRate": res['vibrato_rate'],
+    "pwrVals": res['pwr_vals'],
+    "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
+    "shimmer": res['shimmer'],
+    # "specCent": res['spec_centroid']
+    # "specCentMean": 1370.1594532691213,
+    "specSlope": res['spec_slope'],
+    "meanSpecSlope": res['mean_spec_slope'],
+    "spec_flux": res['spec_flux'],
+    "mean_spec_flux": res['mean_spec_flux'],
+    "spec_flat": res['spec_flat'],
+    "mean_spec_flat": res['mean_spec_flat']
+}
+print(params_dict)
+
+# Convert the dictionary to JSON format
+json_data = json.dumps(params_dict, indent=2)
+sys.exit()
+
 # Map timing information to the quantized MIDI file
 # nmat_new = get_timing_data(midi_file, onsets, offsets)
 # nmat_new = get_timing_data(midi_file, times)
 # print(nmat_new)
 
 # Placeholder
-nmat_new = [
-    [0, 3.3625, 1.0000, 70.0000, 9.0000, 0, 3.3625],
-    [3.4343, 0.4688, 1.0000, 69.0000, 9.0000, 3.4343, 0.4688],
-    [3.9510, 0.6552, 1.0000, 70.0000, 9.0000, 3.9510, 0.6552]
-]
+# nmat_new = [
+#     [0, 3.3625, 1.0000, 70.0000, 9.0000, 0, 3.3625],
+#     [3.4343, 0.4688, 1.0000, 69.0000, 9.0000, 3.4343, 0.4688],
+#     [3.9510, 0.6552, 1.0000, 70.0000, 9.0000, 3.9510, 0.6552]
+# ]
 
 
 
