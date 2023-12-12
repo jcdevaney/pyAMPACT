@@ -39,8 +39,8 @@ note_num = np.repeat(np.arange(1, num_notes + 1), 2)
 
 
 # Load singing means and covariances
-means = pd.read_csv('SingingMeans.csv', sep=' ').values
-covars = pd.read_csv('SingingCovars.csv', sep=' ').values
+means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
+covars = pd.read_csv('./test_files/SingingCovars.csv', sep=' ').values
 
 
 # Specify HMM parameters
