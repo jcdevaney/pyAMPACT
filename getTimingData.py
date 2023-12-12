@@ -1,4 +1,3 @@
-import pretty_midi
 import pandas as pd
 
 import numpy as np
@@ -8,8 +7,6 @@ import os
 curr_dir = os.getcwd()
 from script import Score
 
-import json
-import sys
 
 def get_timing_data(midifile, times):    
     # Read quantized MIDI file

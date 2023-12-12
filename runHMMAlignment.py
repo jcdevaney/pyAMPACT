@@ -30,7 +30,8 @@ def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=Fal
 
     # - 1 to account for 0 index of Python
     obs[0, :] = np.sqrt(yinres['ap'][:offs[notenum - 1] + 50])
-    obs[1, :] = np.sqrt(yinres['pwr'][:offs[notenum - 1] + 50])
+    # obs[1, :] = np.sqrt(yinres['pwr'][:offs[notenum - 1] + 50]) # Changed
+    obs[1, :] = np.sqrt(yinres['time'][:offs[notenum - 1] + 50])
     # obs[2, :] = 69 + 12 * yinres['f0'][:offs[notenum - 1] + 50]  # Convert octave to MIDI note
 
     yinres['f0'] = np.ceil(yinres['f0'])
@@ -151,5 +152,5 @@ def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=Fal
 
     vpath = viterbi_path(starting_state, trans, pr_like)
     # vpath = librosa.sequence.viterbi(prob=starting_state, transition=trans, pr_like)
-
+   
     return vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord

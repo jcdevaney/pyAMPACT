@@ -89,6 +89,6 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'on': on_times,
         'off': off_times,
         'midiNote': midi_notes
-    }
+    }    
 
     return align, spec, dtw

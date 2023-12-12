@@ -3,8 +3,8 @@ import librosa
 import librosa.display
 
 from getVals import get_vals
-from runHMMAlignment import run_HMM_alignment
-from selectStates import select_states
+# from runHMMAlignment import run_HMM_alignment
+# from selectStates import select_states
 
 import os
 curr_dir = os.getcwd()
@@ -60,7 +60,12 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     align, yinres, spec, dtw = get_vals(
         filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
 
+        
     audiofile = None  # Clear the audiofile variable
+
+
+    """
+    CLEARED. TO BE FIXED LATER
 
     # Run HMM alignment with the full state sequence
     vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord = run_HMM_alignment(
@@ -97,12 +102,12 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # selectstate[1, :] = cumsumvals2  # This needs to be populated somehow
     # selectstate[2, :] = note_num
 
-    # HARDCODED FROM MATLAB
-    # selectstate = np.array([[1.0000, 3.0000, 1.0000],
-    #                         [2.5440, 3.8480, 0],
-    #                         [1.0000, 1.0000, 1.0000]])
+    """
 
-    # Three Notes - selectstate construction
+    # selectstate is from the HMM alignment, which is not in place.  This runs through
+    # get_ons_offs in the exampleScript and then plots the lines accordingly...
+    
+    # selectstate construction, in progress
     # piece = Score(midiname)
     # # end_times = piece.durations()
     # nmat_from_script = piece.nmats() 
@@ -114,22 +119,10 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # selectstate[1, :] = note_num
     # selectstate[2, :] = np.pad(end_times, (0, len(note_num) - len(end_times)), mode='constant')
     # print(selectstate)
-    
-    
-    
+    # print(yinres['time'])
+            
     selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
                             [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
                             [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
     
-
-    # # Six Notes
-    # selectstate = np.array([
-    #     [1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000,
-    #         2.0000, 3.0000, 3.0000, 3.0000, 1.0000],
-    #     [0.9818, 4.1941, 4.1941, 4.8893, 4.9328,
-    #         5.5873, 5.6374, 9.0507, 9.7009, 12.9357, 0],
-    #     [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000,
-    #         4.0000, 4.0000, 5.0000, 6.0000, 6.0000]
-    # ])
-
-    return allstate, selectstate, spec, yinres
+    return selectstate, spec, yinres
