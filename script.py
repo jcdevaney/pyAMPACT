@@ -1571,8 +1571,7 @@ class Score:
             tk = tk[:m1Index] + tk[startIndex:]
         if end and end + 1 < self._measures().iloc[:, 0].max():
             endIndex = tk.index(f'={end + 1}')
-            kernEnd = tk.index('*-')
-            tk = tk[:endIndex] + tk[kernEnd:]
+            tk = tk[:endIndex]
         encoded = base64.b64encode(tk.encode()).decode()
         if len(encoded) > 1900:
             print('''\nWarning: this excerpt is too long to be passed in a url. Instead to see\
