@@ -648,7 +648,7 @@ class Score:
         """
         if 'lyrics' not in self._analyses:
             self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
-        return self._analyses['lyrics']
+        return self._analyses['lyrics'].copy()
 
     def _clefHelper(self, clef):
         """
@@ -728,7 +728,7 @@ class Score:
             dyns.columns = self.partNames
             dyns.dropna(how='all', axis=1, inplace=True)
             self._analyses['dynamics'] = dyns
-        return self._analyses['dynamics']
+        return self._analyses['dynamics'].copy()
 
     def _priority(self):
         """
@@ -1692,9 +1692,6 @@ class Score:
                     firstTokens.append('**text')
                     partNumbers.append(f'*part{partNum}')
                     staves.append(f'*staff{partNum}')
-                    instruments.append('*')
-                    partNames.append('*')
-                    shortNames.append('*')
                 if includeDynamics and col in dyn.columns:
                     dynCol = dyn[col]
                     dynCol.name = 'Dynam_' + dynCol.name
@@ -1702,25 +1699,16 @@ class Score:
                     firstTokens.append('**dynam')
                     partNumbers.append(f'*part{partNum}')
                     staves.append(f'*staff{partNum}')
-                    instruments.append('*')
-                    partNames.append('*')
-                    shortNames.append('*')
             events = pd.concat(_cols, axis=1)
             ba = self._barlines()
             ba = ba[ba != 'regular'].dropna().replace({'double': '||', 'final': '=='})
             ba.loc[self.score.highestTime, :] = '=='
-            if isinstance(events.index, pd.MultiIndex):
-                events = events.droplevel(1)
             if data:
-                cdata = self.fromJSON(data)
-                firstTokens.extend(['**data'] * len(cdata.columns))
-                partNumbers.extend(['*'] * len(cdata.columns))
-                staves.extend(['*'] * len(cdata.columns))
-                instruments.extend(['*'] * len(cdata.columns))
-                partNames.extend([f'*{col}' for col in cdata.columns])
-                shortNames.extend(['*'] * len(cdata.columns))
-                events = events[~events.index.duplicated(keep='last')].ffill()  # remove non-last offset repeats and forward-fill
-                events = pd.concat([events, cdata], axis=1)
+                cdata = self.fromJSON(data).reset_index(drop=True)
+                cdata.index = events.index[:len(cdata)]
+                firstTokens.extend([f'**{col}' for col in cdata.columns])
+                self._addTieBreakers((events, cdata))
+                events = pd.concat((events, cdata), axis=1)
             me = pd.concat([me.iloc[:, 0]] * len(events.columns), axis=1)
             ba = pd.concat([ba.iloc[:, 0]] * len(events.columns), axis=1)
             me.columns = events.columns
@@ -1736,9 +1724,14 @@ class Score:
             ks = self._keySignatures()
             ks = ks.reindex(events.columns, axis=1).fillna('*')
             partTokens = pd.DataFrame([firstTokens, partNumbers, staves, instruments, partNames, shortNames, ['*-']*len(events.columns)],
-                                                                index=[-12, -11, -10, -9, -8, -7, int(self.score.highestTime + 1)])
+                    index=[-12, -11, -10, -9, -8, -7, int(self.score.highestTime + 1)]).fillna('*')
             partTokens.columns = events.columns
-            body = pd.concat([partTokens, de, me, ds, clefs, ks, ts, events, ba]).sort_index(kind='mergesort')
+            to_concat = [partTokens, de, me, ds, clefs, ks, ts, events, ba]
+            if isinstance(events.index, pd.MultiIndex):
+                self._addTieBreakers(to_concat)
+            body = pd.concat(to_concat).sort_index(kind='mergesort')
+            if isinstance(body.index, pd.MultiIndex):
+                body = body.droplevel(1)
             body = body.fillna('.')
             for colName in [col for col in body.columns if '__' in col]:
                 divStarts = np.where(body.loc[:, colName] == '*^')[0]
