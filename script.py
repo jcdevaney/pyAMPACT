@@ -1566,12 +1566,21 @@ class Score:
             start, end = end, start
         tk = self.toKern()
         if start and start > 1:
-            m1Index = tk.index('=1')
+            header = tk[:tk.index('\n=') + 1]
+            headerColCount = header.rsplit('\n', 1)[-1].count('\t')
             startIndex = tk.index(f'={start}')
-            tk = tk[:m1Index] + tk[startIndex:]
+            fromStart = tk[startIndex:]
+            fromStartColCount = fromStart.split('\n', 1)[0].count('\t')
+            # add the last divisi line to try to get the column count right
+            if fromStartColCount > headerColCount:
+                firstLines = tk[:startIndex].split('\n')
+                for line in reversed(firstLines):
+                    if '*^' in line:
+                        fromStart = f'{line}\n{fromStart}'
+                        break
+            tk = header + fromStart
         if end and end + 1 < self._measures().iloc[:, 0].max():
-            endIndex = tk.index(f'={end + 1}')
-            tk = tk[:endIndex]
+            tk = tk[:tk.index(f'={end + 1}')]
         encoded = base64.b64encode(tk.encode()).decode()
         if len(encoded) > 1900:
             print('''\nWarning: this excerpt is too long to be passed in a url. Instead to see\
