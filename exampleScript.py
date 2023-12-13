@@ -1,49 +1,25 @@
 import numpy as np
-import librosa
-# import pretty_midi
-import matplotlib.pyplot as plt
 import pandas as pd
-import json
 
 import os
 curr_dir = os.getcwd()
 from script import Score
 
-from mido import MidiFile, MidiTrack, Message
 # import functions
 from runAlignment import run_alignment
 from alignmentVisualiser import alignment_visualizer
 from getOnsOffs import get_ons_offs
-from getTimingData import get_timing_data
-from nmat2midi import nmat2midi
 from getCentVals import get_cent_vals
-from unused_scripts.getPitchVibratoData import get_pitch_vibrato_data
-from perceivedPitch import perceived_pitch
 from findPeaks import find_peaks
 from findMids import find_mids
-from smoothNote import smooth_note
-from findSteady import find_steady
-from noteDct import note_dct
+# from smoothNote import smooth_note
+# from findSteady import find_steady
+# from noteDct import note_dct
 from freqAndMagMatrices import freq_and_mag_matrices
 from estimatePerceptualParameters import estimate_perceptual_parameters
 
 import sys
 
-
-# # ONE NOTES - GOOD!
-# # Specify audio and MIDI file NAMES
-# audio_file = './audio_files/exampleOneNote.wav'
-# midi_file = './test_files/monophonic1note.mid'
-
-# # Number of notes to align
-# num_notes = 1
-
-# # Define state order and note numbers
-# state_ord = np.array([1, 3, 1])
-# note_num = np.array([1, 1, 1])
-
-
-# # THREE NOTES - GOOD!
 # Specify audio and MIDI file NAMES
 audio_file = './audio_files/example3note.wav'
 midi_file = './test_files/monophonic3notes.mid'
@@ -52,7 +28,7 @@ notes = piece.midiPitches()
 
 # Number of notes to align
 num_notes = 0;
-for note in notes['Piano']: # Hardcoded.  Fix this
+for note in notes['Piano']: # Hardcoded. Fix this?
     if note != -1: # Exclude rests
         num_notes += 1        
 
@@ -62,22 +38,9 @@ state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runA
 note_num = np.repeat(np.arange(1, num_notes + 1), 2)
 
 
-# # # SIX NOTES
-# # Specify audio and MIDI file NAMES
-# audio_file = './audio_files/example.wav'
-# midi_file = './test_files/monophonic6notes.mid'
-
-# # Number of notes to align
-# num_notes = 6
-
-# # Define state order and note numbers
-# state_ord = np.array([1, 3, 2, 3, 2, 3, 2, 3, 3, 3, 1])
-# note_num = np.array([1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6])
-
-
 # Load singing means and covariances
-means = pd.read_csv('SingingMeans.csv', sep=' ').values
-covars = pd.read_csv('SingingCovars.csv', sep=' ').values
+means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
+covars = pd.read_csv('./test_files/SingingCovars.csv', sep=' ').values
 
 
 # Specify HMM parameters
@@ -89,20 +52,13 @@ target_sr = 4000
 n_harm = 3
 win_ms = 100
 
-
-all_state, select_state, spec, yin_res = run_alignment(
+# all_state removed
+select_state, spec, yin_res = run_alignment(
     audio_file, midi_file, num_notes, state_ord, note_num, means, covars, learn_params, width, target_sr, n_harm, win_ms)
 
 
-
-# Load audio and MIDI data
-audio, _ = librosa.load(audio_file, sr=target_sr)
-midi_data = MidiFile(midi_file)
-
-
 # Visualize the alignment
-# alignment_visualizer(select_state, midi_file, spec, 1)
-
+alignment_visualizer(select_state, midi_file, spec, 1)
 
 
 # Get onset and offset times
@@ -114,59 +70,107 @@ times_df = pd.DataFrame({'ons': times['ons'], 'offs': times['offs']})
 times_df.to_csv('example.csv', sep='\t', index=False, header=False)
 
 # Load data into a Pandas DataFrame
-# fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None) # 6 notes
 fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None)
 # Assign columns to 'ons' and 'offs'
 times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
 
 
 
-#Build JSON
+# Build JSON
 durations = piece.durations()
+durations = durations['Piano'].values # Hardcode 'Piano' part?
+durations = np.append(durations, -1) # Add -1 to signify ending
+
 f0_values = yin_res['f0']
+pwr_values = yin_res['ap']
 
-#Placeholders
-power_placeholder = np.array([[42]]) # Should also be pulled from yin
-F = np.array([[42]]) # Should also be pulled from yin
-M = np.array([[42]]) # Should also be pulled from yin
-
-# perceived_pitch1, perceived_pitch2 = perceived_pitch(f0_values, target_sr)
-
-# pwr_vales, F, M, and gt_flag need to be found.  Check utility functions for proper inputs, or if F and M can
-# be pulled from the symolic script functions
 
 # Construct frequency and magnitude matrices
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
+res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
 
-res = estimate_perceptual_parameters(f0_values, pwr_vals=power_placeholder,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
-
+timesOns = tuple(times['ons'].values)
 
 # Create a dictionary
-params_dict = {
-    "dur": durations,
-    "f0Vals": f0_values,
-    "ppitch1": res['ppitch'][0],
-    "ppitch2": res['ppitch'][1],
-    "jitter": res['jitter'],
-    "vibratoDepth": res['vibrato_depth'],
-    "vibratoRate": res['vibrato_rate'],
-    "pwrVals": res['pwr_vals'],
-    "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
-    "shimmer": res['shimmer'],
-    # "specCent": res['spec_centroid']
-    # "specCentMean": 1370.1594532691213,
-    "specSlope": res['spec_slope'],
-    "meanSpecSlope": res['mean_spec_slope'],
-    "spec_flux": res['spec_flux'],
-    "mean_spec_flux": res['mean_spec_flux'],
-    "spec_flat": res['spec_flat'],
-    "mean_spec_flat": res['mean_spec_flat']
-}
-print(params_dict)
+# print("f0Vals", len(f0_values))
+# print("pwrVals", len(res['pwr_vals']))
+# print("specSlope", len(res['spec_slope']))
+# print("spec_flux", len(res['spec_flux']))
+# print("spec_flat", len(res['spec_flat']))
 
-# Convert the dictionary to JSON format
-json_data = json.dumps(params_dict, indent=2)
-sys.exit()
+# Initialize the params_dict
+params_dict = {}
+
+
+
+
+# Iterate over the indices of timesOns
+for i in range(len(timesOns)):
+    start_idx = int(i * len(f0_values) / len(timesOns))
+    end_idx = int((i + 1) * len(f0_values) / len(timesOns))
+
+    # Extract values for the current time interval
+    f0_chunk = f0_values[start_idx:end_idx]    
+    pwr_chunk = res['pwr_vals'][start_idx:end_idx]
+    slope_chunk = res['spec_slope'][start_idx:end_idx]
+    flux_chunk = res['spec_flux'][start_idx:end_idx]
+    flat_chunk = res['spec_flat'][start_idx:end_idx]
+
+    # Create a dictionary for the current time interval
+    params_dict[timesOns[i]] = {
+        "dur": durations[i],
+        "f0Vals": f0_chunk,
+        "ppitch1": res['ppitch'][0],
+        "ppitch2": res['ppitch'][1],
+        "jitter": res['jitter'],
+        "vibratoDepth": res['vibrato_depth'],
+        "vibratoRate": res['vibrato_rate'],
+        "pwrVals": pwr_chunk,
+        "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
+        "shimmer": res['shimmer'],
+        # "specCent": res['spec_centroid']
+        # "specCentMean": 1370.1594532691213,
+        "specSlope": slope_chunk,
+        "meanSpecSlope": res['mean_spec_slope'],
+        "spec_flux": flux_chunk,
+        "mean_spec_flux": res['mean_spec_flux'],
+        "spec_flat": flat_chunk,
+        "mean_spec_flat": res['mean_spec_flat']   
+        # Add other parameters and their corresponding chunks here
+    }
+    
+
+# print(timesOns)
+# params_dict = {
+#     timesOns: {
+#     # "dur": durations,
+#     "f0Vals": f0_values,
+#     "ppitch1": res['ppitch'][0],
+#     "ppitch2": res['ppitch'][1],
+#     "jitter": res['jitter'],
+#     "vibratoDepth": res['vibrato_depth'],
+#     "vibratoRate": res['vibrato_rate'],
+#     "pwrVals": res['pwr_vals'],
+#     "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
+#     "shimmer": res['shimmer'],
+#     # "specCent": res['spec_centroid']
+#     # "specCentMean": 1370.1594532691213,
+#     "specSlope": res['spec_slope'],
+#     "meanSpecSlope": res['mean_spec_slope'],
+#     "spec_flux": res['spec_flux'],
+#     "mean_spec_flux": res['mean_spec_flux'],
+#     "spec_flat": res['spec_flat'],
+#     "mean_spec_flat": res['mean_spec_flat']    
+#     }
+# }
+
+# Create a DataFrame from the dictionary
+df = pd.DataFrame([params_dict])
+
+# Save the DataFrame as JSON
+df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
+
+
 
 # Map timing information to the quantized MIDI file
 # nmat_new = get_timing_data(midi_file, onsets, offsets)
@@ -188,7 +192,6 @@ sys.exit()
 # midi.save('examplePerformance.mid')
 
 # Get cent values for each note
-# THIS NEEDS SOME CALCULATION ON THE YINRES RETURN, AS IT IS GIVING HZ AND NOT ??? FROM MATLAB
 cents = get_cent_vals(times, yin_res, target_sr)  # Original
 
 # Calculate intervals size, perceived pitch, vibrato rate, and vibrato depth
@@ -220,9 +223,10 @@ for i in range(len(cents)):
     x_mids.append(x_mid)
     y_mids.append(y_mid)    
 
+    """
+    BUGGED AFTER THIS POINT
 
-    # Generate a smoothed trajectory of a note by connecting the midpoints,
-    # Currently BUGGED - You could leave this if you get hung up!
+    # Generate a smoothed trajectory of a note by connecting the midpoints,    
     smoothed_f0 = smooth_note(cents[i], x_mid, y_mid)
     smoothed_f0s.append(smoothed_f0)        
 
@@ -237,3 +241,4 @@ for i in range(len(cents)):
 
 # Get loudness values for each note (you will need to implement this function)
 # loudness_estimates, loudness_structure = getLoudnessEstimates(audio_file, onsets, offsets)
+"""
