@@ -1553,7 +1553,7 @@ class Score:
 
         See Also
         --------
-        :meth:`Score.toKern`
+        :meth:`toKern`
 
         Example
         -------
@@ -1647,7 +1647,7 @@ class Score:
 
         See Also
         --------
-        pyAMPACT.script.Score.show
+        :meth:`show`
 
         Example
         -------
