@@ -70,54 +70,105 @@ times_df = pd.DataFrame({'ons': times['ons'], 'offs': times['offs']})
 times_df.to_csv('example.csv', sep='\t', index=False, header=False)
 
 # Load data into a Pandas DataFrame
-# fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None) # 6 notes
 fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None)
 # Assign columns to 'ons' and 'offs'
 times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
 
 
 
-#Build JSON
+# Build JSON
 durations = piece.durations()
+durations = durations['Piano'].values # Hardcode 'Piano' part?
+durations = np.append(durations, -1) # Add -1 to signify ending
+
 f0_values = yin_res['f0']
 pwr_values = yin_res['ap']
 
-# pwr_vales, F, M, and gt_flag need to be found.  Check utility functions for proper inputs, or if F and M can
-# be pulled from the symolic script functions
 
 # Construct frequency and magnitude matrices
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
-
 res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
 
+timesOns = tuple(times['ons'].values)
 
 # Create a dictionary
-params_dict = {
-    "dur": durations,
-    "f0Vals": f0_values,
-    "ppitch1": res['ppitch'][0],
-    "ppitch2": res['ppitch'][1],
-    "jitter": res['jitter'],
-    "vibratoDepth": res['vibrato_depth'],
-    "vibratoRate": res['vibrato_rate'],
-    "pwrVals": res['pwr_vals'],
-    "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
-    "shimmer": res['shimmer'],
-    # "specCent": res['spec_centroid']
-    # "specCentMean": 1370.1594532691213,
-    "specSlope": res['spec_slope'],
-    "meanSpecSlope": res['mean_spec_slope'],
-    "spec_flux": res['spec_flux'],
-    "mean_spec_flux": res['mean_spec_flux'],
-    "spec_flat": res['spec_flat'],
-    "mean_spec_flat": res['mean_spec_flat']
-}
+# print("f0Vals", len(f0_values))
+# print("pwrVals", len(res['pwr_vals']))
+# print("specSlope", len(res['spec_slope']))
+# print("spec_flux", len(res['spec_flux']))
+# print("spec_flat", len(res['spec_flat']))
+
+# Initialize the params_dict
+params_dict = {}
+
+
+
+
+# Iterate over the indices of timesOns
+for i in range(len(timesOns)):
+    start_idx = int(i * len(f0_values) / len(timesOns))
+    end_idx = int((i + 1) * len(f0_values) / len(timesOns))
+
+    # Extract values for the current time interval
+    f0_chunk = f0_values[start_idx:end_idx]    
+    pwr_chunk = res['pwr_vals'][start_idx:end_idx]
+    slope_chunk = res['spec_slope'][start_idx:end_idx]
+    flux_chunk = res['spec_flux'][start_idx:end_idx]
+    flat_chunk = res['spec_flat'][start_idx:end_idx]
+
+    # Create a dictionary for the current time interval
+    params_dict[timesOns[i]] = {
+        "dur": durations[i],
+        "f0Vals": f0_chunk,
+        "ppitch1": res['ppitch'][0],
+        "ppitch2": res['ppitch'][1],
+        "jitter": res['jitter'],
+        "vibratoDepth": res['vibrato_depth'],
+        "vibratoRate": res['vibrato_rate'],
+        "pwrVals": pwr_chunk,
+        "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
+        "shimmer": res['shimmer'],
+        # "specCent": res['spec_centroid']
+        # "specCentMean": 1370.1594532691213,
+        "specSlope": slope_chunk,
+        "meanSpecSlope": res['mean_spec_slope'],
+        "spec_flux": flux_chunk,
+        "mean_spec_flux": res['mean_spec_flux'],
+        "spec_flat": flat_chunk,
+        "mean_spec_flat": res['mean_spec_flat']   
+        # Add other parameters and their corresponding chunks here
+    }
+    
+
+# print(timesOns)
+# params_dict = {
+#     timesOns: {
+#     # "dur": durations,
+#     "f0Vals": f0_values,
+#     "ppitch1": res['ppitch'][0],
+#     "ppitch2": res['ppitch'][1],
+#     "jitter": res['jitter'],
+#     "vibratoDepth": res['vibrato_depth'],
+#     "vibratoRate": res['vibrato_rate'],
+#     "pwrVals": res['pwr_vals'],
+#     "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
+#     "shimmer": res['shimmer'],
+#     # "specCent": res['spec_centroid']
+#     # "specCentMean": 1370.1594532691213,
+#     "specSlope": res['spec_slope'],
+#     "meanSpecSlope": res['mean_spec_slope'],
+#     "spec_flux": res['spec_flux'],
+#     "mean_spec_flux": res['mean_spec_flux'],
+#     "spec_flat": res['spec_flat'],
+#     "mean_spec_flat": res['mean_spec_flat']    
+#     }
+# }
 
 # Create a DataFrame from the dictionary
 df = pd.DataFrame([params_dict])
 
 # Save the DataFrame as JSON
-df.to_json("./output_files/cdata_from_audioScript.json", orient="records", indent=4)
+df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
 
 
 

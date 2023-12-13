@@ -1,7 +1,7 @@
 import numpy as np
 import librosa
 import librosa.display
-import pretty_midi
+
 
 import sys
 from runDTWAlignment import runDTWAlignment

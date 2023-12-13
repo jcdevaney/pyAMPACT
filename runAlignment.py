@@ -3,7 +3,7 @@ import librosa
 import librosa.display
 
 from getVals import get_vals
-# from runHMMAlignment import run_HMM_alignment
+from runHMMAlignment import run_HMM_alignment
 # from selectStates import select_states
 
 import os
@@ -45,10 +45,12 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
         learn_params = 0
 
     # Refine state_ord2 to correspond to the number of states specified in num_notes
-    note_num = np.array(note_num)
-    num_states = max(np.where(note_num <= num_notes)[0])
-    # state_ord2 = state_ord2[:num_states] # Original
-    # note_num = note_num[:num_states] # Original
+    note_num = np.array(note_num)    
+    num_states = max(np.where(note_num <= num_notes)[0])    
+    state_ord2 = state_ord2[:num_states] # Original    
+    note_num = note_num[:num_states] # Original
+    
+
 
     # Read audio file and perform DTW alignment and YIN analysis
     hop = 32
@@ -64,8 +66,8 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     audiofile = None  # Clear the audiofile variable
 
 
-    """
-    CLEARED. TO BE FIXED LATER
+    
+    # CLEARED. TO BE FIXED LATER
 
     # Run HMM alignment with the full state sequence
     vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord = run_HMM_alignment(
@@ -102,12 +104,12 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # selectstate[1, :] = cumsumvals2  # This needs to be populated somehow
     # selectstate[2, :] = note_num
 
-    """
+
 
     # selectstate is from the HMM alignment, which is not in place.  This runs through
     # get_ons_offs in the exampleScript and then plots the lines accordingly...
     
-    # selectstate construction, in progress
+    # # selectstate construction, in progress
     # piece = Score(midiname)
     # # end_times = piece.durations()
     # nmat_from_script = piece.nmats() 
@@ -118,8 +120,8 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # selectstate[0, :] = state_ord[:len(note_num)]
     # selectstate[1, :] = note_num
     # selectstate[2, :] = np.pad(end_times, (0, len(note_num) - len(end_times)), mode='constant')
-    # print(selectstate)
-    # print(yinres['time'])
+    
+    
             
     selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
                             [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
