@@ -245,14 +245,18 @@ class Score:
         if self.path not in _imported_scores:
             if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
                 _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
-
-            elif self.fileExtension in ('xml, musicxml', 'mei'):   # these files might be mei files and could lack elements music21 needs to be able to read them
+            elif self.fileExtension in ('xml', 'musicxml', 'mei', 'mxl'):   # these files might be mei files and could lack elements music21 needs to be able to read them
                 tree = ET.parse(self.path)
                 _remove_namespaces(tree)
                 root = tree.getroot()
+                hasFunctions = False
+                _functions = root.findall('.//function')
+                if len(_functions):
+                    hasFunctions = True
+
                 if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
-                    self._meiTree = copy.deepcopy(root)
                     parseEdited = False
+                    self._meiTree = copy.deepcopy(root)
                     if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
                         parseEdited = True
                         scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
@@ -276,6 +280,17 @@ class Score:
                     if parseEdited:
                         mei_string = ET.tostring(root, encoding='unicode')
                         _imported_scores[self.path] = m21.converter.subConverters.ConverterMEI().parseData(mei_string)
+                        parseEdited = False
+
+                if hasFunctions:   # not an mei file, but an xml file that had functions
+                    try:
+                        _imported_scores[self.path] = m21.converter.parse(self.path)
+                    except m21.harmony.HarmonyException:
+                        print('There was an issue with the function texts so they were removed.')
+                        for _function in _functions:
+                            _function.text = ''
+                        xml_string = ET.tostring(root, encoding='unicode')
+                        _imported_scores[self.path] = m21.converter.parse(xml_string, format='MusicXML')
 
             elif self.fileExtension in ('', 'txt'):   # read file/string as volpiano or tinyNotation if applicable
                 temp = None
