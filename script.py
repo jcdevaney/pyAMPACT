@@ -1573,11 +1573,14 @@ class Score:
             fromStartColCount = fromStart.split('\n', 1)[0].count('\t')
             # add the last divisi line to try to get the column count right
             if fromStartColCount > headerColCount:
-                firstLines = tk[:startIndex].split('\n')
+                divisi = [fromStart]
+                firstLines = tk[:startIndex - 1].split('\n')
                 for line in reversed(firstLines):
                     if '*^' in line:
-                        fromStart = f'{line}\n{fromStart}'
-                        break
+                        divisi.append(line)
+                        if fromStartColCount - len(divisi) < headerColCount:
+                            break
+                fromStart = '\n'.join(reversed(divisi))
             tk = header + fromStart
         if end and end + 1 < self._measures().iloc[:, 0].max():
             tk = tk[:tk.index(f'={end + 1}')]
