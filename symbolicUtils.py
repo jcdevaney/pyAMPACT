@@ -275,7 +275,7 @@ def insertScoreDef(root, part_names=[]):
         if len(part_names) == 0:
             part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
         for i, staff in enumerate(part_names):
-            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)})
             ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(idGen)})
         scoreEl = root.find('.//score')
         if scoreEl is not None:
