@@ -1,216 +1,15 @@
-import pandas as pd
-import numpy as np
-import music21 as m21
-import math
 import ast
-import json
-import requests
-import os
-import tempfile
-import re
-import xml.etree.ElementTree as ET
 import base64
 import copy
+import json
+import math
+import music21 as m21
 m21.environment.set('autoDownload', 'allow')
-
-
-_function_pattern = re.compile('[^TtPpDd]')
-_volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
-_tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
-_meiDeclaration = '''<?xml version="1.0" encoding="UTF-8"?>
-<!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
-<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
-'''
-_imported_scores = {}
-
-def _id_gen(start=1):
-    """
-    Generate a unique ID for each instance of the Score class.
-
-    This function generates a unique ID for each instance of the Score class 
-    by incrementing a counter starting from the provided start value. The ID 
-    is in the format 'pyAMPACT-{start}'. This isn't meant to be used directly
-    so see the example below for usage.
-
-    :param start: An integer representing the starting value for the ID 
-        counter. Default is 1.
-    :yield: A string representing the unique ID.
-
-    See Also
-    --------
-    :meth:`insertAudioAnalysis`
-    :meth:`xmlIDs`
-
-    Example
-    --------
-    .. code-block:: python
-
-        newID = next(_idGen)
-    """
-    while True:
-        yield f'pyAMPACT-{start}'
-        start += 1
-_idGen = _id_gen()
-
-def _remove_namespaces(doc):
-    """
-    Indent an MEI (Music Encoding Initiative) element for better readability.
-
-    This function recursively indents an MEI element and its children, improving 
-    the readability of the MEI XML structure. It modifies the input element in-place.
-
-    :param elem: An xml.etree.ElementTree.Element representing the MEI element.
-    :param level: An integer representing the current indentation level. Default is 0.
-    :return: None
-    """
-    root = doc.getroot()
-    namespace = ''
-    if '}' in root.tag:
-        namespace = root.tag[1:root.tag.index('}')]
-    for elem in doc.iter():
-        if '}' in elem.tag:
-            elem.tag = elem.tag[elem.tag.index('}') + 1:]
-    if namespace:
-        root.set('xmlns', namespace)
-
-def _indentMEI(elem, level=0):
-    i = "\n" + level*"\t"
-    if len(elem):
-        if not elem.text or not elem.text.strip():
-            elem.text = i + "\t"
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-        for elem in elem:
-            _indentMEI(elem, level+1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-    else:
-        if level and (not elem.tail or not elem.tail.strip()):
-            elem.tail = i
-
-def _insertScoreDef(root, part_names=[]):
-    """
-    Insert a scoreDef element into an MEI (Music Encoding Initiative) document.
-
-    This function inserts a scoreDef element into an MEI document if one is
-    not already present. It modifies the input element in-place.
-
-    :param root: An xml.etree.ElementTree.Element representing the root of the
-        MEI document.
-    :param part_names: A list of strings representing the names of the parts in
-        the score. Default is an empty list.
-    :return: None
-    """
-    if root.find('.//scoreDef') is None:
-        scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
-        if len(part_names) == 0:
-            part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
-        for i, staff in enumerate(part_names):
-            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
-            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(_idGen)})
-        scoreEl = root.find('.//score')
-        if scoreEl is not None:
-            scoreEl.insert(0, scoreDef)
-
-_duration2Kern = {  # keys get rounded to 5 decimal places
-    56:      '000..',
-    48:      '000.',
-    32:      '000',
-    28:      '00..',
-    24:      '00.',
-    16:      '00',
-    14:      '0..',
-    12:      '0.',
-    8:       '0',
-    7:       '1..',
-    6:       '1.',
-    4:       '1',
-    3.5:     '2..',
-    3:       '2.',
-    2.66666: '3%2',
-    2:       '2',
-    1.75:    '4..',
-    1.5:     '4.',
-    1.33333: '3',
-    1:       '4',
-    .875:    '8..',
-    .75:     '8.',
-    .66667:  '6',
-    .5:      '8',
-    .4375:   '16..',
-    .375:    '16.',
-    .33333:  '12',
-    .25:     '16',
-    .21875:  '32..',
-    .1875:   '32.',
-    .16667:  '24',
-    .125:    '32',
-    .10938:  '64..',
-    .09375:  '64.',
-    .08333:  '48',
-    .0625:   '64',
-    .05469:  '128..',
-    .04688:  '128.',
-    .04167:  '96',
-    .03125:  '128',
-    .02734:  '256..',
-    .02344:  '256.',
-    .02083:  '192',
-    .01563:  '256',
-    .01367:  '512..',
-    .01172:  '512.',
-    .01042:  '384',
-    .00781:  '512',
-    .00684:  '1024.',
-    .00586:  '1024.',
-    .00582:  '768',
-    .00391:  '1024',
-    0:       ''
-}
-
-_reused_docstring =  """
-    The methods .harmKeys, .harm, .functions, .chords, and .cdata all work in 
-    the following way. They get the desired analysis from the relevant spine if 
-    this piece is a kern file and has that spine. The default is for the results 
-    to be returned as a 1-d array, but you can set `output='series'` for a pandas 
-    series instead. If you want to align these results so that they match the 
-    columnar (time) axis of the pianoRoll, sampled, or mask results, you can pass 
-    the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-    The `sampled` and `mask` dfs often have more observations than the spine 
-    contents, so you may want to fill in these new empty slots somehow. The kern 
-    format uses '.' as a filler token so you can pass this as the `filler` 
-    parameter to fill all the new empty slots with this as well. If you choose 
-    some other value, say `filler='_'`, then in addition to filling in the empty 
-    slots with underscores, this will also replace the kern '.' observations with 
-    '_'. If you want to fill them in with NaN's as pandas usually does, you can 
-    pass `filler='nan'` as a convenience. If you want to "forward fill" these 
-    results, you can pass `filler='forward'` (default). This will propagate the 
-    last non-period ('.') observation until a new one is found. Finally, you can 
-    pass filler='drop' to drop all empty observations (both NaNs and humdrum
-    periods).
-
-    :param snap_to: A pandas DataFrame to align the results to. Default is None.
-    :param filler: A string representing the filler token. Default is 'forward'.
-    :param output: A string representing the output format. Default is 'array'.
-    :return: A numpy array or pandas Series representing the harmonic keys
-        analysis.
-
-    See Also
-    --------
-    :meth:`cdata`
-    :meth:`chords`
-    :meth:`functions`
-    :meth:`harm`
-    :meth:`harmKeys`
-
-    Example
-    --------
-    .. code-block:: python
-
-        piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
-        piece.harm()
-    """
+import os
+import requests
+from symbolicUtils import *
+import tempfile
+import xml.etree.ElementTree as ET
 
 
 class Score:
@@ -269,12 +68,12 @@ class Score:
         :param obj: A music21 object.
         :return: None
         """
-        if self.path not in _imported_scores:
+        if self.path not in imported_scores:
             if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
-                _imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
+                imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
             elif self.fileExtension in ('xml', 'musicxml', 'mei', 'mxl'):   # these files might be mei files and could lack elements music21 needs to be able to read them
                 tree = ET.parse(self.path)
-                _remove_namespaces(tree)
+                remove_namespaces(tree)
                 root = tree.getroot()
                 hasFunctions = False
                 _functions = root.findall('.//function')
@@ -286,31 +85,31 @@ class Score:
                     self._meiTree = copy.deepcopy(root)
                     if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
                         parseEdited = True
-                        _insertScoreDef(root)
+                        insertScoreDef(root)
 
                     for section in root.iter('section'):   # make sure all events are contained in measures
                         if section.find('measure') is None:
                             parseEdited = True
                             measure = ET.Element('measure')
-                            measure.set('xml:id', next(_idGen))
+                            measure.set('xml:id', next(idGen))
                             measure.extend(section)
                             section.clear()
                             section.append(measure)
 
                     if parseEdited:
                         mei_string = ET.tostring(root, encoding='unicode')
-                        _imported_scores[self.path] = m21.converter.subConverters.ConverterMEI().parseData(mei_string)
+                        imported_scores[self.path] = m21.converter.subConverters.ConverterMEI().parseData(mei_string)
                         parseEdited = False
 
                 if hasFunctions:   # not an mei file, but an xml file that had functions
                     try:
-                        _imported_scores[self.path] = m21.converter.parse(self.path)
+                        imported_scores[self.path] = m21.converter.parse(self.path)
                     except m21.harmony.HarmonyException:
                         print('There was an issue with the function texts so they were removed.')
                         for _function in _functions:
                             _function.text = ''
                         xml_string = ET.tostring(root, encoding='unicode')
-                        _imported_scores[self.path] = m21.converter.parse(xml_string, format='MusicXML')
+                        imported_scores[self.path] = m21.converter.parse(xml_string, format='MusicXML')
 
             elif self.fileExtension in ('', 'txt'):   # read file/string as volpiano or tinyNotation if applicable
                 temp = None
@@ -318,18 +117,18 @@ class Score:
                 if self.fileExtension == 'txt':
                     with open(self.path, 'r') as file:
                         text = file.read()
-                if text.startswith('volpiano: ') or re.match(_volpiano_pattern, text):
+                if text.startswith('volpiano: ') or re.match(volpiano_pattern, text):
                     temp = m21.converter.parse(text, format='volpiano')
-                elif text.startswith('tinyNotation: ') or re.match(_tinyNotation_pattern, text):
+                elif text.startswith('tinyNotation: ') or re.match(tinyNotation_pattern, text):
                     temp = m21.converter.parse(text, format='tinyNotation')
                 if temp is not None:
                     _score = m21.stream.Score()
                     _score.insert(0, temp)
-                    _imported_scores[self.path] = _score
+                    imported_scores[self.path] = _score
 
-        if self.path not in _imported_scores:   # check again to catch valid tree files
-            _imported_scores[self.path] = m21.converter.parse(self.path)
-        self.score = _imported_scores[self.path]
+        if self.path not in imported_scores:   # check again to catch valid tree files
+            imported_scores[self.path] = m21.converter.parse(self.path)
+        self.score = imported_scores[self.path]
         self.metadata = {'title': "Title not found", 'composer': "Composer not found"}
         if self.score.metadata is not None:
             self.metadata['title'] = self.score.metadata.title or 'Title not found'
@@ -345,36 +144,6 @@ class Score:
             self._flatParts.append(flat.flatten())   # you have to flatten again after calling makeMeasures
             name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part-' + str(i + 1)
             self.partNames.append(name)
-
-    def _addTieBreakers(self, partList):
-        """
-        Add tie-breaker level to index. Changes parts in partList in place and 
-        returns None. 
-
-        This is particularly useful to disambiguate the order of events that 
-        happen at the same offset, which is an issue most commonly encountered 
-        with grace notes since they have no duration. This is needed in several 
-        `Score` methods because you cannot append multiple pandas series (parts) 
-        if they have non-unique indices. So this method is needed internally to 
-        be able to use pd.concat to turn a list of series into a single dataframe 
-        if any of those series has a repeated value in its index.
-
-        :param partList: A list of pandas Series, each representing a part in 
-            the score.
-        :return: None
-        """
-        for part in partList:
-            if isinstance(part.index, pd.MultiIndex):
-                continue
-            tieBreakers = []
-            nexts = part.index.to_series().shift(-1)
-            for ii in range(-1, -1 - len(part.index), -1):
-                if part.index[ii] == nexts.iat[ii]:
-                    tieBreakers.append(tieBreakers[-1] - 1)
-                else:
-                    tieBreakers.append(0)
-            tieBreakers.reverse()
-            part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
 
     def _partList(self):
         """
@@ -476,8 +245,8 @@ class Score:
                 de = de.reindex([prt.name for prt in kernStrands if prt.name not in self.partNames]).set_index('level_1')
             self._analyses['_divisiEnds'] = de
             if not isUnique:
-                self._addTieBreakers(parts)
-                self._addTieBreakers(kernStrands)
+                addTieBreakers(parts)
+                addTieBreakers(kernStrands)
             self._analyses['_partList'] = parts
             self._analyses['_kernStrands'] = kernStrands
         return self._analyses['_partList']
@@ -568,7 +337,7 @@ class Score:
                             continue
                         else:
                             if spine.spineType == 'function':
-                                func = _function_pattern.sub('', contents)
+                                func = function_pattern.sub('', contents)
                                 if len(func):
                                     vals.append(func)
                                 else:
@@ -690,20 +459,6 @@ class Score:
             self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
         return self._analyses['lyrics'].copy()
 
-    def _clefHelper(self, clef):
-        """
-        Parse a music21 clef object into the corresponding humdrum syntax token.
-
-        :param clef: A music21 clef object.
-        :return: A string representing the humdrum syntax token for the clef.
-        """
-        octaveChange = ''
-        if clef.octaveChange > 0:
-            octaveChange = '^' * clef.octaveChange
-        elif clef.octaveChange < 0:
-            octaveChange = 'v' * abs(clef.octaveChange)
-        return f'*clef{clef.sign}{octaveChange}{clef.line}'
-
     def _clefs(self):
         """
         Extract the clefs from the score. 
@@ -738,7 +493,7 @@ class Score:
             clefs = pd.concat(parts, axis=1)
             if isinstance(clefs.index, pd.MultiIndex):
                 clefs = clefs.droplevel(1)
-            self._analyses['clefs'] = clefs.applymap(self._clefHelper, na_action='ignore')
+            self._analyses['clefs'] = clefs.applymap(clefHelper, na_action='ignore')
         return self._analyses['clefs']
 
     def dynamics(self):
@@ -787,83 +542,25 @@ class Score:
             self._analyses['_priority'] = priority
         return self._analyses['_priority']
 
-    def _snapTo(self, data, snap_to=None, filler='forward', output='array'):
-        """"
-        Takes a `harm`, `harmKeys`, `functions`, `chords`, or `cdata` as `data` and
-        the `snap_to` and `filler` parameters as described in the former three's 
-        doc strings.
-
-        The passed data is returned in the shape of the snap_to dataframe's columns,
-        and any filling operations are applied. The output will be in the form of a 
-        1D numpy array unless `output` is changed, in which case a series will be 
-        returned for harm, harmKeys, functions, and chords data, and a dataframe for 
-        cdata data.
-
-        :param data: Can be `harm`, `harmKeys`, `functions`, `chords`, or `cdata`.
-        :param snap_to: Described in the docstrings of `harm`, `harmKeys`, and 
-            `functions`.
-        :param filler: Described in the docstrings of `harm`, `harmKeys`, and 
-            `functions`.
-        :param output: If changed, a series will be returned for `harm`, `harmKeys`, 
-            `functions`, and `chords` data, and a dataframe for `cdata` data. Default 
-            is a 1D numpy array.
-        :return: The passed data in the shape of the `snap_to` dataframe's columns 
-            with any filling operations applied.
-        """
-        if snap_to is not None:
-            data = data.reindex(snap_to.columns)
-        if filler != '.':
-            data.replace('.', np.nan, inplace=True)
-        if isinstance(filler, str):
-            filler = filler.lower()
-            if filler == 'forward':
-                data.ffill(inplace=True)
-            else:
-                if filler in ('nan', 'drop'):
-                    data.fillna(np.nan, inplace=True)
-                else:
-                    data.fillna(filler, inplace=True)
-        if filler == 'drop':
-            data.dropna(inplace=True)
-        if output == 'array':
-            return data.values
-        else:
-            return data
-
     def harmKeys(self, snap_to=None, filler='forward', output='array'):
-        return self._snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
-    harmKeys.__doc__ = _reused_docstring
+        return snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
+    harmKeys.__doc__ = reused_docstring
 
     def harm(self, snap_to=None, filler='forward', output='array'):
-        return self._snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
-    harm.__doc__ = _reused_docstring
+        return snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
+    harm.__doc__ = reused_docstring
 
     def functions(self, snap_to=None, filler='forward', output='array'):
-        return self._snapTo(self._analyses['function'].copy(), snap_to, filler, output)
-    functions.__doc__ = _reused_docstring
+        return snapTo(self._analyses['function'].copy(), snap_to, filler, output)
+    functions.__doc__ = reused_docstring
 
     def chords(self, snap_to=None, filler='forward', output='array'):
-        return self._snapTo(self._analyses['chord'].copy(), snap_to, filler, output)
-    chords.__doc__ = _reused_docstring
+        return snapTo(self._analyses['chord'].copy(), snap_to, filler, output)
+    chords.__doc__ = reused_docstring
 
     def cdata(self, snap_to=None, filler='forward', output='dataframe'):
-        return self._snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
-    cdata.__doc__ = _reused_docstring
-
-    def _removeTied(self, noteOrRest):
-        """
-        Helper function for the `_m21ObjectsNoTies` method. 
-
-        Remove tied notes in a given note or rest. Only the first note in a tied 
-        group will be kept.
-
-        :param noteOrRest: A music21 note or rest object.
-        :return: np.nan if the note is tied and not the first in the group, 
-            otherwise the original note or rest.
-        """
-        if hasattr(noteOrRest, 'tie') and noteOrRest.tie is not None and noteOrRest.tie.type != 'start':
-            return np.nan
-        return noteOrRest
+        return snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
+    cdata.__doc__ = reused_docstring
 
     def _m21ObjectsNoTies(self):
         """
@@ -874,7 +571,7 @@ class Score:
         :return: A list of music21 objects with ties removed.
         """
         if '_m21ObjectsNoTies' not in self._analyses:
-            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(self._removeTied).dropna(how='all')
+            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(removeTied).dropna(how='all')
         return self._analyses['_m21ObjectsNoTies']
 
     def _measures(self):
@@ -1039,46 +736,6 @@ class Score:
             self._analyses[key] = midiPitches
         return self._analyses[key]
 
-    def _noteRestHelper(self, nr):
-        """
-        Helper function for the `notes` method. 
-
-        If the note/rest object `nr` is a rest, return 'r'. Otherwise, return the 
-        note's name with octave.
-
-        :param nr: A note/rest object.
-        :return: 'r' if `nr` is a rest, otherwise the note's name with octave.
-        """
-        if nr.isRest:
-            return 'r'
-        return nr.nameWithOctave
-
-    def _combineRests(self, col):
-        """
-        Helper function for the `notes` method. 
-
-        Combine consecutive rests in a given voice. Non-first consecutive rests 
-        will be removed.
-
-        :param col: A pandas Series representing a voice.
-        :return: The same pandas Series with consecutive rests combined.
-        """
-        col = col.dropna()
-        return col[(col != 'r') | ((col == 'r') & (col.shift(1) != 'r'))]
-
-    def _combineUnisons(self, col):
-        """
-        Helper function for the `notes` method. 
-
-        Combine consecutive unisons in a given voice. Non-first consecutive unisons 
-        will be removed.
-
-        :param col: A pandas Series representing a voice.
-        :return: The same pandas Series with consecutive unisons combined.
-        """
-        col = col.dropna()
-        return col[(col == 'r') | (col != col.shift(1))]
-
     def notes(self, combine_rests=True, combine_unisons=False):
         """
         Return a DataFrame of the notes and rests given in American Standard Pitch
@@ -1109,96 +766,16 @@ class Score:
             piece.notes()
         """
         if 'notes' not in self._analyses:
-            df = self._m21ObjectsNoTies().applymap(self._noteRestHelper, na_action='ignore')
+            df = self._m21ObjectsNoTies().applymap(noteRestHelper, na_action='ignore')
             self._analyses['notes'] = df
         ret = self._analyses['notes'].copy()
         if combine_rests:
-            ret = ret.apply(self._combineRests)
+            ret = ret.apply(combineRests)
         if combine_unisons:
-            ret = ret.apply(self._combineUnisons)
+            ret = ret.apply(combineUnisons)
         if isinstance(ret.index, pd.MultiIndex):
             ret = ret.droplevel(1)
         return ret
-
-    def _kernNoteHelper(self, _note):
-        """
-        Parse a music21 note object into a kern note token.
-
-        This method handles the conversion of various musical notations such as 
-        ties, slurs, beams, durations, octaves, accidentals, longas, and grace 
-        notes into the kern format.
-
-        :param _note: A music21 note object to be converted into a kern note token.
-        :return: A string representing the kern note token.
-        """
-        # TODO: this doesn't seem to be detecting longas in scores. Does m21 just not detect longas in kern files? Test with mei, midi, and xml
-        startBracket, endBracket, beaming = '', '', ''
-        if hasattr(_note, 'tie') and _note.tie is not None:
-            if _note.tie.type == 'start':
-                startBracket += '['
-            elif _note.tie.type == 'continue':
-                endBracket += '_'
-            elif _note.tie.type == 'stop':
-                endBracket += ']'
-
-        spanners = _note.getSpannerSites()
-        for spanner in spanners:
-            if 'Slur' in spanner.classes:
-                if spanner.isFirst(_note):
-                    startBracket = '(' + startBracket
-                elif spanner.isLast(_note):
-                    endBracket += ')'
-
-        beams = _note.beams.beamsList
-        for beam in beams:
-            if beam.type == 'start':
-                beaming += 'L'
-            elif beam.type == 'stop':
-                beaming += 'J'
-
-        dur = _duration2Kern[round(float(_note.quarterLength), 5)]
-        _oct = _note.octave
-        if _oct > 3:
-            letter = _note.step.lower() * (_oct - 3)
-        else:
-            letter = _note.step * (4 - _oct)
-        acc = _note.pitch.accidental
-        acc = acc.modifier if acc is not None else ''
-        longa = 'l' if _note.duration.type == 'longa' else ''
-        grace = '' if _note.sortTuple()[4] else 'q'
-        return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}'
-
-    def _kernChordHelper(self, _chord):
-        """
-        Parse a music21 chord object into a kern chord token.
-
-        This method uses the `_kernNoteHelper` method to convert each note in the 
-        chord into a kern note token. The tokens are then joined together with 
-        spaces to form the kern chord token.
-
-        :param _chord: A music21 chord object to be converted into a kern chord token.
-        :return: A string representing the kern chord token.
-        """
-        return ' '.join([self._kernNoteHelper(note) for note in _chord.notes])
-
-    def _kernNRCHelper(self, nrc):
-        """
-        Convert a music21 note, rest, or chord object to its corresponding kern token.
-
-        This method uses the `_kernNoteHelper` and `_kernChordHelper` methods to 
-        convert note and chord objects, respectively. Rest objects are converted 
-        directly in this method.
-
-        :param nrc: A music21 note, rest, or chord object to be converted into a 
-            kern token.
-        :return: A string representing the kern token.
-        """
-        if nrc.isNote:
-            return self._kernNoteHelper(nrc)
-        elif nrc.isRest:
-            return f'{_duration2Kern.get(round(float(nrc.quarterLength), 5))}r'
-        else:
-            return self._kernChordHelper(nrc)
 
     def kernNotes(self):
         """
@@ -1224,7 +801,7 @@ class Score:
             piece.kernNotes()
         """
         if 'kernNotes' not in self._analyses:
-            self._analyses['kernNotes'] = self._parts(True, True).applymap(self._kernNRCHelper, na_action='ignore')
+            self._analyses['kernNotes'] = self._parts(True, True).applymap(kernNRCHelper, na_action='ignore')
         return self._analyses['kernNotes']
 
     def nmats(self, json_path=None, include_cdata=False):
@@ -1272,7 +849,7 @@ class Score:
             mp = self.midiPitches(multi_index=True)
             ms = self._measures()
             ids = self.xmlIDs()
-            data = self.fromJSON(json_path) if json_path else pd.DataFrame()
+            data = fromJSON(json_path) if json_path else pd.DataFrame()
             if isinstance(ids.index, pd.MultiIndex):
                 ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
             for i, partName in enumerate(self._parts().columns):
@@ -1467,35 +1044,6 @@ class Score:
             self._analyses[key] = post
         return self._analyses[key]
 
-    def fromJSON(self, json_path):
-        """
-        Load a JSON file into a pandas DataFrame.
-
-        The outermost keys of the JSON object are interpreted as the index values of 
-        the DataFrame and should be in seconds with decimal places allowed. The 
-        second-level keys become the columns of the DataFrame.
-
-        :param json_path: Path to a JSON file.
-        :return: A pandas DataFrame representing the JSON data.
-
-        See Also
-        --------
-        :meth:`jsonCDATA`
-        :meth:`nmats`
-
-        Example
-        -------
-        .. code-block:: python
-
-            piece = Score('./test_files/CloseToYou.mei.xml')
-            piece.fromJSON(json_path='./test_files/CloseToYou.json')
-        """
-        with open(json_path) as json_data:
-            data = json.load(json_data)
-        df = pd.DataFrame(data).T
-        df.index = df.index.astype(str)
-        return df
-
     def insertAudioAnalysis(self, output_filename, json_path, mimetype='', target=''):
         """
         Insert a <performance> element into the MEI score given the analysis data 
@@ -1551,9 +1099,9 @@ class Score:
                 mimetype='audio/aiff',
                 target='Close to You vocals.wav')
         """
-        performance = ET.Element('performance', {'xml:id': next(_idGen)})
-        recording = ET.SubElement(performance, 'recording', {'xml:id': next(_idGen)})
-        avFile = ET.SubElement(recording, 'avFile', {'xml:id': next(_idGen)})
+        performance = ET.Element('performance', {'xml:id': next(idGen)})
+        recording = ET.SubElement(performance, 'recording', {'xml:id': next(idGen)})
+        avFile = ET.SubElement(recording, 'avFile', {'xml:id': next(idGen)})
         if mimetype:
             avFile.set('mimetype', mimetype)
         if target:
@@ -1562,13 +1110,13 @@ class Score:
         # TODO: how do we know which nmat to use when writing the file?
         df = nmats[self.partNames[0]].iloc[:, 7:].dropna(how='all')
         for ndx in df.index:
-            when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(_idGen), 'data': f'#{ndx}'})
-            ET.SubElement(when, 'extData', {'xml:id': next(_idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
+            when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(idGen), 'data': f'#{ndx}'})
+            ET.SubElement(when, 'extData', {'xml:id': next(idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
         musicEl = self._meiTree.find('.//music')
         musicEl.insert(0, performance)
         if not output_filename.endswith('.mei.xml'):
             output_filename = output_filename.split('.', 1)[0] + '.mei.xml'
-        _indentMEI(self._meiTree)
+        indentMEI(self._meiTree)
         # get header/ xml descriptor from original file
         with open(self.path, 'r') as f:
             lines = []
@@ -1631,38 +1179,6 @@ class Score:
             \nthat file to VHV: https://verovio.humdrum.org/''')
         else:
             print(f'https://verovio.humdrum.org/?t={encoded}')
-
-    def _kernHeader(self):
-        """
-        Return a string of the kern format header global comments.
-
-        The header includes the composer and title metadata.
-
-        :return: A string representing the kern format header.
-        """
-        data = [
-            f'!!!COM: {self.metadata["composer"]}',
-            f'!!!OTL: {self.metadata["title"]}'
-        ]
-        return '\n'.join(data)
-
-    def _kernFooter(self):
-        """
-        Return a string of the kern format footer global comments.
-
-        The footer includes the translation date and other relevant metadata.
-
-        :return: A string representing the kern format footer.
-        """
-        from datetime import datetime
-        data = [
-            '!!!RDF**kern: %=rational rhythm',
-            '!!!RDF**kern: l=long note in original notation',
-            '!!!RDF**kern: i=editorial accidental',
-            f'!!!ONB: Translated from a {self.fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT',
-            '!!!title: @{OTL}'
-        ]
-        return '\n'.join(data)
 
     def toKern(self, path_name='', data='', lyrics=True, dynamics=True):
         """
@@ -1744,10 +1260,10 @@ class Score:
             ba = ba[ba != 'regular'].dropna().replace({'double': '||', 'final': '=='})
             ba.loc[self.score.highestTime, :] = '=='
             if data:
-                cdata = self.fromJSON(data).reset_index(drop=True)
+                cdata = fromJSON(data).reset_index(drop=True)
                 cdata.index = events.index[:len(cdata)]
                 firstTokens.extend([f'**{col}' for col in cdata.columns])
-                self._addTieBreakers((events, cdata))
+                addTieBreakers((events, cdata))
                 events = pd.concat((events, cdata), axis=1)
             me = pd.concat([me.iloc[:, 0]] * len(events.columns), axis=1)
             ba = pd.concat([ba.iloc[:, 0]] * len(events.columns), axis=1)
@@ -1768,7 +1284,7 @@ class Score:
             partTokens.columns = events.columns
             to_concat = [partTokens, de, me, ds, clefs, ks, ts, events, ba]
             if isinstance(events.index, pd.MultiIndex):
-                self._addTieBreakers(to_concat)
+                addTieBreakers(to_concat)
             body = pd.concat(to_concat).sort_index(kind='mergesort')
             if isinstance(body.index, pd.MultiIndex):
                 body = body.droplevel(1)
@@ -1785,9 +1301,9 @@ class Score:
                     if _ii + 1 == len(divStarts) and _ii < len(divEnds):  # delete everything in target cols after final consolidation
                         body.iloc[divEnds[_ii] + 1:, colIndex] = np.nan
 
-            result = [self._kernHeader()]
+            result = [kernHeader(self.metadata)]
             result.extend(body.apply(lambda row: '\t'.join(row.dropna().astype(str)), axis=1))
-            result.extend((self._kernFooter(),))
+            result.extend((kernFooter(self.fileExtension),))
             result = '\n'.join(result)
             self._analyses[key] = result
         if not path_name:
@@ -1866,7 +1382,7 @@ class Score:
                         for nrc in stack.loc[[measure, staff, layer]].values:
                             if nrc.isNote:
                                 note_el = ET.SubElement(layer_el, 'note', {'oct': f'{nrc.octave}',
-                                        'pname': f'{nrc.step.lower()}', 'xml:id': next(_idGen)})
+                                        'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen)})
                                 if nrc.duration.isGrace:
                                     note_el.set('grace', 'acc')
                                 else:
@@ -1874,19 +1390,19 @@ class Score:
                                 # ET.SubElement(note_el, 'tie', {'type': 'start'})
                                 # ET.SubElement(note_el, 'tie', {'type': 'stop'})
                             elif nrc.isRest:
-                                rest_el = ET.SubElement(layer_el, 'rest', {'xml:id': next(_idGen)})
+                                rest_el = ET.SubElement(layer_el, 'rest', {'xml:id': next(idGen)})
                                 rest_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
                             else:
                                 # chord_el = ET.SubElement(layer_el, 'chord')
                                 for note in nrc.notes:
                                     chord_note_el = ET.SubElement(layer_el, 'note', {'oct': f'{note.octave}',
-                                            'pname': f'{note.step.lower()}', 'xml:id': next(_idGen)})
+                                            'pname': f'{note.step.lower()}', 'xml:id': next(idGen)})
                                     if note.duration.isGrace:
                                         chord_note_el.set('grace', 'acc')
                                     else:
                                         chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
-            _insertScoreDef(root, self.partNames)
-            _indentMEI(root)
+            insertScoreDef(root, self.partNames)
+            indentMEI(root)
             self._analyses[key] = ET.ElementTree(root)
 
         if not file_name:
@@ -1895,5 +1411,5 @@ class Score:
             if not (file_name.endswith('.mei.xml') or file_name.endswith('.mei')):
                 file_name += '.mei.xml'
             with open(f'./output_files/{file_name}', 'w') as f:
-                f.write(_meiDeclaration)
+                f.write(meiDeclaration)
                 self._analyses[key].write(f, encoding='unicode')
