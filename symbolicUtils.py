@@ -234,7 +234,7 @@ def _id_gen(start=1):
     --------
     .. code-block:: python
 
-        newID = next(_idGen)
+        newID = next(idGen)
     """
     while True:
         yield f'pyAMPACT-{start}'
@@ -249,7 +249,7 @@ def indentMEI(elem, level=0):
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
         for elem in elem:
-            _indentMEI(elem, level+1)
+            indentMEI(elem, level+1)
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
     else:
@@ -270,12 +270,12 @@ def insertScoreDef(root, part_names=[]):
     :return: None
     """
     if root.find('.//scoreDef') is None:
-        scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
+        scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
         if len(part_names) == 0:
             part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
         for i, staff in enumerate(part_names):
             staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
-            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(_idGen)})
+            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(idGen)})
         scoreEl = root.find('.//score')
         if scoreEl is not None:
             scoreEl.insert(0, scoreDef)
