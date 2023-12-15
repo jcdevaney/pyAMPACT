@@ -8,7 +8,6 @@ import os
 import requests
 from symbolicUtils import *
 import tempfile
-import xml.etree.ElementTree as ET
 
 
 class Score:

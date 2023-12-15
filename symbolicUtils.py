@@ -2,6 +2,7 @@ import json
 import numpy as np
 import pandas as pd
 import re
+import xml.etree.ElementTree as ET
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
     56:      '000..',
