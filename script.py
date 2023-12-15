@@ -17,6 +17,10 @@ m21.environment.set('autoDownload', 'allow')
 _function_pattern = re.compile('[^TtPpDd]')
 _volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
 _tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
+_meiDeclaration = '''<?xml version="1.0" encoding="UTF-8"?>
+<!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+'''
 _imported_scores = {}
 
 def _id_gen(start=1):
@@ -84,6 +88,29 @@ def _indentMEI(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
+def _insertScoreDef(root, part_names=[]):
+    """
+    Insert a scoreDef element into an MEI (Music Encoding Initiative) document.
+
+    This function inserts a scoreDef element into an MEI document if one is
+    not already present. It modifies the input element in-place.
+
+    :param root: An xml.etree.ElementTree.Element representing the root of the
+        MEI document.
+    :param part_names: A list of strings representing the names of the parts in
+        the score. Default is an empty list.
+    :return: None
+    """
+    if root.find('.//scoreDef') is None:
+        scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
+        if len(part_names) == 0:
+            part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
+        for i, staff in enumerate(part_names):
+            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
+            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(_idGen)})
+        scoreEl = root.find('.//score')
+        if scoreEl is not None:
+            scoreEl.insert(0, scoreDef)
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
     56:      '000..',
@@ -259,14 +286,7 @@ class Score:
                     self._meiTree = copy.deepcopy(root)
                     if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
                         parseEdited = True
-                        scoreDef = ET.Element('scoreDef', {'xml:id': next(_idGen), 'n': '1'})
-                        staves = {f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')}   # all the parts
-                        for i, staff in enumerate(sorted(staves)):
-                            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(_idGen)})
-                            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(_idGen)})
-                        scoreEl = root.find('.//score')
-                        if scoreEl is not None:
-                            scoreEl.insert(0, scoreDef)
+                        _insertScoreDef(root)
 
                     for section in root.iter('section'):   # make sure all events are contained in measures
                         if section.find('measure') is None:
@@ -462,7 +482,8 @@ class Score:
             self._analyses['_kernStrands'] = kernStrands
         return self._analyses['_partList']
 
-    def _parts(self, multi_index=False, kernStrands=False):
+    def _parts(self, multi_index=False, kernStrands=False, compact=False,
+            number=False):
         """
         Return a DataFrame of the note, rest, and chord objects in the score.
 
@@ -475,14 +496,31 @@ class Score:
             will have a MultiIndex.
         :param kernStrands: Boolean, default False. If True, the method will use the
             '_kernStrands' analysis.
+        :param compact: Boolean, default False. If True, the method will keep chords
+            unified rather then expanding them into separate columns.
+        :param number: Boolean, default False. If True, the method will 1-index
+            the part names and the voice names making the columns a MultiIndex. Only
+            applies if `compact` is also True.
         :return: A DataFrame of the note, rest, and chord objects in the score.
         """
-        key = ('_parts', multi_index, kernStrands)
+        key = ('_parts', multi_index, kernStrands, compact, number)
         if key not in self._analyses:
+            toConcat = []
             if kernStrands:
                 toConcat = self._analyses['_kernStrands']
+            elif compact:
+                toConcat = self._analyses['_partList']
+                if number:
+                    partNameToNum = {part: i + 1 for i, part in enumerate(self.partNames)}
+                    colTuples = []
+                    for part in toConcat:
+                        names = part.name.split('_')
+                        if len(names) == 1:
+                            colTuples.append((partNameToNum[names[0]], 1))
+                        else:
+                            colTuples.append((partNameToNum[names[0]], int(names[1]) + 1))
+                    mi = pd.MultiIndex.from_tuples(colTuples, names=('Staff', 'Layer'))
             else:
-                toConcat = []
                 for part in self._partList():
                     if part.empty:
                         toConcat.append(part)
@@ -494,6 +532,8 @@ class Score:
             df = pd.concat(toConcat, axis=1, sort=True) if len(toConcat) else pd.DataFrame(columns=self.partNames)
             if not multi_index and isinstance(df.index, pd.MultiIndex):
                 df.index = df.index.droplevel(1)
+            if compact and number:
+                df.columns = mi
             self._analyses[key] = df
         return self._analyses[key]
 
@@ -610,7 +650,7 @@ class Score:
                                     data[column_name].append(nr.get(idString))
                 ids = pd.DataFrame.from_dict(data, orient='index').T
                 cols = []
-                parts = self._parts(multi_index=True)
+                parts = self._parts(multi_index=True).copy()
                 for i in range(len(parts.columns)):
                     part = parts.iloc[:, i].dropna()
                     idCol = ids.iloc[:, i].dropna()
@@ -1759,3 +1799,101 @@ class Score:
                 path_name = './output_files/' + path_name
             with open(path_name, 'w') as f:
                 f.write(self._analyses[key])
+
+    def toMEI(self, file_name='', data=''):
+        """
+        Create an MEI representation of the score. If no `file_name` is passed
+        then returns a string of the MEI representation. Otherwise a file called
+        `file_name` is created or overwritten in the `output_files` directory.
+        If `file_name` does not end in '.mei.xml' or '.mei', then the `.mei.xml`
+        file extension will be added to the `file_name`.
+
+        :param file_name: Optional string representing the name to save the new
+            MEI file to in the `output_files` directory.
+        :param data: Optional string of the path of score data in json format to
+            be added to the the new mei file.
+        :return: String of new MEI score if no `file_name` is given, or None if
+            writing the new MEI file to `output_files/<file_name>.mei.xml`
+
+        See Also
+        --------
+        :meth:`toKern`
+
+        Example
+        -------
+        .. code-block:: python
+
+            # create an MEI file from a different symbolic notation file
+            piece = Score('kerntest.krn')
+            piece.toMEI(file_name='meiFile.mei.xml')
+        """
+        import pdb
+        key = ('toMEI', data)
+        if key not in self._analyses:
+            root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.0.0'})
+            meiHead = ET.SubElement(root, 'meiHead')
+            fileDesc = ET.SubElement(meiHead, 'fileDesc')
+            titleStmt = ET.SubElement(fileDesc, 'titleStmt')
+            title = ET.SubElement(titleStmt, 'title')
+            author = ET.SubElement(titleStmt, 'author')
+            composer = ET.SubElement(titleStmt, 'composer')
+            music = ET.SubElement(root, 'music')
+            # insert performance element here
+            body = ET.SubElement(music, 'body')
+            mdiv = ET.SubElement(body, 'mdiv')
+            score = ET.SubElement(mdiv, 'score')
+            section = ET.SubElement(score, 'section')
+
+            events = self._parts(compact=True, number=True)
+            e0 =events.copy()
+            # events.columns = range(1, len(events.columns) + 1 )
+            events['Measure'] = self._measures().iloc[:, 0]
+            e1 = events.copy()
+            # need to assign column names in format (partNumber, voiceNumer) with no splitting up of chords
+            events.iloc[:, -1].ffill(inplace=True)
+            e2 = events.copy()
+            events = events.set_index('Measure')
+            e3 = events.copy()
+            stack = events.stack((0, 1)).sort_index(level=[0, 1, 2])
+            for measure in stack.index.levels[0]:
+                meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
+                for staff in stack.index.get_level_values(1).unique():   # stack.index.levels[1] doesn't work for some reason
+                    if staff == 'Measure':
+                        pdb.set_trace()
+                    staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
+                    for layer in stack.index.levels[2]:
+                        layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
+                        for nrc in stack.loc[[measure, staff, layer]].values:
+                            if nrc.isNote:
+                                note_el = ET.SubElement(layer_el, 'note', {'oct': f'{nrc.octave}',
+                                        'pname': f'{nrc.step.lower()}', 'xml:id': next(_idGen)})
+                                if nrc.duration.isGrace:
+                                    note_el.set('grace', 'acc')
+                                else:
+                                    note_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
+                                # ET.SubElement(note_el, 'tie', {'type': 'start'})
+                                # ET.SubElement(note_el, 'tie', {'type': 'stop'})
+                            elif nrc.isRest:
+                                rest_el = ET.SubElement(layer_el, 'rest', {'xml:id': next(_idGen)})
+                                rest_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
+                            else:
+                                # chord_el = ET.SubElement(layer_el, 'chord')
+                                for note in nrc.notes:
+                                    chord_note_el = ET.SubElement(layer_el, 'note', {'oct': f'{note.octave}',
+                                            'pname': f'{note.step.lower()}', 'xml:id': next(_idGen)})
+                                    if note.duration.isGrace:
+                                        chord_note_el.set('grace', 'acc')
+                                    else:
+                                        chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
+            _insertScoreDef(root, self.partNames)
+            _indentMEI(root)
+            self._analyses[key] = ET.ElementTree(root)
+
+        if not file_name:
+            return self._analyses[key]
+        else:
+            if not (file_name.endswith('.mei.xml') or file_name.endswith('.mei')):
+                file_name += '.mei.xml'
+            with open(f'./output_files/{file_name}', 'w') as f:
+                f.write(_meiDeclaration)
+                self._analyses[key].write(f, encoding='unicode')
