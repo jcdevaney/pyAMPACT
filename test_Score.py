@@ -1,5 +1,5 @@
 import os, sys; sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from script import Score
+from symbolic import Score
 import pandas as pd
 from unittest.mock import patch
 from io import StringIO
