@@ -1,7 +1,6 @@
 import ast
 import base64
 import copy
-import json
 import math
 import music21 as m21
 m21.environment.set('autoDownload', 'allow')
