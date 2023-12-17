@@ -8,7 +8,7 @@ from runHMMAlignment import run_HMM_alignment
 
 import os
 curr_dir = os.getcwd()
-from script import Score
+from symbolic import Score
 
 import sys
 
@@ -51,7 +51,6 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     note_num = note_num[:num_states] # Original
     
 
-
     # Read audio file and perform DTW alignment and YIN analysis
     hop = 32
     audiofile, sr = librosa.load(filename, sr=4000)
@@ -61,12 +60,12 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
 
     align, yinres, spec, dtw = get_vals(
         filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
-
-        
+    
+    
     audiofile = None  # Clear the audiofile variable
 
 
-    
+    """
     # CLEARED. TO BE FIXED LATER
 
     # Run HMM alignment with the full state sequence
@@ -90,41 +89,23 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     allstate = np.vstack([state_ord, np.zeros_like(state_ord)])
     allstate[1, :len(cumsumvals)] = cumsumvals
 
-    # selectstate = state_ord2
-    # selectstate[1, :len(cumsumvals2)] = cumsumvals2  # Original
-    # selectstate[:len(cumsumvals2)] = cumsumvals2 # Original
-    # selectstate[:len(cumsumvals)] = cumsumvals # Original
-    # selectstate[2][:] = note_num
+    """
 
-    # # One Note - The middle row needs attention from select_state, but is reliant on data from HMM alignment.
-    # The x-axis seems to be correct but the start/stop is not
-
-    # selectstate = np.zeros((len(state_ord2), len(note_num)))
-    # selectstate[0, :] = state_ord2  # Good
-    # selectstate[1, :] = cumsumvals2  # This needs to be populated somehow
-    # selectstate[2, :] = note_num
-
-
-
-    # selectstate is from the HMM alignment, which is not in place.  This runs through
-    # get_ons_offs in the exampleScript and then plots the lines accordingly...
     
-    # # selectstate construction, in progress
-    # piece = Score(midiname)
-    # # end_times = piece.durations()
-    # nmat_from_script = piece.nmats() 
-    # end_times = nmat_from_script['Piano'].values        
-    # end_times = [row[1] for row in end_times]
-    # selectstate = np.empty((3, len(note_num)))
-    # # end_times = end_times['Piano'].keys()        
-    # selectstate[0, :] = state_ord[:len(note_num)]
-    # selectstate[1, :] = note_num
-    # selectstate[2, :] = np.pad(end_times, (0, len(note_num) - len(end_times)), mode='constant')
+    # # selectstate construction, in progress   
+    lengthOfNotes = note_num + 1    
+    selectstate = np.empty((3, len(lengthOfNotes)))            
+    interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]
+    interleaved = [val / 2 for val in interleaved]    
+    selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
     
+    selectstate[1, :] = interleaved[:-1]
+    selectstate[2, :] = note_num
+
     
-            
-    selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
-                            [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
-                            [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
+    # Placeholder            
+    # selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
+    #                         [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
+    #                         [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
     
     return selectstate, spec, yinres

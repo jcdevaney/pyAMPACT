@@ -9,7 +9,7 @@ from pytimbre.yin import yin
 
 import os
 curr_dir = os.getcwd()
-from script import Score
+from symbolic import Score
 
 def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, win_ms):
 

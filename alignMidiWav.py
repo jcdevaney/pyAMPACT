@@ -8,7 +8,7 @@ from dp import dp
 
 import os
 curr_dir = os.getcwd()
-from script import Score
+from symbolic import Score
 
 
 def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
@@ -55,7 +55,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     S[np.isnan(S)] = 0
 
     # Do the DP search
-    p, q, D = dp(1 - S)  # You need to implement dpfast function
+    p, q, D = dp(1 - S)  # You need to implement dpfast function    
 
     # Map indices into MIDI file that make it line up with the spectrogram
     m = np.zeros(D.shape[1], dtype=int)

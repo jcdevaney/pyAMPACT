@@ -3,7 +3,7 @@ import pandas as pd
 
 import os
 curr_dir = os.getcwd()
-from script import Score
+from symbolic import Score
 
 # import functions
 from runAlignment import run_alignment
@@ -32,7 +32,6 @@ for note in notes['Piano']: # Hardcoded. Fix this?
     if note != -1: # Exclude rests
         num_notes += 1        
 
-
 # Define state order and note numbers
 state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
 note_num = np.repeat(np.arange(1, num_notes + 1), 2)
@@ -60,7 +59,6 @@ select_state, spec, yin_res = run_alignment(
 # Visualize the alignment
 alignment_visualizer(select_state, midi_file, spec, 1)
 
-
 # Get onset and offset times
 times = get_ons_offs(select_state)
 
@@ -77,9 +75,29 @@ times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_label
 
 
 # Build JSON
-durations = piece.durations()
-durations = durations['Piano'].values # Hardcode 'Piano' part?
-durations = np.append(durations, -1) # Add -1 to signify ending
+nmat = piece.nmats()
+
+xmlIds = nmat['Piano'].index
+
+measures = nmat['Piano']['MEASURE'].values,
+onsets = nmat['Piano']['ONSET'].values,
+durations = nmat['Piano']['DURATION'].values,
+parts = "Piano" # Hardcoded
+midis = nmat['Piano']['MIDI'].values,
+onset_secs = nmat['Piano']['ONSET_SEC'].values,
+offset_secs = nmat['Piano']['OFFSET_SEC'].values
+
+
+# Add -1 to signify ending
+# Some values have different lengths and will hit an error when calculating starting idx and end_idx.
+# Specifically around the chunking of values per note.  This could be remedied by doing chunk calculations
+# separately, but for now adding -1 as placeholders for the end of the piece.
+measures = np.append(measures, -1)
+onsets = np.append(onsets, -1)
+durations = np.append(durations, -1)
+midis = np.append(midis, -1) 
+onset_secs = np.append(onset_secs, -1)
+offset_secs = np.append(offset_secs, -1)
 
 f0_values = yin_res['f0']
 pwr_values = yin_res['ap']
@@ -89,25 +107,17 @@ pwr_values = yin_res['ap']
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
 res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
 
-timesOns = tuple(times['ons'].values)
-
-# Create a dictionary
-# print("f0Vals", len(f0_values))
-# print("pwrVals", len(res['pwr_vals']))
-# print("specSlope", len(res['spec_slope']))
-# print("spec_flux", len(res['spec_flux']))
-# print("spec_flat", len(res['spec_flat']))
-
-# Initialize the params_dict
-params_dict = {}
+times_ons = tuple(times['ons'].values)
+times_offs = tuple(times['offs'].values)
 
 
+# Initialize the audio_params
+audio_params = {}
 
-
-# Iterate over the indices of timesOns
-for i in range(len(timesOns)):
-    start_idx = int(i * len(f0_values) / len(timesOns))
-    end_idx = int((i + 1) * len(f0_values) / len(timesOns))
+# Iterate over the indices of XML_IDs
+for i in range(len(xmlIds)):
+    start_idx = int(i * len(f0_values) / len(xmlIds))
+    end_idx = int((i + 1) * len(f0_values) / len(xmlIds))
 
     # Extract values for the current time interval
     f0_chunk = f0_values[start_idx:end_idx]    
@@ -117,8 +127,9 @@ for i in range(len(timesOns)):
     flat_chunk = res['spec_flat'][start_idx:end_idx]
 
     # Create a dictionary for the current time interval
-    params_dict[timesOns[i]] = {
-        "dur": durations[i],
+    audio_params[xmlIds[i]] = {
+        "startTime": times_ons[i],
+        "endTime": times_offs[i],                
         "f0Vals": f0_chunk,
         "ppitch1": res['ppitch'][0],
         "ppitch2": res['ppitch'][1],
@@ -135,56 +146,28 @@ for i in range(len(timesOns)):
         "spec_flux": flux_chunk,
         "mean_spec_flux": res['mean_spec_flux'],
         "spec_flat": flat_chunk,
-        "mean_spec_flat": res['mean_spec_flat']   
+        "mean_spec_flat": res['mean_spec_flat'],
+        "MEASURE": measures[i],
+        "ONSET": onsets[i],
+        "DURATION": durations[i],
+        "PART":"Piano",
+        "MIDI": midis[i],
+        "ONSET_SEC": onset_secs[i],
+        "OFFSET_SEC": offset_secs[i]
         # Add other parameters and their corresponding chunks here
     }
-    
 
-# print(timesOns)
-# params_dict = {
-#     timesOns: {
-#     # "dur": durations,
-#     "f0Vals": f0_values,
-#     "ppitch1": res['ppitch'][0],
-#     "ppitch2": res['ppitch'][1],
-#     "jitter": res['jitter'],
-#     "vibratoDepth": res['vibrato_depth'],
-#     "vibratoRate": res['vibrato_rate'],
-#     "pwrVals": res['pwr_vals'],
-#     "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
-#     "shimmer": res['shimmer'],
-#     # "specCent": res['spec_centroid']
-#     # "specCentMean": 1370.1594532691213,
-#     "specSlope": res['spec_slope'],
-#     "meanSpecSlope": res['mean_spec_slope'],
-#     "spec_flux": res['spec_flux'],
-#     "mean_spec_flux": res['mean_spec_flux'],
-#     "spec_flat": res['spec_flat'],
-#     "mean_spec_flat": res['mean_spec_flat']    
-#     }
-# }
 
-# Create a DataFrame from the dictionary
-df = pd.DataFrame([params_dict])
+# Create DataFrames from the dictionary
+audio_df = pd.DataFrame([audio_params])
 
-# Save the DataFrame as JSON
-df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
+audio_df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
+
 
 
 
 # Map timing information to the quantized MIDI file
-# nmat_new = get_timing_data(midi_file, onsets, offsets)
 # nmat_new = get_timing_data(midi_file, times)
-# print(nmat_new)
-
-# Placeholder
-# nmat_new = [
-#     [0, 3.3625, 1.0000, 70.0000, 9.0000, 0, 3.3625],
-#     [3.4343, 0.4688, 1.0000, 69.0000, 9.0000, 3.4343, 0.4688],
-#     [3.9510, 0.6552, 1.0000, 70.0000, 9.0000, 3.9510, 0.6552]
-# ]
-
-
 
 # Write the new MIDI file
 # midi = MidiFile()

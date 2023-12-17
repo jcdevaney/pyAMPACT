@@ -2,7 +2,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from midi2nmat import midi2nmat
+import os
+curr_dir = os.getcwd()
+from symbolic import Score
+
+import sys
+import pandas as pd
 
 
 def alignment_visualizer(trace, mid, spec, fig=1):
@@ -17,11 +22,16 @@ def alignment_visualizer(trace, mid, spec, fig=1):
     #     trace[1, -2] = trace[1, -3]
 
     # hop size between frames
-    stft_hop = 0.0228  # Adjusted from 0.025
+    stft_hop = 0.0225  # Adjusted from 0.025
 
     # Read MIDI file
-    # note, vel, start time, end time, duration, note is processed
-    nmat = midi2nmat(mid)
+    # This used to take in whole nmat, but now just pitches.
+    # note, vel, start time, end time, duration, note is processed    
+    piece = Score(mid)
+    notes = piece.midiPitches()['Piano']
+    notes = notes[notes != -1]
+    
+    
 
     # ADJUST CONTRAST...
     # Plot spectrogram of the audio file
@@ -35,7 +45,8 @@ def alignment_visualizer(trace, mid, spec, fig=1):
     # plt.show() # Uncomment to show
 
     # Zoom in on fundamental frequencies
-    notes = nmat[:, 0]  # Note
+    # notes = nmat[:, 0]  # Note
+    notes = notes.values    
     notes = (2 ** ((notes - 105) / 12)) * 440
     notes = np.append(notes, notes[-1])
     nlim = len(notes)
