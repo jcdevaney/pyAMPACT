@@ -65,8 +65,8 @@ tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
 
 meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
-<!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
-<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
 """
 
 reused_docstring =  """
@@ -304,10 +304,10 @@ def kernFooter(fileExtension):
     """
     from datetime import datetime
     return f"""!!!RDF**kern: %=rational rhythm
-        !!!RDF**kern: l=long note in original notation
-        !!!RDF**kern: i=editorial accidental
-        !!!ONB: Translated from a {fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT
-        !!!title: @{{OTL}}"""
+!!!RDF**kern: l=long note in original notation
+!!!RDF**kern: i=editorial accidental
+!!!ONB: Translated from a {fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT
+!!!title: @{{OTL}}"""
 
 def kernHeader(metadata):
     """
