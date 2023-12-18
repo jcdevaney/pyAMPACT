@@ -1,3 +1,4 @@
+import pdb
 import json
 import numpy as np
 import pandas as pd
@@ -5,59 +6,65 @@ import re
 import xml.etree.ElementTree as ET
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
-    56:      '000..',
-    48:      '000.',
-    32:      '000',
-    28:      '00..',
-    24:      '00.',
-    16:      '00',
-    14:      '0..',
-    12:      '0.',
-    8:       '0',
-    7:       '1..',
-    6:       '1.',
-    4:       '1',
-    3.5:     '2..',
-    3:       '2.',
-    2.66666: '3%2',
-    2:       '2',
-    1.75:    '4..',
-    1.5:     '4.',
-    1.33333: '3',
-    1:       '4',
-    .875:    '8..',
-    .75:     '8.',
-    .66667:  '6',
-    .5:      '8',
-    .4375:   '16..',
-    .375:    '16.',
-    .33333:  '12',
-    .25:     '16',
-    .21875:  '32..',
-    .1875:   '32.',
-    .16667:  '24',
-    .125:    '32',
-    .10938:  '64..',
-    .09375:  '64.',
-    .08333:  '48',
-    .0625:   '64',
-    .05469:  '128..',
-    .04688:  '128.',
-    .04167:  '96',
-    .03125:  '128',
-    .02734:  '256..',
-    .02344:  '256.',
-    .02083:  '192',
-    .01563:  '256',
-    .01367:  '512..',
-    .01172:  '512.',
-    .01042:  '384',
-    .00781:  '512',
-    .00684:  '1024.',
-    .00586:  '1024.',
-    .00582:  '768',
-    .00391:  '1024',
-    0:       ''
+    56:        '000..',
+    48:        '000.',
+    32:        '000',
+    28:        '00..',
+    24:        '00.',
+    16:        '00',
+    14:        '0..',
+    12:        '0.',
+    8:         '0',
+    7:         '1..',
+    6:         '1.',
+    4:         '1',
+    3.5:       '2..',
+    3:         '2.',
+    2.66666:   '3%2',
+    2:         '2',
+    1.75:      '4..',
+    1.5:       '4.',
+    1.33333:   '3',
+    1:         '4',
+    .875:      '8..',
+    .75:       '8.',
+    .66667:    '6',
+    .5:        '8',
+    .4375:     '16..',
+    .375:      '16.',
+    .33333:    '12',
+    .25:       '16',
+    .21875:    '32..',
+    .1875:     '32.',
+    .16667:    '24',
+    .125:      '32',
+    .10938:    '64..',
+    .09375:    '64.',
+    .08333:    '48',
+    .0625:     '64',
+    .05469:    '128..',
+    .04688:    '128.',
+    .04167:    '96',
+    .03125:    '128',
+    .02734:    '256..',
+    .02344:    '256.',
+    .02083:    '192',
+    .01563:    '256',
+    .01367:    '512..',
+    .01172:    '512.',
+    .01042:    '384',
+    .00781:    '512',
+    .00684:    '1024.',
+    .00586:    '1024.',
+    .00582:    '768',
+    .00391:    '1024',
+    0:         '',
+    '128th':   '128',    # grace note durations
+    '64th':    '64',
+    '32nd':    '32',
+    '16th':    '16',
+    'eighth':  '8',
+    'quarter': '8'      # make quarter grace notes default to eighth notes too
 }
 function_pattern = re.compile('[^TtPpDd]')
 imported_scores = {}
@@ -355,7 +362,6 @@ def _kernNoteHelper(_note):
         elif beam.type == 'stop':
             beaming += 'J'
 
-    dur = _duration2Kern[round(float(_note.quarterLength), 5)]
     _oct = _note.octave
     if _oct > 3:
         letter = _note.step.lower() * (_oct - 3)
@@ -364,6 +370,12 @@ def _kernNoteHelper(_note):
     acc = _note.pitch.accidental
     acc = acc.modifier if acc is not None else ''
     longa = 'l' if _note.duration.type == 'longa' else ''
+    if _note.duration.isGrace:
+        dur = _duration2Kern.get(_note.duration.type, '')
+        grace = 'q' if _note.duration.slash else 'qq'
+    else:
+        grace = ''
+        dur = _duration2Kern[round(float(_note.quarterLength), 5)]
     grace = 'q' if _note.duration.isGrace else ''   # TODO: make this sensitive to notehead and practical duration
     return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}'
 
