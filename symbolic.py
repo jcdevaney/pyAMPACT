@@ -1344,13 +1344,14 @@ class Score:
         import pdb
         key = ('toMEI', data)
         if key not in self._analyses:
-            root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.0.0'})
+            root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.0'})
             meiHead = ET.SubElement(root, 'meiHead')
             fileDesc = ET.SubElement(meiHead, 'fileDesc')
             titleStmt = ET.SubElement(fileDesc, 'titleStmt')
-            title = ET.SubElement(titleStmt, 'title')
-            author = ET.SubElement(titleStmt, 'author')
-            composer = ET.SubElement(titleStmt, 'composer')
+            title = ET.SubElement(titleStmt, 'title', {'text': self.metadata['title']})
+            composer = ET.SubElement(titleStmt, 'composer', {'text': self.metadata['composer']})
+            pubStmt = ET.SubElement(fileDesc, 'pubStmt')
+            unpublished = ET.SubElement(pubStmt, 'unpublished', {'text': f'This mei file was converted from a {self.fileExtension} file by pyAMPACT'})
             music = ET.SubElement(root, 'music')
             # insert performance element here
             body = ET.SubElement(music, 'body')
