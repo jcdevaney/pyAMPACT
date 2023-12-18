@@ -3,34 +3,13 @@ from mido import MidiFile, MidiTrack, Message
 import numpy as np
 
 
-
-# def midi2nmat(filename):
-#     mid = MidiFile(filename)
-#     nmat = []
-#     ticks_per_quarter_note = mid.ticks_per_beat
-
-#     for i, track in enumerate(mid.tracks):
-#         for msg in track:
-#             if msg.type == 'set_tempo':
-#                 tempo = mido.tempo2bpm(msg.tempo)
-#             elif msg.type == 'note_on' or msg.type == 'note_off':
-#                 nmat.append([i + 1,  # Track number (1-indexed)
-#                              msg.channel + 1,  # Channel number (1-indexed)
-#                              msg.note,  # Note number
-#                              msg.velocity,  # Velocity
-#                              msg.time / ticks_per_quarter_note * 60.0 / tempo,  # Onset time (in seconds)
-#                              msg.time / ticks_per_quarter_note * 60.0 / tempo + msg.velocity / 127.0 * msg.time / ticks_per_quarter_note * 60.0 / tempo  # Offset time (in seconds)
-#                              ])
-
-#     return nmat
-
 def midi2nmat(filename):
     mid = mido.MidiFile(filename)
     nmat = []
 
     # Convert ticks per beat to seconds per tick
-    ticks_per_beat = mid.ticks_per_beat
-    seconds_per_tick = 60 / (500000 / ticks_per_beat)
+    ticks_per_beat = mid.ticks_per_beat    
+    seconds_per_tick = 60 / (5000000 / ticks_per_beat)
 
     current_tempo = 500000  # Default tempo
 
@@ -71,6 +50,26 @@ def midi2nmat(filename):
 
     return np.array(nmat)
 
+
+# def midi2nmat(filename):
+#     mid = MidiFile(filename)
+#     nmat = []
+#     ticks_per_quarter_note = mid.ticks_per_beat
+
+#     for i, track in enumerate(mid.tracks):
+#         for msg in track:
+#             if msg.type == 'set_tempo':
+#                 tempo = mido.tempo2bpm(msg.tempo)
+#             elif msg.type == 'note_on' or msg.type == 'note_off':
+#                 nmat.append([i + 1,  # Track number (1-indexed)
+#                              msg.channel + 1,  # Channel number (1-indexed)
+#                              msg.note,  # Note number
+#                              msg.velocity,  # Velocity
+#                              msg.time / ticks_per_quarter_note * 60.0 / tempo,  # Onset time (in seconds)
+#                              msg.time / ticks_per_quarter_note * 60.0 / tempo + msg.velocity / 127.0 * msg.time / ticks_per_quarter_note * 60.0 / tempo  # Offset time (in seconds)
+#                              ])
+
+#     return nmat
 
 
 # SECOND TO LAST
