@@ -263,15 +263,15 @@ def _id_gen(start=1):
         start += 1
 idGen = _id_gen()
 
-def indentMEI(elem, level=0):
-    i = "\n" + level*"\t"
+def indentMEI(elem, indentation='\t', level=0):
+    i = f'\n{level*indentation}'
     if len(elem):
         if not elem.text or not elem.text.strip():
-            elem.text = i + "\t"
+            elem.text = f'{i}{indentation}'
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
         for elem in elem:
-            indentMEI(elem, level+1)
+            indentMEI(elem, indentation, level+1)
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
     else:

@@ -1315,7 +1315,7 @@ class Score:
             with open(path_name, 'w') as f:
                 f.write(self._analyses[key])
 
-    def toMEI(self, file_name='', data=''):
+    def toMEI(self, file_name='', indentation='\t', data=''):
         """
         Create an MEI representation of the score. If no `file_name` is passed
         then returns a string of the MEI representation. Otherwise a file called
@@ -1373,13 +1373,11 @@ class Score:
             stack = events.stack((0, 1)).sort_index(level=[0, 1, 2])
             for measure in stack.index.levels[0]:
                 meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
-                for staff in stack.index.get_level_values(1).unique():   # stack.index.levels[1] doesn't work for some reason
-                    if staff == 'Measure':
-                        pdb.set_trace()
+                for staff in stack.index.get_level_values(1).unique():
                     staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
                     for layer in stack.index.levels[2]:
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
-                        for nrc in stack.loc[[measure, staff, layer]].values:
+                        for nrc in stack.loc[[(measure, staff, layer)]].values:
                             if nrc.isNote:
                                 note_el = ET.SubElement(layer_el, 'note', {'oct': f'{nrc.octave}',
                                         'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen)})
@@ -1402,7 +1400,7 @@ class Score:
                                     else:
                                         chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
             insertScoreDef(root, self.partNames)
-            indentMEI(root)
+            indentMEI(root, indentation)
             self._analyses[key] = ET.ElementTree(root)
 
         if not file_name:
