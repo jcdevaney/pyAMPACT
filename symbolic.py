@@ -159,7 +159,10 @@ class Score:
                 graces, graceOffsets = [], []
                 notGraces = {}
                 for nrc in flat_part.getElementsByClass(['Note', 'Rest', 'Chord']):
-                    if nrc.sortTuple()[4]:
+                    if nrc.duration.isGrace:
+                        graces.append(nrc)
+                        graceOffsets.append(round(float(nrc.offset), 5))
+                    else:
                         if (nrc.isRest and nrc.quarterLength > 18):  # get rid of really long rests TODO: make this get rid of rests longer than the prevailing measure
                             continue
                         offset = round(float(nrc.offset), 5)
@@ -167,9 +170,6 @@ class Score:
                             notGraces[offset].append(nrc)
                         else:
                             notGraces[offset] = [nrc]
-                    else:
-                        graces.append(nrc)
-                        graceOffsets.append(round(float(nrc.offset), 5))
                     
                 ser = pd.Series(notGraces)
                 if ser.empty:   # no note, rest, or chord objects detected in this part

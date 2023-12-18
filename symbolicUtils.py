@@ -364,7 +364,7 @@ def _kernNoteHelper(_note):
     acc = _note.pitch.accidental
     acc = acc.modifier if acc is not None else ''
     longa = 'l' if _note.duration.type == 'longa' else ''
-    grace = '' if _note.sortTuple()[4] else 'q'
+    grace = 'q' if _note.duration.isGrace else ''   # TODO: make this sensitive to notehead and practical duration
     return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}'
 
 def kernNRCHelper(nrc):
