@@ -1109,13 +1109,14 @@ class Score:
         df = nmats[self.partNames[0]].iloc[:, 7:].dropna(how='all')
         for ndx in df.index:
             when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(idGen), 'data': f'#{ndx}'})
-            ET.SubElement(when, 'extData', {'xml:id': next(idGen), 'text': f'<![CDATA[>{df.loc[ndx].to_dict()}]]>'})
+            extData = ET.SubElement(when, 'extData', {'xml:id': next(idGen)})
+            extData.text = f'<![CDATA[>{json.dumps(df.loc[ndx].to_dict())}]]>'
         musicEl = self._meiTree.find('.//music')
         musicEl.insert(0, performance)
         if not output_filename.endswith('.mei.xml'):
             output_filename = output_filename.split('.', 1)[0] + '.mei.xml'
         indentMEI(self._meiTree)
-        # get header/ xml descriptor from original file
+        # get header/xml descriptor from original file
         with open(self.path, 'r') as f:
             lines = []
             for line in f:

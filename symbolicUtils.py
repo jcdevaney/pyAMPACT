@@ -1,9 +1,23 @@
-import pdb
 import json
 import numpy as np
 import pandas as pd
 import re
 import xml.etree.ElementTree as ET
+
+def _escape_cdata(text):
+    try:
+        if text.startswith("<![CDATA[>") and text.endswith("]]>"):
+            return f"\n\t\t\t\t\t\t{text}\n\t\t\t\t\t"
+        if "&" in text:
+            text = text.replace("&", "&amp;")
+        if "<" in text:
+            text = text.replace("<", "&lt;")
+        if ">" in text:
+            text = text.replace(">", "&gt;")
+        return text
+    except TypeError:
+        raise TypeError("cannot serialize %r (type %s)" % (text, type(text).__name__))
+ET._escape_cdata = _escape_cdata
 
 _duration2Kern = {  # keys get rounded to 5 decimal places
     56:        '000..',
