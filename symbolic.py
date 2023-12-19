@@ -1110,7 +1110,7 @@ class Score:
         for ndx in df.index:
             when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(idGen), 'data': f'#{ndx}'})
             extData = ET.SubElement(when, 'extData', {'xml:id': next(idGen)})
-            extData.text = f'<![CDATA[>{json.dumps(df.loc[ndx].to_dict())}]]>'
+            extData.text = f' <![CDATA[ {json.dumps(df.loc[ndx].to_dict())} ]]> '
         musicEl = self._meiTree.find('.//music')
         musicEl.insert(0, performance)
         if not output_filename.endswith('.mei.xml'):
@@ -1342,17 +1342,19 @@ class Score:
             piece = Score('kerntest.krn')
             piece.toMEI(file_name='meiFile.mei.xml')
         """
-        import pdb
         key = ('toMEI', data)
         if key not in self._analyses:
-            root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.0'})
+            root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.1-dev'})
             meiHead = ET.SubElement(root, 'meiHead')
             fileDesc = ET.SubElement(meiHead, 'fileDesc')
             titleStmt = ET.SubElement(fileDesc, 'titleStmt')
-            title = ET.SubElement(titleStmt, 'title', {'text': self.metadata['title']})
-            composer = ET.SubElement(titleStmt, 'composer', {'text': self.metadata['composer']})
+            title = ET.SubElement(titleStmt, 'title')
+            title.text = self.metadata['title']
+            composer = ET.SubElement(titleStmt, 'composer')
+            composer.text = self.metadata['composer']
             pubStmt = ET.SubElement(fileDesc, 'pubStmt')
-            unpublished = ET.SubElement(pubStmt, 'unpublished', {'text': f'This mei file was converted from a {self.fileExtension} file by pyAMPACT'})
+            unpub = ET.SubElement(pubStmt, 'unpub')
+            unpub.text = f'This mei file was converted from a {self.fileExtension} file by pyAMPACT'
             music = ET.SubElement(root, 'music')
             # insert performance element here
             body = ET.SubElement(music, 'body')

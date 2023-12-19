@@ -6,8 +6,8 @@ import xml.etree.ElementTree as ET
 
 def _escape_cdata(text):
     try:
-        if text.startswith("<![CDATA[>") and text.endswith("]]>"):
-            return f"\n\t\t\t\t\t\t{text}\n\t\t\t\t\t"
+        if text.startswith(" <![CDATA[") and text.endswith("]]> "):
+            return text
         if "&" in text:
             text = text.replace("&", "&amp;")
         if "<" in text:
@@ -86,9 +86,11 @@ tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
 
 meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
-<?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
-<?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
 """
+# <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+# <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
 
 reused_docstring =  """
 The methods .harmKeys, .harm, .functions, .chords, and .cdata all work in 
@@ -293,11 +295,23 @@ def insertScoreDef(root, part_names=[]):
     """
     if root.find('.//scoreDef') is None:
         scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
+        pgHead = ET.SubElement(scoreDef, 'pgHead')
+        rend1 = ET.SubElement(pgHead, 'rend', {'halign': 'center', 'valign': 'top'})
+        rend_title = ET.SubElement(rend1, 'rend', {'type': 'title', 'fontsize': 'x-large'})
+        rend_title.text = 'Untitled score'
+        ET.SubElement(rend1, 'lb')
+        rend_subtitle = ET.SubElement(rend1, 'rend', {'type': 'subtitle', 'fontsize': 'large'})
+        rend_subtitle.text = 'Subtitle'
+        rend2 = ET.SubElement(pgHead, 'rend', {'halign': 'right', 'valign': 'bottom'})
+        rend_composer = ET.SubElement(rend2, 'rend', {'type': 'composer'})
+        rend_composer.text = 'Composer / arranger'
+        staffGrp = ET.SubElement(scoreDef, 'staffGrp', {'xml:id': next(idGen), 'n': '1', 'symbol': 'bracket'})
         if len(part_names) == 0:
             part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
         for i, staff in enumerate(part_names):
-            staffDef = ET.SubElement(scoreDef, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)})
-            ET.SubElement(staffDef, 'label', {'text': staff, 'xml:id': next(idGen)})
+            staffDef = ET.SubElement(staffGrp, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)})
+            label = ET.SubElement(staffDef, 'label', {'xml:id': next(idGen)})
+            label.text = staff
         scoreEl = root.find('.//score')
         if scoreEl is not None:
             scoreEl.insert(0, scoreDef)
