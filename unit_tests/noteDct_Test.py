@@ -5,7 +5,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from noteDct import note_dct
+from pitch import note_dct
 
 class TestNoteDCT(unittest.TestCase):
 

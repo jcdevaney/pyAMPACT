@@ -6,7 +6,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from findMids import find_mids
+from helpers.audioUtils import find_mids
 
 class TestFindMids(unittest.TestCase):
     

@@ -68,12 +68,3 @@ def visualiser(trace, mid, spec):
 def plot_fine_align(trace_states, trace_times, notes, stft_hop):
     # Your implementation for plotFineAlign function here
     pass
-
-# # Example usage
-# if __name__ == "__main__":
-#     trace = np.array([[1, 2, 3, 2, 1, 2, 3, 2],
-#                      [10, 15, 20, 25, 30, 35, 40, 45],
-#                      [0, 1, 2, 1, 0, 1, 2, 1]])
-#     mid_file = "your_midi_file.mid"
-#     spec = np.random.rand(513, 100)  # Example spectrogram, replace with your data
-#     visualiser(trace, mid_file, spec)

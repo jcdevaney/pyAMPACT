@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.pardir)
 
-from fillpriormat_gauss import fill_priormat_gauss, gh, flatTopGaussIdx, g, flatTopGaussian
+from helpers.audioHelpers import fill_priormat_gauss, gh, flatTopGaussIdx, g, flatTopGaussian
 
 class TestFillPriorMatGauss(unittest.TestCase):
 

@@ -1,22 +1,17 @@
-import numpy as np
-import pandas as pd
-
 import os
 curr_dir = os.getcwd()
 from symbolic import Score
 
+import numpy as np
+import pandas as pd
+
+
 # import functions
-from runAlignment import run_alignment
-from alignmentVisualiser import alignment_visualizer
-from getOnsOffs import get_ons_offs
-from getCentVals import get_cent_vals
-from findPeaks import find_peaks
-from findMids import find_mids
-# from smoothNote import smooth_note
-# from findSteady import find_steady
-# from noteDct import note_dct
-from freqAndMagMatrices import freq_and_mag_matrices
-from estimatePerceptualParameters import estimate_perceptual_parameters
+from align import run_alignment, alignment_visualizer
+from helpers.alignmentHelpers import get_ons_offs
+from pitch import estimate_perceptual_parameters, get_cent_vals, smooth_note, note_dct
+from helpers.audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
+from pitch import estimate_perceptual_parameters
 
 import sys
 
@@ -65,10 +60,10 @@ times = get_ons_offs(select_state)
 
 times_df = pd.DataFrame({'ons': times['ons'], 'offs': times['offs']})
 # MATLAB turns to .txt file, Here is makes CSV, change .csv to .txt to get planned text file
-times_df.to_csv('example.csv', sep='\t', index=False, header=False)
+times_df.to_csv('./audio_output_files/example.csv', sep='\t', index=False, header=False)
 
 # Load data into a Pandas DataFrame
-fixed_labels = pd.read_csv('exampleFixed.txt', delimiter='\t', header=None)
+fixed_labels = pd.read_csv('./test_files/exampleFixed.txt', delimiter='\t', header=None)
 # Assign columns to 'ons' and 'offs'
 times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
 
@@ -172,7 +167,7 @@ audio_df.to_json("./test_files/cdata_from_audioScript.json", orient="records", i
 # Write the new MIDI file
 # midi = MidiFile()
 # midi.tracks.append(nmat2midi(nmat_new, midi_file))
-# midi.save('examplePerformance.mid')
+# midi.save('./audio_output_files/examplePerformance.mid')
 
 # Get cent values for each note
 cents = get_cent_vals(times, yin_res, target_sr)  # Original

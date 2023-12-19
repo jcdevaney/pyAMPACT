@@ -1,6 +1,57 @@
-# CONDITIONAL PASS - see test
 import numpy as np
 from scipy.signal import gaussian
+from scipy.stats import multivariate_normal
+from sklearn.mixture import GaussianMixture
+
+
+def dp(M):
+    r, c = M.shape
+
+    # Initialize cost matrix D - PROBLEM!
+    D = np.zeros((r + 1, c + 1))
+    # D[0, :] = np.nan
+    # D[:, 0] = np.nan
+    # D[0, 0] = 0
+    D[1:, 1:] = M
+
+    # Initialize traceback matrix phi
+    phi = np.zeros((r, c), dtype=int)
+
+    # Dynamic programming loop
+    for i in range(r):
+        for j in range(c):
+            dmax = min(D[i, j], D[i, j + 1], D[i + 1, j])
+            tb = 1 if dmax == D[i, j] else (2 if dmax == D[i, j + 1] else 3)
+
+            # dmax, tb = min([D[i, j], D[i, j + 1], D[i + 1, j]])
+            D[i + 1, j + 1] = D[i + 1, j + 1] + dmax
+            phi[i, j] = tb
+
+    # Traceback from top left
+    i = r - 1
+    j = c - 1
+    p = [i]
+    q = [j]
+    while i > 0 and j > 0:
+        tb = phi[i, j]
+        if tb == 1:
+            i = i - 1
+            j = j - 1
+        elif tb == 2:
+            i = i - 1
+        elif tb == 3:
+            j = j - 1
+        else:
+            raise ValueError("Invalid traceback value")
+        p.insert(0, i)
+        q.insert(0, j)
+
+    # Strip off the edges of the D matrix before returning
+    D = D[1:r + 1, 1:c + 1]        
+
+    return p, q, D
+
+
 
 #########################################################################
 # prior = fillpriormat_gauss(Nobs,ons,offs,Nstates)
@@ -24,6 +75,9 @@ from scipy.signal import gaussian
 # (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
 #                    (mim@mr-pc.org), all rights reserved.
 #########################################################################
+
+
+""" Gaussian/Viterbi functions"""
 
 def fill_priormat_gauss(Nobs, ons, offs, Nstates):    
     if Nstates is None:
@@ -184,3 +238,162 @@ def flatTopGaussian(x, b1, t1, t2, b2):
     # takeOneOut = t1 == t2
     # w = np.concatenate((left[0:t1], middle, right[t2 + takeOneOut:]))
     # return w
+
+
+def viterbi_path(prior, transmat, obslik):    
+    T = obslik.shape[1]    
+    prior = prior.reshape(-1, 1)
+    Q = len(prior)
+
+    
+
+    scaled = False
+    delta = np.zeros((Q, T))    
+    psi = np.zeros((Q, T), dtype=int)
+    path = np.zeros(T, dtype=int)
+    scale = np.ones(T)
+
+    t = 0
+        
+    # # Added this
+    # if prior.size != obslik.size:
+    #     if prior.size < obslik.size:
+    #         # Expand 'prior' to match the size of 'obslik'
+    #         prior = np.resize(prior, obslik.shape)
+    #     else:
+    #         # Expand 'obslik' to match the size of 'prior'
+    #         obslik = np.resize(obslik, prior.shape)
+        
+    
+    delta[:, t] = prior.flatten() * obslik[:, t]        
+
+
+    if scaled:
+        delta[:, t] /= np.sum(delta[:, t])
+        scale[t] = 1 / np.sum(delta[:, t])
+    
+
+    psi[:, t] = 0    
+    for t in range(1, T):
+        for j in range(Q):            
+            delta[j, t] = np.max(delta[:, t - 1] * transmat[:, j])
+            delta[j, t] *= obslik[j, t]
+
+        if scaled:
+            delta[:, t] /= np.sum(delta[:, t])
+            scale[t] = 1 / np.sum(delta[:, t])
+
+    p, path[T - 1] = np.max(delta[:, T - 1]), np.argmax(delta[:, T - 1])
+
+    for t in range(T - 2, -1, -1):
+        path[t] = psi[path[t + 1], t + 1]
+
+    return path
+
+
+
+def mixgauss_prob(data, means, covariances, weights):    
+    # Create a Gaussian Mixture Model
+    gmm = GaussianMixture(n_components=2)  # Specify the number of components
+
+    # Fit the GMM to your data
+    gmm.fit(data)
+
+    # Calculate the probabilities for each data point
+    probs = gmm.predict_proba(data)
+    # print('probs', probs)
+
+# 'probs' now contains the conditional probabilities for each data point and each component.
+    
+    N = len(data)
+    K = len(means)    
+    
+
+    covariances = [np.eye(5), np.eye(5)]
+    # print('data', data.shape)
+    # print('means', means.shape)
+    # print(covariances)
+    # covariances = means + covariances.reshape(1, -1)  # Reshape array2 to (1, 5)
+    likelihood_matrix = np.zeros((N, K))    
+
+    
+    for i in range(N):
+        for j in range(K):
+            likelihood = weights[j] * multivariate_normal.pdf(data[i], mean=means[j], cov=covariances[j])
+            likelihood_matrix[i][j] = likelihood
+
+    return likelihood_matrix
+
+
+""" Matrix functions """
+
+
+
+def fill_trans_mat(trans_seed, notes):
+    # Set up transition matrix
+    N = trans_seed.shape[0]    
+    trans = np.zeros((notes * (N - 1) + 1, notes * (N - 1) + 1))
+    Non2 = int(np.ceil(N / 2 + 1)) # ADDED ONE!
+    
+
+    # Fill in the first and last parts of the big matrix with the
+    # appropriate fragments of the seed
+    trans[0:Non2, 0:Non2] = trans_seed[Non2:, Non2:]
+    # trans[1:Non2, 1:Non2] = trans_seed[Non2:, Non2:] # Changed 0 to 1 here
+    trans[-Non2:, -Non2:] = trans_seed[0:Non2, 0:Non2]
+
+    # Fill in the middle parts of the big matrix with the whole seed
+    for i in range(Non2, (notes - 1) * (N - 1) + 1 - Non2 + 1, N - 1):
+        trans[i:i + N, i:i + N] = trans_seed
+
+    return trans
+
+
+def orio_simmx(M, D):
+    # Calculate the similarities
+    S = np.zeros((M.shape[1], D.shape[1]))
+
+    # Square the elements of D and M
+    D = D**2
+    M = M**2
+
+    nDc = np.sqrt(np.sum(D, axis=0))
+    # Avoid division by zero
+    nDc = nDc + (nDc == 0)
+
+    # Evaluate one row at a time
+    for r in range(M.shape[1]):
+        S[r, :] = np.sqrt(np.dot(M[:, r], D)) / nDc
+
+    return S
+
+def simmx(A, B):
+    """
+    Calculate a similarity matrix between feature matrices A and B.
+
+    Args:
+        A (numpy.ndarray): The first feature matrix.
+        B (numpy.ndarray, optional): The second feature matrix. If not provided, B will be set to A.
+
+    Returns:
+        numpy.ndarray: The similarity matrix between A and B.
+    """
+    if B is None:
+        B = A
+
+    # Match array sizes
+    size_diff = len(A) - len(B)
+    if size_diff > 0:
+        A = A[:len(B)]
+
+    EA = np.sqrt(np.sum(A**2, axis=0))
+    EB = np.sqrt(np.sum(B**2, axis=0))
+
+    # Avoid division by zero
+    EA[EA == 0] = 1
+    EB[EB == 0] = 1
+
+    M = (A.T @ B) / (EA[:, np.newaxis] @ EB[np.newaxis, :])
+
+    return M
+

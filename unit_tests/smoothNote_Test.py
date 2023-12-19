@@ -5,7 +5,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from smoothNote import smooth_note
+from pitch import smooth_note
 
 class TestSmoothNoteFunction(unittest.TestCase):
 

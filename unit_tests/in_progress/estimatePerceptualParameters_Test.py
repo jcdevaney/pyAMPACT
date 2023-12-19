@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from estimatePerceptualParameters import estimate_perceptual_parameters
+from pitch import estimate_perceptual_parameters
 
 class TestEstimatePerceptualParameters(unittest.TestCase):
 
