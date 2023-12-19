@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from getCentVals import get_cent_vals
+from pitch import get_cent_vals
 
 class TestGetCentVals(unittest.TestCase):
 

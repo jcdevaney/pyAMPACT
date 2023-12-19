@@ -63,9 +63,9 @@ def example_generator(midifile, audiofile, numNotes,stateOrd,noteNum,means,covar
     # times=getOnsOffs(selectstate);
 
     # write the onset and offset times to an audacity-readable file
-    #dlmwrite('example.txt',[times.ons' times.offs'], 'delimiter', '\t');
+    #dlmwrite('./audio_output_files/example.txt',[times.ons' times.offs'], 'delimiter', '\t');
 
-    # you can load 'example.txt' into audacity and correct any errors in the
+    # you can load './audio_output_files/example.txt' into audacity and correct any errors in the
     # alignment, i.e., the offset error on the last note, and then reload the
     # corrected labels into matlab
     #fixedLabels=load('exampleFixed.txt');
