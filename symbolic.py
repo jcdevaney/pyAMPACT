@@ -1104,13 +1104,12 @@ class Score:
             avFile.set('mimetype', mimetype)
         if target:
             avFile.set('target', target)
-        nmats = self.nmats(json_path, True)
         # TODO: how do we know which nmat to use when writing the file?
-        df = nmats[self.partNames[0]].iloc[:, 7:].dropna(how='all')
-        for ndx in df.index:
-            when = ET.SubElement(recording, 'when', {'absolute': '00:00:12:428', 'xml:id': next(idGen), 'data': f'#{ndx}'})
+        jsonCDATA = self.jsonCDATA(json_path)[self.partNames[0]]
+        for i, ndx in enumerate(jsonCDATA.index):
+            when = ET.SubElement(recording, 'when', {'absolute': jsonCDATA.at[ndx, 'absolute'], 'xml:id': next(idGen), 'data': f'#{ndx}'})
             extData = ET.SubElement(when, 'extData', {'xml:id': next(idGen)})
-            extData.text = f' <![CDATA[ {json.dumps(df.loc[ndx].to_dict())} ]]> '
+            extData.text = f' <![CDATA[ {json.dumps(jsonCDATA.iloc[i, 1:].to_dict())} ]]> '
         musicEl = self._meiTree.find('.//music')
         musicEl.insert(0, performance)
         if not output_filename.endswith('.mei.xml'):
@@ -1345,6 +1344,7 @@ class Score:
         key = ('toMEI', data)
         if key not in self._analyses:
             root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.1-dev'})
+            
             meiHead = ET.SubElement(root, 'meiHead')
             fileDesc = ET.SubElement(meiHead, 'fileDesc')
             titleStmt = ET.SubElement(fileDesc, 'titleStmt')
@@ -1354,7 +1354,7 @@ class Score:
             composer.text = self.metadata['composer']
             pubStmt = ET.SubElement(fileDesc, 'pubStmt')
             unpub = ET.SubElement(pubStmt, 'unpub')
-            unpub.text = f'This mei file was converted from a {self.fileExtension} file by pyAMPACT'
+            unpub.text = f'This mei file was converted from a .{self.fileExtension} file by pyAMPACT'
             music = ET.SubElement(root, 'music')
             # insert performance element here
             body = ET.SubElement(music, 'body')
@@ -1363,15 +1363,10 @@ class Score:
             section = ET.SubElement(score, 'section')
 
             events = self._parts(compact=True, number=True)
-            e0 =events.copy()
-            # events.columns = range(1, len(events.columns) + 1 )
             events['Measure'] = self._measures().iloc[:, 0]
-            e1 = events.copy()
             # need to assign column names in format (partNumber, voiceNumer) with no splitting up of chords
             events.iloc[:, -1].ffill(inplace=True)
-            e2 = events.copy()
             events = events.set_index('Measure')
-            e3 = events.copy()
             stack = events.stack((0, 1)).sort_index(level=[0, 1, 2])
             for measure in stack.index.levels[0]:
                 meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
