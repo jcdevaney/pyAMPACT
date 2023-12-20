@@ -41,6 +41,8 @@ class Score:
         self.path = score_path
         self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
         self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
+        self.partNames = []
+        self.score = None
         self._meiTree = None
         if score_path.startswith('http') and self.fileExtension == 'krn':
             fd, tmp_path = tempfile.mkstemp()
@@ -83,7 +85,7 @@ class Score:
                     self._meiTree = copy.deepcopy(root)
                     if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
                         parseEdited = True
-                        insertScoreDef(root)
+                        self.insertScoreDef(root)
 
                     for section in root.iter('section'):   # make sure all events are contained in measures
                         if section.find('measure') is None:
@@ -375,6 +377,50 @@ class Score:
         if 'cdata' not in self._analyses:
             self._analyses['cdata'] = pd.DataFrame()
 
+    def insertScoreDef(self, root):
+        """
+        Insert a scoreDef element into an MEI (Music Encoding Initiative) document.
+
+        This function inserts a scoreDef element into an MEI document if one is
+        not already present. It modifies the input element in-place.
+
+        :param root: An xml.etree.ElementTree.Element representing the root of the
+            MEI document.
+        :return: None
+        """
+        if root.find('.//scoreDef') is None:
+            scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
+            pgHead = ET.SubElement(scoreDef, 'pgHead')
+            rend1 = ET.SubElement(pgHead, 'rend', {'halign': 'center', 'valign': 'top'})
+            rend_title = ET.SubElement(rend1, 'rend', {'type': 'title', 'fontsize': 'x-large'})
+            rend_title.text = 'Untitled score'
+            ET.SubElement(rend1, 'lb')
+            rend_subtitle = ET.SubElement(rend1, 'rend', {'type': 'subtitle', 'fontsize': 'large'})
+            rend_subtitle.text = 'Subtitle'
+            rend2 = ET.SubElement(pgHead, 'rend', {'halign': 'right', 'valign': 'bottom'})
+            rend_composer = ET.SubElement(rend2, 'rend', {'type': 'composer'})
+            rend_composer.text = 'Composer / arranger'
+            staffGrp = ET.SubElement(scoreDef, 'staffGrp', {'xml:id': next(idGen), 'n': '1', 'symbol': 'bracket'})
+            if self.score is not None:
+                clefs = self._m21Clefs()
+            if not len(self.partNames):
+                self.partNames = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
+            for i, staff in enumerate(self.partNames):
+                attribs = {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)}
+                if self.score is not None:
+                    clef = clefs.iloc[0, i]
+                    attribs['clef.line'] = str(clef.line)
+                    attribs['clef.shape'] = clef.sign
+                    if clef.octaveChange != 0:
+                        attribs['clef.dis'] = str(abs(clef.octaveChange) * 8)
+                        attribs['clef.dis.place'] = 'below' if clef.octaveChange < 0 else 'above'
+                staffDef = ET.SubElement(staffGrp, 'staffDef', attribs)
+                label = ET.SubElement(staffDef, 'label', {'xml:id': next(idGen)})
+                label.text = staff
+            scoreEl = root.find('.//score')
+            if scoreEl is not None:
+                scoreEl.insert(0, scoreDef)
+
     def xmlIDs(self):
         """
         Return xml ids per part in a pandas.DataFrame time-aligned with the
@@ -457,7 +503,7 @@ class Score:
             self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
         return self._analyses['lyrics'].copy()
 
-    def _clefs(self):
+    def _m21Clefs(self):
         """
         Extract the clefs from the score. 
 
@@ -465,9 +511,9 @@ class Score:
         where each column represents a part and each row represents a clef. The 
         DataFrame is indexed by the offset of the clefs.
 
-        :return: A pandas DataFrame representing the clefs in the score.
+        :return: A pandas DataFrame of the clefs in the score in music21's format.
         """
-        if 'clefs' not in self._analyses:
+        if '_m21Clefs' not in self._analyses:
             parts = []
             isUnique = True
             for i, flat_part in enumerate(self._flatParts):
@@ -491,8 +537,22 @@ class Score:
             clefs = pd.concat(parts, axis=1)
             if isinstance(clefs.index, pd.MultiIndex):
                 clefs = clefs.droplevel(1)
-            self._analyses['clefs'] = clefs.applymap(clefHelper, na_action='ignore')
-        return self._analyses['clefs']
+            self._analyses['_m21Clefs'] = clefs
+        return self._analyses['_m21Clefs']
+
+    def _clefs(self):
+        """
+        Extract the clefs from the score. 
+
+        The clefs are extracted from each part and returned as a pandas DataFrame 
+        where each column represents a part and each row represents a clef. The 
+        DataFrame is indexed by the offset of the clefs.
+
+        :return: A pandas DataFrame of the clefs in the score in kern format.
+        """
+        if '_clefs' not in self._analyses:
+            self._analyses['_clefs'] = self._analyses['_m21Clefs'].applymap(kernClefHelper, na_action='ignore')
+        return self._analyses['_clefs']
 
     def dynamics(self):
         """
@@ -1396,7 +1456,7 @@ class Score:
                                         chord_note_el.set('grace', 'acc')
                                     else:
                                         chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
-            insertScoreDef(root, self.partNames)
+            self.insertScoreDef(root)
             indentMEI(root, indentation)
             self._analyses[key] = ET.ElementTree(root)
 

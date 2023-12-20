@@ -167,7 +167,7 @@ def addTieBreakers(partList):
         tieBreakers.reverse()
         part.index = pd.MultiIndex.from_arrays((part.index, tieBreakers))
 
-def clefHelper(clef):
+def kernClefHelper(clef):
     """
     Parse a music21 clef object into the corresponding humdrum syntax token.
 
@@ -279,42 +279,6 @@ def indentMEI(elem, indentation='\t', level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
-
-def insertScoreDef(root, part_names=[]):
-    """
-    Insert a scoreDef element into an MEI (Music Encoding Initiative) document.
-
-    This function inserts a scoreDef element into an MEI document if one is
-    not already present. It modifies the input element in-place.
-
-    :param root: An xml.etree.ElementTree.Element representing the root of the
-        MEI document.
-    :param part_names: A list of strings representing the names of the parts in
-        the score. Default is an empty list.
-    :return: None
-    """
-    if root.find('.//scoreDef') is None:
-        scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
-        pgHead = ET.SubElement(scoreDef, 'pgHead')
-        rend1 = ET.SubElement(pgHead, 'rend', {'halign': 'center', 'valign': 'top'})
-        rend_title = ET.SubElement(rend1, 'rend', {'type': 'title', 'fontsize': 'x-large'})
-        rend_title.text = 'Untitled score'
-        ET.SubElement(rend1, 'lb')
-        rend_subtitle = ET.SubElement(rend1, 'rend', {'type': 'subtitle', 'fontsize': 'large'})
-        rend_subtitle.text = 'Subtitle'
-        rend2 = ET.SubElement(pgHead, 'rend', {'halign': 'right', 'valign': 'bottom'})
-        rend_composer = ET.SubElement(rend2, 'rend', {'type': 'composer'})
-        rend_composer.text = 'Composer / arranger'
-        staffGrp = ET.SubElement(scoreDef, 'staffGrp', {'xml:id': next(idGen), 'n': '1', 'symbol': 'bracket'})
-        if len(part_names) == 0:
-            part_names = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
-        for i, staff in enumerate(part_names):
-            staffDef = ET.SubElement(staffGrp, 'staffDef', {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)})
-            label = ET.SubElement(staffDef, 'label', {'xml:id': next(idGen)})
-            label.text = staff
-        scoreEl = root.find('.//score')
-        if scoreEl is not None:
-            scoreEl.insert(0, scoreDef)
 
 def _kernChordHelper(_chord):
     """
