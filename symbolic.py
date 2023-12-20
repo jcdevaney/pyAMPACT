@@ -403,6 +403,7 @@ class Score:
             staffGrp = ET.SubElement(scoreDef, 'staffGrp', {'xml:id': next(idGen), 'n': '1', 'symbol': 'bracket'})
             if self.score is not None:
                 clefs = self._m21Clefs()
+                ksigs = self._keySignatures(False)
             if not len(self.partNames):
                 self.partNames = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
             for i, staff in enumerate(self.partNames):
@@ -414,6 +415,12 @@ class Score:
                     if clef.octaveChange != 0:
                         attribs['clef.dis'] = str(abs(clef.octaveChange) * 8)
                         attribs['clef.dis.place'] = 'below' if clef.octaveChange < 0 else 'above'
+                    ksig = ksigs.iloc[0, i]
+                    if ksig:
+                        val = len(ksig.alteredPitches)
+                        if val > 0 and ksig.alteredPitches[0].accidental.modifier == '-':
+                            val *= -1
+                        attribs['key.sig'] = str(val)
                 staffDef = ET.SubElement(staffGrp, 'staffDef', attribs)
                 label = ET.SubElement(staffDef, 'label', {'xml:id': next(idGen)})
                 label.text = staff
@@ -551,7 +558,7 @@ class Score:
         :return: A pandas DataFrame of the clefs in the score in kern format.
         """
         if '_clefs' not in self._analyses:
-            self._analyses['_clefs'] = self._analyses['_m21Clefs'].applymap(kernClefHelper, na_action='ignore')
+            self._analyses['_clefs'] = self._m21Clefs().applymap(kernClefHelper, na_action='ignore')
         return self._analyses['_clefs']
 
     def dynamics(self):
@@ -679,15 +686,15 @@ class Score:
             and each row index is the offset of a key signature. The values are 
             the key signatures.
         """
-        if '_keySignatures' not in self._analyses:
+        if ('_keySignatures', kern) not in self._analyses:
             kSigs = []
             for i, part in enumerate(self._flatParts):
-                kSigs.append(pd.Series({ky.offset: ky for ky in part.getElementsByClass(['Key'])}, name=self.partNames[i]))          
+                kSigs.append(pd.Series({ky.offset: ky for ky in part.getElementsByClass(['KeySignature'])}, name=self.partNames[i]))          
             df = pd.concat(kSigs, axis=1).sort_index(kind='mergesort')
             if kern:
                 df = '*k[' + df.applymap(lambda ky: ''.join([_note.name for _note in ky.alteredPitches]).lower(), na_action='ignore') + ']'
-            self._analyses['_keySignatures'] = df
-        return self._analyses['_keySignatures']
+            self._analyses[('_keySignatures', kern)] = df
+        return self._analyses[('_keySignatures', kern)]
 
     def _timeSignatures(self):
         """
