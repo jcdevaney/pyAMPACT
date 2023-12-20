@@ -389,7 +389,15 @@ class Score:
         :return: None
         """
         if root.find('.//scoreDef') is None:
-            scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
+            if self.score is not None:
+                clefs = self._m21Clefs()
+                ksigs = self._keySignatures(False)
+                tsigs = self._timeSignatures(False)
+                tsig1 = tsigs.iat[0, 0]
+                scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1',
+                    'meter.count': str(tsig1.numerator), 'meter.unit': str(tsig1.denominator)})
+            else:
+                scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
             pgHead = ET.SubElement(scoreDef, 'pgHead')
             rend1 = ET.SubElement(pgHead, 'rend', {'halign': 'center', 'valign': 'top'})
             rend_title = ET.SubElement(rend1, 'rend', {'type': 'title', 'fontsize': 'x-large'})
@@ -401,13 +409,10 @@ class Score:
             rend_composer = ET.SubElement(rend2, 'rend', {'type': 'composer'})
             rend_composer.text = 'Composer / arranger'
             staffGrp = ET.SubElement(scoreDef, 'staffGrp', {'xml:id': next(idGen), 'n': '1', 'symbol': 'bracket'})
-            if self.score is not None:
-                clefs = self._m21Clefs()
-                ksigs = self._keySignatures(False)
             if not len(self.partNames):
                 self.partNames = sorted({f'Part-{staff.attrib.get("n")}' for staff in root.iter('staff')})
             for i, staff in enumerate(self.partNames):
-                attribs = {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen)}
+                attribs = {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen), 'lines': '5'}
                 if self.score is not None:
                     clef = clefs.iloc[0, i]
                     attribs['clef.line'] = str(clef.line)
@@ -696,7 +701,7 @@ class Score:
             self._analyses[('_keySignatures', kern)] = df
         return self._analyses[('_keySignatures', kern)]
 
-    def _timeSignatures(self):
+    def _timeSignatures(self, ratio=True):
         """
         Return a DataFrame of time signatures for each part in the score.
 
@@ -704,13 +709,16 @@ class Score:
             and each row index is the offset of a time signature. The values are 
             the time signatures in ratio string format.
         """
-        if '_timeSignatures' not in self._analyses:
+        if ('_timeSignatures', ratio) not in self._analyses:
             tsigs = []
             for i, part in enumerate(self._flatParts):
-                tsigs.append(pd.Series({ts.offset: ts.ratioString for ts in part.getTimeSignatures()}, name=self.partNames[i]))
+                if not ratio:
+                    tsigs.append(pd.Series({ts.offset: ts for ts in part.getTimeSignatures()}, name=self.partNames[i]))
+                else:
+                    tsigs.append(pd.Series({ts.offset: ts.ratioString for ts in part.getTimeSignatures()}, name=self.partNames[i]))
             df = pd.concat(tsigs, axis=1).sort_index(kind='mergesort')
-            self._analyses['_timeSignatures'] = df
-        return self._analyses['_timeSignatures']
+            self._analyses[('_timeSignatures', ratio)] = df
+        return self._analyses[('_timeSignatures', ratio)]
 
     def durations(self, multi_index=False, df=None):
         """
@@ -1441,9 +1449,13 @@ class Score:
                     staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
                     for layer in stack.index.levels[2]:
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
+                        parent = layer_el
                         for nrc in stack.loc[[(measure, staff, layer)]].values:
+                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'start':
+                                beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
+                                parent = beam_el
                             if nrc.isNote:
-                                note_el = ET.SubElement(layer_el, 'note', {'oct': f'{nrc.octave}',
+                                note_el = ET.SubElement(parent, 'note', {'oct': f'{nrc.octave}',
                                         'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen)})
                                 if nrc.duration.isGrace:
                                     note_el.set('grace', 'acc')
@@ -1452,17 +1464,20 @@ class Score:
                                 # ET.SubElement(note_el, 'tie', {'type': 'start'})
                                 # ET.SubElement(note_el, 'tie', {'type': 'stop'})
                             elif nrc.isRest:
-                                rest_el = ET.SubElement(layer_el, 'rest', {'xml:id': next(idGen)})
+                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen)})
                                 rest_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
                             else:
-                                # chord_el = ET.SubElement(layer_el, 'chord')
+                                # chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
-                                    chord_note_el = ET.SubElement(layer_el, 'note', {'oct': f'{note.octave}',
+                                    chord_note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
                                             'pname': f'{note.step.lower()}', 'xml:id': next(idGen)})
                                     if note.duration.isGrace:
                                         chord_note_el.set('grace', 'acc')
                                     else:
                                         chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
+                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'stop':
+                                parent = layer_el
+
             self.insertScoreDef(root)
             indentMEI(root, indentation)
             self._analyses[key] = ET.ElementTree(root)
