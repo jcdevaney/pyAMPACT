@@ -2,33 +2,29 @@ import numpy as np
 import librosa
 import matplotlib.pyplot as plt
 
-#########################################################################
-# mids = findMids(x, mins, maxes, windowLength_ms, sr)
-#
-# Description: Find the midpoints between mins and maxes in a signal x.
-#              mins and maxes could come from findPeaks.  Finds the y 
-#              values of peaks and then finds the x values of the signal 
-#              that are closest to the average between the min and max 
-#              peak.
-#
-# Inputs:
-#  x - inputted signal in cents
-#  mins - indices of minima of x
-#  maxes - indices of maxima of x
-#  windowLength_ms - window length in miliseconds
-#  sr - sampling rate of x (frame rate of frequency analysis)
-#
-# Outputs:
-#  x_mids - midpoint locations in x axis between peaks and troughs  
-#  y_mids - midpoint locations in y axis between peaks and troughs  
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved
-#########################################################################
+
+
+
 
 def find_mids(x, mins, maxes, windowLength_ms, sr):
+    """
+    Find the midpoints between mins and maxes in a signal x.
+    mins and maxes could come from findPeaks.  Finds the y 
+    values of peaks and then finds the x values of the signal 
+    that are closest to the average between the min and max 
+    peak.
+
+    Inputs:
+        x - inputted signal in cents
+        mins - indices of minima of x
+        maxes - indices of maxima of x
+        windowLength_ms - window length in miliseconds
+        sr - sampling rate of x (frame rate of frequency analysis)
+
+    Outputs:
+        x_mids - midpoint locations in x axis between peaks and troughs  
+        y_mids - midpoint locations in y axis between peaks and troughs  
+    """
     # Convert window length from milliseconds to frames
     windowLength = int(round(windowLength_ms * sr / 1000.0) * 2)
 
@@ -59,34 +55,29 @@ def find_mids(x, mins, maxes, windowLength_ms, sr):
     return x_mids, y_mids
 
 import numpy as np
-#########################################################################
-# [mins maxes] = findPeaks(x, windowLength_ms, sr, minCount)
-#
-# Description: Find peaks and troughs in a waveform
-#              Finds the max and min in a window of a given size and keeps
-#              track of how many windows each point is the min or max of.
-#              Points that are the min or max of more than minCount windows
-#              are returned.
-#
-# Inputs:
-#  x - inputted signal
-#  windowLength_ms - window length in ms
-#  sr - sampling rate
-#  minCount - minimum number of windows that a point needs to be the max
-#             of to be considered a minimum or a maximum
-#
-# Outputs:
-#  mins - minimum values in the signal
-#  maxes - maximum values in the signal
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT)
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved
-#########################################################################
+
+
 
 
 def find_peaks(x, window_length_ms, sr, min_count):
+    """
+    Find peaks and troughs in a waveform
+    Finds the max and min in a window of a given size and keeps
+    track of how many windows each point is the min or max of.
+    Points that are the min or max of more than minCount windows
+    are returned.
+
+    Inputs:
+        x - inputted signal
+        windowLength_ms - window length in ms
+        sr - sampling rate
+        minCount - minimum number of windows that a point needs to be the max
+            of to be considered a minimum or a maximum
+
+    Outputs:
+       mins - minimum values in the signal
+        maxes - maximum values in the signal
+    """
     # ADDED THIS
     min_count = min_count / 12
     
@@ -119,7 +110,29 @@ def find_peaks(x, window_length_ms, sr, min_count):
     return mins, maxes
 
 
-def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):    
+def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
+    """
+    Find the steady-state portion of a note.
+    Finds the section of the note with steady vibrato where the 
+    peaks and troughs are at least thresh_cents cents away from 
+    the mid points between them.  mins and maxes come from 
+    findPeaks, x_mids and y_mids come from findMids.  Steady is 
+    a range of two indices into f0. mins and maxes may come from
+    the findPeaks function and x_mids and y_mids may come from
+    the findMids function.
+
+    Inputs:
+        x - vector of f0 estimates in cents
+        mins - indices of minima of x
+        maxes - indices of maxima of x
+        x_mids - midpoint locations in x axis between peaks and troughs  
+        y_mids - midpoint locations in y axis between peaks and troughs  
+        thresh_cents - minimum distance in cents from midpoint for peaks and
+            troughs
+
+    Outputs:
+        steady - steady-state portion of inputted signal x
+    """
     # Find extrema that are far enough away from the midpoints    
     peaks = np.sort(np.concatenate((mins, maxes)))       
     excursion = y_mids - x[peaks[:-1]]        
@@ -149,6 +162,9 @@ def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
 
 
 def freq_and_mag_matrices(audiofile, sr):
+    """
+    Calculate the frequency and magnitude matrices
+    """
         
     y, sr = librosa.load(audiofile)
 

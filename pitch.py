@@ -99,7 +99,26 @@ def calculate_vibrato(note_vals, sr):
 
 
 
-def perceived_pitch(f0s, sr, gamma=100000):        
+def perceived_pitch(f0s, sr, gamma=100000):
+    """
+    Calculate the perceived pitch of a note based on 
+    Gockel, H., B.J.C. Moore,and R.P. Carlyon. 2001. 
+    Influence of rate of change of frequency on the overall 
+    pitch of frequency-modulated Tones. Journal of the 
+    Acoustical Society of America. 109(2):701?12.
+
+    Inputs:
+        f0s - vector of fundamental frequency estimates
+        sr - 1/sample rate of the f0 estimates (e.g. the hop rate in Hz of yin)
+        gamma - sets the relative weighting of quickly changing vs slowly 
+            changing portions of  notes. - a high gamma (e.g., 1000000)  
+            gives more weight to slowly changing portions.
+
+    Outputs:
+        res.ons - list of onset times
+        res.offs - list of offset times
+    """
+
     # Remove NaN values from f0s
     f0s = f0s[~np.isnan(f0s)]
     
@@ -133,12 +152,12 @@ def get_cent_vals(times, yinres, sr):
     Get cent values (in relation to A, 440 Hz) for each note.
     
 
-    Parameters:
-    - times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
-    - yinres: Dictionary-like object with 'f0' and 'sr'.
+    Inputs:
+        - times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
+        - yinres: Dictionary-like object with 'f0' and 'sr'.
 
-    Returns:
-    - cents: List of NumPy arrays containing cent values for each note.
+    Outputs:
+        - cents: List of NumPy arrays containing cent values for each note.
     """
 
     cents = []
@@ -177,6 +196,18 @@ def get_cent_vals(times, yinres, sr):
 
 
 def smooth_note(x, x_mid, y_mid):
+    """
+    Generate a smoothed trajectory of a note by connecting the
+    midpoints between peaks and troughs.
+
+    Inputs:
+        x - inputted signal 
+        x_mid - midpoint locations in x axis between peaks and troughs  
+        y_mid - midpoint locations in y axis between peaks and troughs  
+
+    Outputs:
+        smoothed - smoothed version of inputted signal x
+    """
     # Make a note the same size as x
     smoothed = np.zeros_like(x)
 
@@ -190,31 +221,22 @@ def smooth_note(x, x_mid, y_mid):
 
 
 
-
-#########################################################################
-# [coefs approx] = noteDct(x, Ndct, sr)
-#
-# Description: Compute the DCT of a signal and approximate it with the 
-#              first Ndct coefficients  x is the signal  Ndct is the number 
-#              of DCT coefficients to be calculated sr is the sampling rate 
-#              of the signal
-#
-# Inputs:
-#  x - signal to be analyzed
-#  Ndct - number of DCT coefficients to be calculated
-#  sr - sampling rate
-#
-# Outputs:
-#  coefs - DCT coefficients
-#  approx - reconstruction of X using the Ndct number of DCT coefficients
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved
-#########################################################################
-
 def note_dct(x, Ndct, sr):
+    """
+    Compute the DCT of a signal and approximate it with the 
+    first Ndct coefficients  x is the signal  Ndct is the number 
+    of DCT coefficients to be calculated sr is the sampling rate 
+    of the signal
+
+    Inputs:
+        x - signal to be analyzed
+        Ndct - number of DCT coefficients to be calculated
+        sr - sampling rate
+
+    Outputs:
+        coefs - DCT coefficients
+        approx - reconstruction of X using the Ndct number of DCT coefficients
+    """
     # Calculate DCT coefficients using librosa's dct function    
     coefsTmp = dct(x)
     coefsTmp[min(len(coefsTmp), Ndct):] = 0

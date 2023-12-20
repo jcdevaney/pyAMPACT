@@ -5,6 +5,10 @@ from sklearn.mixture import GaussianMixture
 
 
 def dp(M):
+    """
+    Use dynamic programming to find a min-cost path through matrix M.
+    Return state sequence in p,q
+    """
     r, c = M.shape
 
     # Initialize cost matrix D - PROBLEM!
@@ -77,9 +81,23 @@ def dp(M):
 #########################################################################
 
 
-""" Gaussian/Viterbi functions"""
+# Gaussian/Viterbi functions
 
-def fill_priormat_gauss(Nobs, ons, offs, Nstates):    
+def fill_priormat_gauss(Nobs, ons, offs, Nstates):
+    """
+    Creates a prior matrix based on the DTW alignment (supplied by the input
+    variables ons and offs. A rectangular window with half a Gaussian on
+    each side over the onsets and offsets estimated by the DTW alignment.
+
+    Inputs:
+        Nobs - number of observations
+        ons - vector of onset times predicted by DTW alignment
+        offs - vector of offset times predicted by DTW alignment
+        Nstates - number of states in the hidden Markov model
+
+    Outputs: 
+        prior - prior matrix based on DTW alignment
+    """
     if Nstates is None:
         Nstates = 5
 
@@ -116,56 +134,42 @@ def fill_priormat_gauss(Nobs, ons, offs, Nstates):
 
 
 def gh(v1, i1, v2, i2, domain, frac=0.5):
+    """
+    Get an element that is frac fraction of the way between v1(i1) and
+    v2(i2), but check bounds on both vectors.  Frac of 0 returns v1(i1), 
+    frac of 1 returns v2(i2), frac of 1/2 (the default) returns half way 
+    between them.
+    """
     x1 = g(v1, i1, domain)
     x2 = g(v2, i2, domain)
     return int(frac * x1 + (1 - frac) * x2)
 
-#########################################################################
-# x = gh(v1, i1, v2, i2, domain, frac) 
-#
-# Description:
-#   Get an element that is frac fraction of the way between v1(i1) and
-#   v2(i2), but check bounds on both vectors.  Frac of 0 returns v1(i1), 
-#   frac of 1 returns v2(i2), frac of 1/2 (the default) returns half way 
-#   between them.
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved.
-#########################################################################
     
 
-
 def flatTopGaussIdx(x, b1, bi1, t1, ti1, t2, ti2, b2, bi2):
+    """
+    Create a window function that is zeros, going up to 1s with the left
+    half of a gaussian, then ones, then going back down to zeros with
+    the right half of another gaussian.  b1(bi1) is the x coordinate 2
+    stddevs out from the mean, which is at t1(ti1).  t2(ti2) is the x
+    coordinate of the mean of the second gaussian and b2(bi2) is 2
+    stddevs out from that.  The points should be in that order.  Vectors
+    are indexed intelligently, so you don't have to worry about
+    overflows or underflows.  X is the set of points over which this is
+    to be calculated.
+    """
     b1 = g(b1, bi1, x)
     t1 = g(t1, ti1, x)
     t2 = g(t2, ti2, x)
     b2 = g(b2, bi2, x)
     return flatTopGaussian(x, b1, t1, t2, b2)
 
-#########################################################################
-# flatTopGaussIdx(x, b1,bi1, t1,ti1, t2,ti2, b2,bi2)
-# 
-# Description:
-#   Create a window function that is zeros, going up to 1s with the left
-#   half of a gaussian, then ones, then going back down to zeros with
-#   the right half of another gaussian.  b1(bi1) is the x coordinate 2
-#   stddevs out from the mean, which is at t1(ti1).  t2(ti2) is the x
-#   coordinate of the mean of the second gaussian and b2(bi2) is 2
-#   stddevs out from that.  The points should be in that order.  Vectors
-#   are indexed intelligently, so you don't have to worry about
-#   overflows or underflows.  X is the set of points over which this is
-#   to be calculated.
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved.
-#########################################################################
-
 
 def g(vec, idx, domain):
+    """
+    Get an element from vec, checking bounds.  Domain is the set of points
+    that vec is a subset of.
+    """
     if idx < 1:
         return domain[0]
     elif idx > len(vec):
@@ -173,41 +177,19 @@ def g(vec, idx, domain):
     else:
         return vec[idx - 1]
 
-#########################################################################
-# x = g(vec, idx, domain)
-# 
-# Description:
-#   Get an element from vec, checking bounds.  Domain is the set of points
-#   that vec is a subset of.
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved.
-#########################################################################
-
 
 def flatTopGaussian(x, b1, t1, t2, b2):
+    """
+    Create a window function that is zeros, going up to 1s with the left 
+    half of a gaussian, then ones, then going back down to zeros with the 
+    right half of another gaussian.  b1 is the x coordinate 2 stddevs out 
+    from the mean, which is at t1.  t2 is the x coordinate of the mean of 
+    the second gaussian and b2 is 2 stddevs out from that.  The points 
+    should be in that order.  X is the set of points over which this is 
+    to be calculated.
+    """
     if any([b1, t1, t2]) > any([t1, t2, b2]):
         print('Endpoints are not in order: ', b1, t1, t2, b2)
-
-#########################################################################
-# flatTopGaussian(x, b1, t1, t2, b2)
-# 
-# Description:
-#   Create a window function that is zeros, going up to 1s with the left 
-#   half of a gaussian, then ones, then going back down to zeros with the 
-#   right half of another gaussian.  b1 is the x coordinate 2 stddevs out 
-#   from the mean, which is at t1.  t2 is the x coordinate of the mean of 
-#   the second gaussian and b2 is 2 stddevs out from that.  The points 
-#   should be in that order.  X is the set of points over which this is 
-#   to be calculated.
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved.
-#########################################################################
     
 
 
@@ -240,7 +222,22 @@ def flatTopGaussian(x, b1, t1, t2, b2):
     # return w
 
 
-def viterbi_path(prior, transmat, obslik):    
+def viterbi_path(prior, transmat, obslik):
+    """
+    VITERBI Find the most-probable (Viterbi) path through the HMM state trellis.
+    path = viterbi(prior, transmat, obslik)
+
+    Inputs:
+        prior(i) = Pr(Q(1) = i)
+        transmat(i,j) = Pr(Q(t+1)=j | Q(t)=i)
+        obslik(i,t) = Pr(y(t) | Q(t)=i)
+
+    Outputs:
+        path(t) = q(t), where q1 ... qT is the argmax of the above expression.
+
+    delta(j,t) = prob. of the best sequence of length t-1 and then going to state j, and O(1:t)
+    psi(j,t) = the best predecessor state, given that we ended up in state j at t
+    """ 
     T = obslik.shape[1]    
     prior = prior.reshape(-1, 1)
     Q = len(prior)
@@ -292,7 +289,41 @@ def viterbi_path(prior, transmat, obslik):
 
 
 
-def mixgauss_prob(data, means, covariances, weights):    
+def mixgauss_prob(data, means, covariances, weights):
+    """
+    Notation: Y is observation, M is mixture component, and both may be conditioned on Q.
+    If Q does not exist, ignore references to Q=j below.
+    Alternatively, you may ignore M if this is a conditional Gaussian.
+    
+    INPUTS:
+        data(:,t) = t'th observation vector 
+    
+    mu(:,k) = E[Y(t) | M(t)=k] 
+    or mu(:,j,k) = E[Y(t) | Q(t)=j, M(t)=k]
+    
+    Sigma(:,:,j,k) = Cov[Y(t) | Q(t)=j, M(t)=k]
+    or there are various faster, special cases:
+      Sigma() - scalar, spherical covariance independent of M,Q.
+      Sigma(:,:) diag or full, tied params independent of M,Q. 
+      Sigma(:,:,j) tied params independent of M. 
+    
+    mixmat(k) = Pr(M(t)=k) = prior
+    or mixmat(j,k) = Pr(M(t)=k | Q(t)=j) 
+    Not needed if M is not defined.
+    
+    unit_norm - optional; if 1, means data(:,i) AND mu(:,i) each have unit norm (slightly faster)
+    
+    OUTPUT:
+    B(t) = Pr(y(t)) 
+    or
+    B(i,t) = Pr(y(t) | Q(t)=i) 
+    B2(i,k,t) = Pr(y(t) | Q(t)=i, M(t)=k) 
+    
+    If the number of mixture components differs depending on Q, just set the trailing
+    entries of mixmat to 0, e.g., 2 components if Q=1, 3 components if Q=2,
+    then set mixmat(1,3)=0. In this case, B2(1,3,:)=1.0.
+    """
+
     # Create a Gaussian Mixture Model
     gmm = GaussianMixture(n_components=2)  # Specify the number of components
 
@@ -325,11 +356,26 @@ def mixgauss_prob(data, means, covariances, weights):
     return likelihood_matrix
 
 
-""" Matrix functions """
-
-
+# Matrix functions
 
 def fill_trans_mat(trans_seed, notes):
+    """
+    Makes a transition matrix from a seed transition matrix.  The seed
+    matrix is composed of the states: steady state, transient, silence,
+    transient, steady state, but the full transition matrix starts and
+    ends with silence, so the seed with be chopped up on the ends.
+    Notes is the number of times to repeat the seed.  Transseed's first
+    and last states should be equivalent, as they will be overlapped
+    with each other.
+    
+    Inputs:
+      transseed - transition matrix seed
+      notes - number of notes being aligned
+    
+    Outputs: 
+      trans - transition matrix
+    """
+
     # Set up transition matrix
     N = trans_seed.shape[0]    
     trans = np.zeros((notes * (N - 1) + 1, notes * (N - 1) + 1))
@@ -350,6 +396,17 @@ def fill_trans_mat(trans_seed, notes):
 
 
 def orio_simmx(M, D):
+    """
+    Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity
+    matrix.  M is the binary mask (where each column corresponds
+    to a row in the output matrix S); D is the regular spectrogram,  
+    where columns of S correspond to columns of D (spectrogram time
+    slices).
+    Each value is the proportion of energy going through the 
+    mask to the total energy of the column of D, thus lies 
+    between 0 (no match) and 1 (mask completely covers energy in D
+    column).
+    """
     # Calculate the similarities
     S = np.zeros((M.shape[1], D.shape[1]))
 

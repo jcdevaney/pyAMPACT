@@ -19,11 +19,10 @@ from audioHelpers import fill_trans_mat, viterbi_path, fill_priormat_gauss, mixg
 from hmmlearn import hmm
 
 from symbolic import Score
-
-
+    
 def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, covars, learn_params, width, target_sr, nharm, win_ms):
-    """
-    Description: Calls the DTW alignment function and refines the results with the HMM
+    """    
+    Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
     This function returns the results of both the state spaces as well as the YIN analysis
     of the specified audio file.
@@ -73,31 +72,31 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     audiofile = None  # Clear the audiofile variable
 
 
-    """
-    # CLEARED. TO BE FIXED LATER
+    
+    # # CLEARED. TO BE FIXED LATER
 
-    # Run HMM alignment with the full state sequence
-    vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord = run_HMM_alignment(
-        num_notes, means, covars, align, yinres, sr, learn_params)
+    # # Run HMM alignment with the full state sequence
+    # vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord = run_HMM_alignment(
+    #     num_notes, means, covars, align, yinres, sr, learn_params)
 
-    # Tally of the number of frames in each state
-    histvals = np.histogram(vpath, bins=np.arange(1, max(vpath) + 2))[0]
+    # # Tally of the number of frames in each state
+    # histvals = np.histogram(vpath, bins=np.arange(1, max(vpath) + 2))[0]
 
-    # Ending time of each state in seconds
-    cumsumvals = np.cumsum(histvals * hop / sr)
+    # # Ending time of each state in seconds
+    # cumsumvals = np.cumsum(histvals * hop / sr)
 
-    # cumsumvals2 = select_states(starting_state, prior, trans,
-    #                             means_full, covars_full, mixmat, obs, state_ord2, note_num, sr)
-    # vpath2 = select_states(starting_state, prior, trans,
-    #                        means_full, covars_full, mixmat, obs, state_ord2, note_num, sr)
+    # # cumsumvals2 = select_states(starting_state, prior, trans,
+    # #                             means_full, covars_full, mixmat, obs, state_ord2, note_num, sr)
+    # # vpath2 = select_states(starting_state, prior, trans,
+    # #                        means_full, covars_full, mixmat, obs, state_ord2, note_num, sr)
 
-    # Create 3*N matrices of the alignments, where the first row is the current states,
-    # the second row is the time at which the state ends, and the third row is the state index,
-    # and N is the total number of states
-    allstate = np.vstack([state_ord, np.zeros_like(state_ord)])
-    allstate[1, :len(cumsumvals)] = cumsumvals
+    # # Create 3*N matrices of the alignments, where the first row is the current states,
+    # # the second row is the time at which the state ends, and the third row is the state index,
+    # # and N is the total number of states
+    # allstate = np.vstack([state_ord, np.zeros_like(state_ord)])
+    # allstate[1, :len(cumsumvals)] = cumsumvals
 
-    """
+    
 
     
     # # selectstate construction, in progress   
@@ -121,6 +120,30 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
 
 
 def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, win_ms):
+    """    
+      Gets values for DTW alignment and YIN analysis of specified audio 
+      signal and MIDI file
+        Inputs:
+      filename
+      midifile, audiofile, sr, hop
+        Outputs: 
+      res
+        res.on list of DTW predicted onset times in seconds
+        res.off list of DTW predicted offset times in seconds
+      yinres (below are the two elements that are used)
+        yinres.ap aperiodicty estimates for each frame
+        yinres.pwr power estimates for each frame
+    
+    Dependencies:
+      de Cheveigné, A. 2002. YIN MATLAB implementation Available from:
+       http://audition.ens.fr/adc/sw/yin.zip
+      Toiviainen, P. and T. Eerola. 2006. MIDI Toolbox. Available from:
+       https://www.jyu.fi/hum/laitokset/musiikki/en/research/coe/materials...
+              /miditoolbox/
+        Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
+    http://www.ampact.org
+    (c) copyright 2011 Johanna Devaney (j@devaney.ca), all rights reserved.
+    """
 
     # Run DTW alignment
     res, spec, dtw = runDTWAlignment(
@@ -149,8 +172,6 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
         'maxf0': np.max(librosa.midi_to_hz(np.array(pitch_list) + 4)),
         'minf0': np.min(librosa.midi_to_hz(np.array(pitch_list) - 1)),
     }        
-
-    
 
     # Parameters
     #     ----------
@@ -184,8 +205,7 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
 
 
 
-
-def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
+def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
@@ -206,13 +226,6 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         - align.midiNote: MIDI note numbers
     - spec: spectrogram
 
-    Dependencies:
-    - Ellis, D. P. W. 2003. Dynamic Time Warp (DTW) in Matlab.
-      Available from: http://www.ee.columbia.edu/~dpwe/resources/matlab/dtw/
-    - Ellis, D. P. W. 2008. Aligning MIDI scores to music audio.
-      Available from: http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidiwav/
-    - Toiviainen, P. and T. Eerola. 2006. MIDI Toolbox.
-      Available from: https://www.jyu.fi/hum/laitokset/musiikki/en/research/coe/materials/miditoolbox/
 
     Automatic Music Performance Analysis and Analysis Toolkit (AMPACT)
     http://www.ampact.org
@@ -303,8 +316,22 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
 
 
 
+def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):    
+    """
+    Align a midi file to a wav file using the "peak structure
+    distance" of Orio et al. that use the MIDI notes to build 
+    a mask that is compared against harmonics in the audio.
+    MF is the name of the MIDI file, WF is the name of the wav file.
+    TH is the time step resolution (default 0.050).
+    ST is the similarity type: 0 (default) is triangle inequality;
+        1 is Orio-style "peak structure distance".
+        S is the similarity matrix.
+        [p,q] are the path from DP
+        D is the spectrogram, M is the midi-note-derived mask.
+        m is the map s.t. M(:,m) \approxeq D
+    2008-03-20 Dan Ellis dpwe@ee.columbia.edu
+    """
 
-def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     piece = Score(MF)
     pianoRoll = piece.pianoRoll()      
 
@@ -361,9 +388,22 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     return m, p, q, S, D, M, N
 
 
+    
+def alignment_visualizer(trace, mid, spec, fig=1):    
+    """    
+    Plots a gross DTW alignment overlaid with the fine alignment
+    resulting from the HMM aligner on the output of YIN.  Trace(1,:)
+    is the list of states in the HMM, and trace(2,:) is the number of YIN
+    frames for which that state is occupied.  Highlight is a list of 
+    notes for which the steady state will be highlighted.
+    
+    Inputs:
+      trace - 3-D matrix of a list of states (trace(1,:)), the times   
+             they end at (trace(2,:)), and the state indices (trace(3,:))
+      mid - midi file
+      spec - spectogram of audio file (from alignmidiwav.m)            
+    """
 
-
-def alignment_visualizer(trace, mid, spec, fig=1):
     if fig is None:
         fig = 1
 
@@ -416,9 +456,9 @@ def alignment_visualizer(trace, mid, spec, fig=1):
     #         nlim = len(notes)
     #         notenums = np.concatenate([np.repeat(range(1, nlim + 1), 4), [nlim]])
 
-
-def plot_fine_align(stateType, occupancy, notes, stftHop):
-    """
+    
+def plot_fine_align(stateType, occupancy, notes, stftHop):    
+    """    
     Plot the HMM alignment based on the output of YIN.
 
     Parameters:
@@ -453,10 +493,36 @@ def plot_fine_align(stateType, occupancy, notes, stftHop):
 
 
 
-""" Currently not in use """
+# Currently not in use
 
-
-def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=False):
+def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=False):    
+    """
+      Refines DTW alignment values with a three-state HMM, identifying 
+      silence,transient, and steady state parts of the signal. The HMM  
+      uses the DTW alignment as a prior. 
+    
+    Inputs:
+      notenum - number of notes to be aligned
+      means - 3x2 matrix of mean aperiodicy and power values HMM states
+              column: silence, trans, steady state
+              rows: aperiodicity, power
+      covars - 3x2 matrix of covariances for the aperiodicy and power
+               values (as per means)
+      res - structure containing inital DTW aligment
+      yinres - structure containg yin analysis of the signal
+      sr - sampling rate of the signal
+    
+    Outputs: 
+      vpath - verterbi path
+      startingState - starting state for the HMM
+      prior - prior matrix from DTW alignment
+      trans - transition matrix
+      meansFull - means matrix
+      covarsFull - covariance matrix
+      mixmat - matrix of priors for GMM for each state
+      obs - two row matrix observations (aperiodicty and power)
+      stateOrd - modified state order sequence
+    """
 
     if not learnparams:
         shift = 0
