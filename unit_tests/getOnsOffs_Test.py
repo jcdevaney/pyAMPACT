@@ -5,7 +5,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from helpers.alignmentHelpers import get_ons_offs
+from alignmentHelpers import get_ons_offs
 
 class TestGetOnsOffs(unittest.TestCase):
 

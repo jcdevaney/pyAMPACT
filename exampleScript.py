@@ -8,9 +8,9 @@ import pandas as pd
 
 # import functions
 from align import run_alignment, alignment_visualizer
-from helpers.alignmentHelpers import get_ons_offs
+from alignmentHelpers import get_ons_offs
 from pitch import estimate_perceptual_parameters, get_cent_vals, smooth_note, note_dct
-from helpers.audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
+from audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
 from pitch import estimate_perceptual_parameters
 
 import sys

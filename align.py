@@ -11,11 +11,11 @@ import pandas as pd
 from pytimbre.yin import yin
 # from alignmentHelpers import select_states
 from mido import MidiFile
-from helpers.alignmentHelpers import midi2nmat
-from helpers.audioHelpers import orio_simmx, simmx, dp
+from alignmentHelpers import midi2nmat
+from audioHelpers import orio_simmx, simmx, dp
 
 # HMM libraries
-from helpers.audioHelpers import fill_trans_mat, viterbi_path, fill_priormat_gauss, mixgauss_prob
+from audioHelpers import fill_trans_mat, viterbi_path, fill_priormat_gauss, mixgauss_prob
 from hmmlearn import hmm
 
 from symbolic import Score

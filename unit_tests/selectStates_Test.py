@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from helpers.alignmentHelpers import select_states
+from alignmentHelpers import select_states
 
 class TestSelectStates(unittest.TestCase):
     def test_select_states(self):

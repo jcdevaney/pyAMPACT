@@ -7,7 +7,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from helpers.audioUtils import find_peaks
+from audioUtils import find_peaks
     
 
 class TestFindPeaks(unittest.TestCase):

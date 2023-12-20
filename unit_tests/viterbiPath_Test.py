@@ -4,7 +4,7 @@ import unittest
 import sys
 import os
 sys.path.append(os.pardir)
-from helpers.audioHelpers import viterbi_path
+from audioHelpers import viterbi_path
 
 
 class TestViterbiPath(unittest.TestCase):

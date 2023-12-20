@@ -6,7 +6,7 @@ from scipy.stats import multivariate_normal
 import sys
 import os
 sys.path.append(os.pardir)
-from helpers.audioHelpers import mixgauss_prob
+from audioHelpers import mixgauss_prob
 
 class TestMixGaussProb(unittest.TestCase):
     def test_mixgauss_prob_shape(self):
