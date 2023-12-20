@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import re
 import xml.etree.ElementTree as ET
+from fractions import Fraction
 
 def _escape_cdata(text):
     try:
@@ -79,6 +80,44 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
     '16th':    '16',
     'eighth':  '8',
     'quarter': '8'      # make quarter grace notes default to eighth notes too
+}
+duration2MEI = {
+    12:        'breve',
+    8:         'breve',
+    Fraction(16, 3): 'breve',
+    6:         '1',
+    4:         '1',
+    Fraction(8, 3): '1',
+    3:         '2',
+    2:         '2',
+    Fraction(4, 3): '2',
+    1.5:       '4',
+    1:         '4',
+    Fraction(2, 3): '4',
+    .75:       '8',
+    .5:        '8',
+    Fraction(1, 3): '8',
+    .375:      '16',
+    .25:       '16',
+    Fraction(1, 6): '16',
+    .1875:     '32',
+    .125:      '32',
+    Fraction(1, 12): '32',
+    .09375:    '64',
+    .0625:     '64',
+    Fraction(1, 24): '64',
+    .046875:    '128',
+    .03125:    '128',
+    Fraction(1, 48): '128',
+    .0234375:    '256',
+    .015625:    '256',
+    Fraction(1, 96): '256',
+    .01171875:    '512',
+    .0078125:    '512',
+    Fraction(1, 192): '512',
+    .005859375:    '1024',
+    .00390625:    '1024',
+    Fraction(1, 384): '1024'
 }
 function_pattern = re.compile('[^TtPpDd]')
 imported_scores = {}

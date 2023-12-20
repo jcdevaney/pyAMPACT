@@ -1448,33 +1448,33 @@ class Score:
                 for staff in stack.index.get_level_values(1).unique():
                     staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
                     for layer in stack.index.levels[2]:
+                        if (measure, staff, layer) not in stack.index:
+                            continue
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
                         parent = layer_el
                         for nrc in stack.loc[[(measure, staff, layer)]].values:
-                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'start':
+                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'start' and parent == layer_el:
                                 beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
                                 parent = beam_el
                             if nrc.isNote:
                                 note_el = ET.SubElement(parent, 'note', {'oct': f'{nrc.octave}',
-                                        'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen)})
+                                    'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
                                 if nrc.duration.isGrace:
                                     note_el.set('grace', 'acc')
                                 else:
-                                    note_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
-                                # ET.SubElement(note_el, 'tie', {'type': 'start'})
-                                # ET.SubElement(note_el, 'tie', {'type': 'stop'})
+                                    note_el.set('dur', duration2MEI[nrc.duration.quarterLength])
                             elif nrc.isRest:
-                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen)})
-                                rest_el.set('dur', f'{int(4 / nrc.duration.quarterLength)}')
+                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
+                                    'dur': duration2MEI[nrc.duration.quarterLength], 'dots': str(nrc.duration.dots)})
                             else:
-                                # chord_el = ET.SubElement(parent, 'chord')
+                                chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
-                                    chord_note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
-                                            'pname': f'{note.step.lower()}', 'xml:id': next(idGen)})
+                                    chord_note_el = ET.SubElement(chord_el, 'note', {'oct': f'{note.octave}',
+                                            'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
                                     if note.duration.isGrace:
                                         chord_note_el.set('grace', 'acc')
                                     else:
-                                        chord_note_el.set('dur', f'{int(4 / note.duration.quarterLength)}')
+                                        chord_note_el.set('dur', duration2MEI[nrc.duration.quarterLength])
                             if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
 
