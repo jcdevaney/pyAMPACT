@@ -1451,7 +1451,8 @@ class Score:
                 mi = me.iloc[:, i]
                 mi.name = 'Measure'
                 addTieBreakers((ei, mi))
-                part = pd.concat((ei, mi), axis=1).dropna(how='all')
+                mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes.
+                part = pd.concat((ei, mi), axis=1).dropna(how='all').sort_index(level=[0, 1])
                 part.Measure = part.Measure.ffill()
                 parts.append(part.set_index('Measure', append=True))
             df = pd.concat(parts, axis=1).droplevel([0, 1])
