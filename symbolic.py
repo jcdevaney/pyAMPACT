@@ -1206,14 +1206,14 @@ class Score:
             f.write(header)
             ET.ElementTree(self._meiTree).write(f, encoding='unicode')
 
-    def show(self, start=None, end=None):
+    def show(self, start=None, stop=None):
         """
         Print a VerovioHumdrumViewer link to the score in between the `start` and
-        `end` measures (inclusive).
+        `stop` measures (inclusive).
 
         :param start: Optional integer representing the starting measure. If `start` 
-            is greater than `end`, they will be swapped.
-        :param end: Optional integer representing the ending measure.
+            is greater than `stop`, they will be swapped.
+        :param stop: Optional integer representing the last measure.
         :return: None but a url is printed out
 
         See Also
@@ -1227,8 +1227,8 @@ class Score:
             piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K398/Krn/K398.krn')
             piece.show(5, 10)
         """
-        if isinstance(start, int) and isinstance(end, int) and start > end:
-            start, end = end, start
+        if isinstance(start, int) and isinstance(stop, int) and start > stop:
+            start, stop = stop, start
         tk = self.toKern()
         if start and start > 1:
             header = tk[:tk.index('\n=') + 1]
@@ -1247,12 +1247,12 @@ class Score:
                             break
                 fromStart = '\n'.join(reversed(divisi))
             tk = header + fromStart
-        if end and end + 1 < self._measures().iloc[:, 0].max():
-            tk = tk[:tk.index(f'={end + 1}')]
+        if stop and stop + 1 < self._measures().iloc[:, 0].max():
+            tk = tk[:tk.index(f'={stop + 1}')]
         encoded = base64.b64encode(tk.encode()).decode()
         if len(encoded) > 1900:
-            print('''\nWarning: this excerpt is too long to be passed in a url. Instead to see\
-            \nthe whole score you can run .toKern("your_file_name"), then drag and drop\
+            print(f'''\nAt {len(encoded)} characters, this excerpt is too long to be passed in a url. Instead,\
+            \n to see the whole score you can run .toKern("your_file_name"), then drag and drop\
             \nthat file to VHV: https://verovio.humdrum.org/''')
         else:
             print(f'https://verovio.humdrum.org/?t={encoded}')
@@ -1393,7 +1393,7 @@ class Score:
             with open(path_name, 'w') as f:
                 f.write(self._analyses[key])
 
-    def toMEI(self, file_name='', indentation='\t', data=''):
+    def toMEI(self, file_name='', indentation='\t', data='', start=None, stop=None):
         """
         Create an MEI representation of the score. If no `file_name` is passed
         then returns a string of the MEI representation. Otherwise a file called
@@ -1405,6 +1405,9 @@ class Score:
             MEI file to in the `output_files` directory.
         :param data: Optional string of the path of score data in json format to
             be added to the the new mei file.
+        :param start: Optional integer representing the starting measure. If `start`
+            is greater than `stop`, they will be swapped.
+        :param stop: Optional integer representing the last measure.
         :return: String of new MEI score if no `file_name` is given, or None if
             writing the new MEI file to `output_files/<file_name>.mei.xml`
 
@@ -1420,7 +1423,7 @@ class Score:
             piece = Score('kerntest.krn')
             piece.toMEI(file_name='meiFile.mei.xml')
         """
-        key = ('toMEI', data)
+        key = ('toMEI', data, start, stop)
         if key not in self._analyses:
             root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.1-dev'})
             
@@ -1458,11 +1461,17 @@ class Score:
             df = pd.concat(parts, axis=1).droplevel([0, 1])
             df.columns = events.columns
             stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
-            for measure in stack.index.levels[0]:
+            if isinstance(start, int) and isinstance(stop, int) and start > stop:
+                start, stop = stop, start
+            if isinstance(start, int):
+                stack = stack.loc[start:]
+            if isinstance(stop, int):
+                stack = stack.loc[:stop]
+            for measure in stack.index.get_level_values(0).unique():
                 meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
                 for staff in stack.index.get_level_values(1).unique():
                     staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
-                    for layer in stack.index.levels[2]:
+                    for layer in stack.index.get_level_values(2).unique():
                         if (measure, staff, layer) not in stack.index:
                             continue
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
