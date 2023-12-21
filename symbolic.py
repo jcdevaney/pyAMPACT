@@ -1476,11 +1476,12 @@ class Score:
                                     'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
                                 if nrc.duration.isGrace:
                                     note_el.set('grace', 'acc')
+                                    note_el.set('dur', duration2MEI[nrc.duration.type])
                                 else:
-                                    note_el.set('dur', duration2MEI[nrc.duration.quarterLength])
+                                    note_el.set('dur', duration2MEI[nrc.quarterLength])
                             elif nrc.isRest:
                                 rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
-                                    'dur': duration2MEI[nrc.duration.quarterLength], 'dots': str(nrc.duration.dots)})
+                                    'dur': duration2MEI[nrc.quarterLength], 'dots': str(nrc.duration.dots)})
                             else:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
@@ -1488,8 +1489,9 @@ class Score:
                                             'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
                                     if note.duration.isGrace:
                                         chord_note_el.set('grace', 'acc')
+                                        chord_note_el.set('dur', duration2MEI[note.duration.type])
                                     else:
-                                        chord_note_el.set('dur', duration2MEI[nrc.duration.quarterLength])
+                                        chord_note_el.set('dur', duration2MEI[nrc.quarterLength])
                             if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
 
