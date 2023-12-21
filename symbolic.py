@@ -644,23 +644,27 @@ class Score:
             self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(removeTied).dropna(how='all')
         return self._analyses['_m21ObjectsNoTies']
 
-    def _measures(self):
+    def _measures(self, compact=False):
         """
         Return a DataFrame of the measure starting points.
 
+        :param compact: Boolean, default False. If True, the method will keep
+            chords unified rather then expanding them into separate columns.
         :return: A DataFrame where each column corresponds to a part in the score,
             and each row index is the offset of a measure start. The values are 
             the measure numbers.
         """
-        if '_measures' not in self._analyses:
+        if ('_measures', compact) not in self._analyses:
+            partCols = self._parts(compact=compact).columns
             partMeasures = []
-            for i, partName in enumerate(self.partNames):
-                ser = pd.Series({m.offset: m.measureNumber for m in self._flatParts[i].makeMeasures()}, dtype='Int16')
-                partMeasures.extend([ser] * len([part for part in self._parts().columns if part.startswith(partName)]))
+            for i, part in enumerate(self._flatParts):
+                ser = [pd.Series({m.offset: m.measureNumber for m in part.makeMeasures()}, dtype='Int16')]
+                voiceCount = len([col for col in partCols if col.startswith(self.partNames[i])])
+                partMeasures.extend(ser * voiceCount)
             df = pd.concat(partMeasures, axis=1)
-            df.columns = self._parts().columns
-            self._analyses['_measures'] = df
-        return self._analyses['_measures'].copy()
+            df.columns = partCols
+            self._analyses[('_measures', compact)] = df
+        return self._analyses[('_measures', compact)].copy()
 
     def _barlines(self):
         """
@@ -1437,12 +1441,22 @@ class Score:
             score = ET.SubElement(mdiv, 'score')
             section = ET.SubElement(score, 'section')
 
-            events = self._parts(compact=True, number=True)
-            events['Measure'] = self._measures().iloc[:, 0]
-            # need to assign column names in format (partNumber, voiceNumer) with no splitting up of chords
-            events.iloc[:, -1].ffill(inplace=True)
-            events = events.set_index('Measure')
-            stack = events.stack((0, 1)).sort_index(level=[0, 1, 2])
+            # assign column names in format (partNumber, voiceNumer) with no splitting up of chords
+            events = self._parts(compact=True, number=True).copy()
+            me = self._measures(compact=True)
+            me.columns = events.columns
+            parts = []
+            for i, partName in enumerate(events.columns):
+                ei = events.iloc[:, i]
+                mi = me.iloc[:, i]
+                mi.name = 'Measure'
+                addTieBreakers((ei, mi))
+                part = pd.concat((ei, mi), axis=1).dropna(how='all')
+                part.Measure = part.Measure.ffill()
+                parts.append(part.set_index('Measure', append=True))
+            df = pd.concat(parts, axis=1).droplevel([0, 1])
+            df.columns = events.columns
+            stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
             for measure in stack.index.levels[0]:
                 meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
                 for staff in stack.index.get_level_values(1).unique():
