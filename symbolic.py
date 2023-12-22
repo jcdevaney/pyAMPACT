@@ -141,6 +141,7 @@ class Score:
             toRemove = [el for el in flat if el.offset < 0]
             flat.remove(toRemove)
             flat.makeMeasures(inPlace=True)
+            flat.makeAccidentals(inPlace=True)
             self._flatParts.append(flat.flatten())   # you have to flatten again after calling makeMeasures
             name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part-' + str(i + 1)
             self.partNames.append(name)
@@ -424,8 +425,9 @@ class Score:
                     if ksig:
                         val = len(ksig.alteredPitches)
                         if val > 0 and ksig.alteredPitches[0].accidental.modifier == '-':
-                            val *= -1
-                        attribs['key.sig'] = str(val)
+                            attribs['key.sig'] = f'{val}f'
+                        elif val > 0 and ksig.alteredPitches[0].accidental.modifier == '#':
+                            attribs['key.sig'] = f'{val}s'
                 staffDef = ET.SubElement(staffGrp, 'staffDef', attribs)
                 label = ET.SubElement(staffDef, 'label', {'xml:id': next(idGen)})
                 label.text = staff
@@ -1481,26 +1483,14 @@ class Score:
                                 beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
                                 parent = beam_el
                             if nrc.isNote:
-                                note_el = ET.SubElement(parent, 'note', {'oct': f'{nrc.octave}',
-                                    'pname': f'{nrc.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
-                                if nrc.duration.isGrace:
-                                    note_el.set('grace', 'acc')
-                                    note_el.set('dur', duration2MEI[nrc.duration.type])
-                                else:
-                                    note_el.set('dur', duration2MEI[nrc.quarterLength])
+                                addMEINote(nrc, parent)
                             elif nrc.isRest:
                                 rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
                                     'dur': duration2MEI[nrc.quarterLength], 'dots': str(nrc.duration.dots)})
                             else:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
-                                    chord_note_el = ET.SubElement(chord_el, 'note', {'oct': f'{note.octave}',
-                                            'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': str(nrc.duration.dots)})
-                                    if note.duration.isGrace:
-                                        chord_note_el.set('grace', 'acc')
-                                        chord_note_el.set('dur', duration2MEI[note.duration.type])
-                                    else:
-                                        chord_note_el.set('dur', duration2MEI[nrc.quarterLength])
+                                    addMEINote(note, chord_el)
                             if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
 

@@ -184,6 +184,32 @@ Example
     piece.harm()
 """
 
+def addMEINote(note, parent):
+    note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
+        'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': str(note.duration.dots)})
+    if note.duration.isGrace:
+        note_el.set('grace', 'acc')
+        note_el.set('dur', duration2MEI[note.duration.type])
+    else:
+        note_el.set('dur', duration2MEI[note.quarterLength])
+    alter = note.pitch.alter or 0
+    if note.pitch.accidental and note.pitch.accidental.displayStatus:
+        if alter > 0:
+            note_el.set('accid', 's'*int(alter))
+            note_el.set('accid.ges', 's'*int(alter))
+        elif alter < 0:
+            note_el.set('accid', 'f'*int(-alter))
+            note_el.set('accid.ges', 'f'*int(-alter))
+        else:
+            note_el.set('accid', 'n')
+            note_el.set('accid.ges', 'n')
+    else:
+        if alter > 0:
+            note_el.set('accid.ges', 's'*int(alter))
+        elif alter < 0:
+            note_el.set('accid.ges', 'f'*int(-alter))
+        else:
+            note_el.set('accid.ges', 'n')
 
 def addTieBreakers(partList):
     """
