@@ -1,5 +1,3 @@
-import os
-curr_dir = os.getcwd()
 from symbolic import Score
 
 import numpy as np
@@ -7,7 +5,7 @@ import pandas as pd
 
 
 # import functions
-from align import run_alignment, alignment_visualizer
+from align import run_alignment, alignment_visualiser
 from alignmentHelpers import get_ons_offs
 from pitch import estimate_perceptual_parameters, get_cent_vals, smooth_note, note_dct
 from audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
@@ -16,20 +14,24 @@ from pitch import estimate_perceptual_parameters
 import sys
 
 # Specify audio and MIDI file NAMES
-audio_file = './audio_files/example3note.wav'
-midi_file = './test_files/monophonic3notes.mid'
+audio_file = './audio_files/avemaria.wav'
+midi_file = './audio_files/avemaria.mid'
+# audio_file = './audio_files/example3note.wav'
+# midi_file = './test_files/monophonic3notes.mid'
 piece = Score(midi_file)
 notes = piece.midiPitches()
 
 # Number of notes to align
 num_notes = 0;
-for note in notes['Piano']: # Hardcoded. Fix this?
+for note in notes['Synth Voice']: # Hardcoded. Fix this?
     if note != -1: # Exclude rests
         num_notes += 1        
 
 # Define state order and note numbers
-state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
+# state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
+state_ord = np.repeat(np.arange(1, num_notes + 1), 2)        
 note_num = np.repeat(np.arange(1, num_notes + 1), 2)
+
 
 
 # Load singing means and covariances
@@ -47,40 +49,39 @@ n_harm = 3
 win_ms = 100
 
 # all_state removed
-select_state, spec, yin_res = run_alignment(
+select_state, spec, yin_res, align = run_alignment(
     audio_file, midi_file, num_notes, state_ord, note_num, means, covars, learn_params, width, target_sr, n_harm, win_ms)
 
 
 # Visualize the alignment
-alignment_visualizer(select_state, midi_file, spec, 1)
+alignment_visualiser(select_state, midi_file, spec, 1)
 
 # Get onset and offset times
-times = get_ons_offs(select_state)
+times = align # From run_alignment
 
-
-times_df = pd.DataFrame({'ons': times['ons'], 'offs': times['offs']})
+times_df = pd.DataFrame({'ons': times['on'], 'offs': times['off']})
 # MATLAB turns to .txt file, Here is makes CSV, change .csv to .txt to get planned text file
 times_df.to_csv('./audio_output_files/example.csv', sep='\t', index=False, header=False)
 
 # Load data into a Pandas DataFrame
 fixed_labels = pd.read_csv('./test_files/exampleFixed.txt', delimiter='\t', header=None)
 # Assign columns to 'ons' and 'offs'
-times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
+# times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
 
 
 
 # Build JSON
 nmat = piece.nmats()
 
-xmlIds = nmat['Piano'].index
+xmlIds = nmat['Synth Voice'].index
 
-measures = nmat['Piano']['MEASURE'].values,
-onsets = nmat['Piano']['ONSET'].values,
-durations = nmat['Piano']['DURATION'].values,
-parts = "Piano" # Hardcoded
-midis = nmat['Piano']['MIDI'].values,
-onset_secs = nmat['Piano']['ONSET_SEC'].values,
-offset_secs = nmat['Piano']['OFFSET_SEC'].values
+measures = nmat['Synth Voice']['MEASURE'].values,
+onsets = nmat['Synth Voice']['ONSET'].values,
+durations = nmat['Synth Voice']['DURATION'].values,
+parts = "Synth Voice" # Hardcoded
+midis = nmat['Synth Voice']['MIDI'].values,
+onset_secs = nmat['Synth Voice']['ONSET_SEC'].values,
+offset_secs = nmat['Synth Voice']['OFFSET_SEC'].values
 
 
 # Add -1 to signify ending
@@ -102,9 +103,8 @@ pwr_values = yin_res['ap']
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
 res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
 
-times_ons = tuple(times['ons'].values)
-times_offs = tuple(times['offs'].values)
-
+combined_times = np.column_stack((np.repeat(times['on'], 1), np.repeat(times['off'], 1)))
+combined_times = np.append(combined_times, -1)
 
 # Initialize the audio_params
 audio_params = {}
@@ -119,12 +119,12 @@ for i in range(len(xmlIds)):
     pwr_chunk = res['pwr_vals'][start_idx:end_idx]
     slope_chunk = res['spec_slope'][start_idx:end_idx]
     flux_chunk = res['spec_flux'][start_idx:end_idx]
-    flat_chunk = res['spec_flat'][start_idx:end_idx]
+    flat_chunk = res['spec_flat'][start_idx:end_idx]    
 
     # Create a dictionary for the current time interval
     audio_params[xmlIds[i]] = {
-        "startTime": times_ons[i],
-        "endTime": times_offs[i],                
+        "startTime": combined_times[i], # i is on
+        "endTime": combined_times[i+1], # every other i is off                
         "f0Vals": f0_chunk,
         "ppitch1": res['ppitch'][0],
         "ppitch2": res['ppitch'][1],
@@ -145,7 +145,7 @@ for i in range(len(xmlIds)):
         "MEASURE": measures[i],
         "ONSET": onsets[i],
         "DURATION": durations[i],
-        "PART":"Piano",
+        "PART":"Synth Voice",
         "MIDI": midis[i],
         "ONSET_SEC": onset_secs[i],
         "OFFSET_SEC": offset_secs[i]

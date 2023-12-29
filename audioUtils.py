@@ -3,9 +3,6 @@ import librosa
 import matplotlib.pyplot as plt
 
 
-
-
-
 def find_mids(x, mins, maxes, windowLength_ms, sr):
     """
     Find the midpoints between mins and maxes in a signal x.

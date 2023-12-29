@@ -1,5 +1,3 @@
-import os
-curr_dir = os.getcwd()
 from symbolic import Score
 
 import numpy as np
@@ -23,13 +21,13 @@ def get_ons_offs(onsoffs):
         res.ons - list of onset times
         res.offs - list of offset times
     """
+    
     # Find indices where the first row is equal to 3
-    stopping = np.where(onsoffs[0] == 3)[0]
+    stopping = np.where(onsoffs[0] == 3)[0]    
     # Calculate starting indices by subtracting 1 from stopping indices
     starting = stopping - 1
 
-    res = {'ons': [], 'offs': []}
-
+    res = {'ons': [], 'offs': []}     
     for i in range(len(starting)):
         res['ons'].append(onsoffs[1, starting[i]])
         res['offs'].append(onsoffs[1, stopping[i]])
@@ -145,97 +143,3 @@ def get_timing_data(midifile, times):
     nmat_new[:, :2] = nmat_new[:, 5:7]
 
     return nmat_new
-
-
-# Work in Progress...
-
-# def nearestPD(A):
-#     B = (A + A.T) / 2
-#     _, s, V = np.linalg.svd(B)
-#     H = np.dot(V.T, np.dot(np.diag(s), V))
-#     A2 = (B + H) / 2
-#     A3 = (A2 + A2.T) / 2
-#     if isPD(A3):
-#         return A3
-#     spacing = np.spacing(np.linalg.norm(A))
-#     I = np.eye(A.shape[0])
-#     k = 1
-#     while not isPD(A3):
-#         mineig = np.min(np.real(np.linalg.eigvals(A3)))
-#         A3 += I * (-mineig * k**2 + spacing)
-#         k += 1
-#     return A3
-
-
-# def isPD(B):
-#     try:
-#         _ = np.linalg.cholesky(B)
-#         return True
-#     except np.linalg.LinAlgError:
-#         return False
-
-# def select_states(starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_o, note_num, sr):
-#     # Provided variables
-#     starting_state = np.array([1., 0., 0., 0., 0.])
-#     prior = np.random.dirichlet(alpha=np.ones(3), size=5)
-#     trans = np.array([[9.90e-01, 9.90e-01, 9.90e-01, 9.90e-01, 0.00e+00],
-#                       [9.90e-01, 9.90e-01, 1.80e-03, 7.00e-04, 4.20e-03],
-#                       [9.90e-01, 0.00e+00, 9.80e-01, 1.80e-03, 1.02e-02],
-#                       [9.90e-01, 0.00e+00, 0.00e+00, 9.80e-01, 1.12e-02],
-#                       [0.00e+00, 0.00e+00, 0.00e+00, 0.00e+00, 9.80e-01]])
-#     means_full = np.array([[5.4908e-01, 2.9714e-01, 2.9415e-02, 2.9714e-01, 5.4908e-01],
-#                            [1.1829e-02, 1.7721e-01, 9.3534e-01,
-#                                1.7721e-01, 1.1829e-02],
-#                            [6.9000e+01, 6.9000e+01, 6.9000e+01, 6.9000e+01, 6.9000e+01]])
-#     covars_full = np.array([[[2.870e-02, 0.000e+00],
-#                              [1.000e+02, 3.500e-03]],
-#                             [[6.000e-02, 0.000e+00],
-#                              [5.000e+00, 3.420e-02]],
-#                             [[4.900e-03, 0.000e+00],
-#                              [1.000e+00, 4.474e-01]],
-#                             [[6.000e-02, 0.000e+00],
-#                              [5.000e+00, 3.420e-02]],
-#                             [[2.870e-02, 0.000e+00],
-#                              [1.000e+02, 3.500e-03]]])
-#     mixmat = np.array([1., 1., 1., 1., 1.])
-#     obs = np.array([[0., 0., 1., 1., 1., 1.],
-#                     [0.1, 0.1, 1., 1., 1., 1.],
-#                     [0., 0., 71.31665852, 70.10501279, 70.10501279, 70.10501279]])
-#     state_ord2 = np.array([1, 3, 1])
-#     note_num = np.array([1, 1, 1])
-#     sr = 4000
-#     # Create new versions of the inputted variables based on the state sequence stateO
-#     vec = (state_ord2 + (note_num - 1) * 4)
-#     # starting_state2 = starting_state[state_ord2]
-#     prior2 = prior[vec, :]
-#     trans2 = trans[vec, :][:, vec]
-#     trans2 = np.diag(1. / np.sum(np.atleast_2d(trans2), axis=1)
-#                      ) @ np.atleast_2d(trans2)
-#     means_full2 = means_full[:, vec]
-#     covars_full2 = covars_full[vec, :, :]
-#     # mixmat2 = mixmat[vec, :]
-
-#     # Ensure covariance matrices are symmetric and positive-definite
-#     covars_full2_fixed = np.zeros_like(covars_full2)
-
-#     for i in range(len(vec)):
-#         cov_matrix = covars_full2[i]
-#         shrunk_cov = ShrunkCovariance().fit(cov_matrix).covariance_
-#         covars_full2_fixed[i] = 0.5 * (shrunk_cov + shrunk_cov.T)
-
-#     # Create an HMM model and set the parameters
-#     model = hmm.GaussianHMM(n_components=len(vec), covariance_type="full")
-#     model.startprob_ = prior2
-#     model.transmat_ = trans2
-#     model.means_ = means_full2.T
-#     model.covars_ = covars_full2_fixed
-#     # model.weights_ = mixmat2
-
-#     # Calculate the Viterbi path
-#     vpath2 = model.predict(obs.T)
-
-#     # Create a vector of the modified alignment times
-#     histvals2, _ = np.histogram(vpath2, bins=np.arange(1, max(vpath2) + 2))
-#     cumsumvals2 = np.cumsum(histvals2 * 32 / sr)
-
-#     return vpath2, histvals2, cumsumvals2

@@ -57,30 +57,6 @@ def dp(M):
 
 
 
-#########################################################################
-# prior = fillpriormat_gauss(Nobs,ons,offs,Nstates)
-#
-# Description:
-#  Creates a prior matrix based on the DTW alignment (supplied by the input
-#  variables ons and offs. A rectangular window with half a Gaussian on
-#  each side over the onsets and offsets estimated by the DTW alignment.
-#
-# Inputs:
-#  Nobs - number of observations
-#  ons - vector of onset times predicted by DTW alignment
-#  offs - vector of offset times predicted by DTW alignment
-#  Nstates - number of states in the hidden Markov model
-#
-# Outputs: 
-#  prior - prior matrix based on DTW alignment
-#
-# Automatic Music Performance Analysis and Analysis Toolkit (AMPACT) 
-# http://www.ampact.org - Johanna Devaney, 2011
-# (c) copyright 2011 Johanna Devaney (j@devaney.ca) and Michael Mandel
-#                    (mim@mr-pc.org), all rights reserved.
-#########################################################################
-
-
 # Gaussian/Viterbi functions
 
 def fill_priormat_gauss(Nobs, ons, offs, Nstates):
@@ -295,7 +271,7 @@ def mixgauss_prob(data, means, covariances, weights):
     If Q does not exist, ignore references to Q=j below.
     Alternatively, you may ignore M if this is a conditional Gaussian.
     
-    INPUTS:
+    Inputs:
         data(:,t) = t'th observation vector 
     
     mu(:,k) = E[Y(t) | M(t)=k] 
@@ -313,11 +289,11 @@ def mixgauss_prob(data, means, covariances, weights):
     
     unit_norm - optional; if 1, means data(:,i) AND mu(:,i) each have unit norm (slightly faster)
     
-    OUTPUT:
-    B(t) = Pr(y(t)) 
-    or
-    B(i,t) = Pr(y(t) | Q(t)=i) 
-    B2(i,k,t) = Pr(y(t) | Q(t)=i, M(t)=k) 
+    Outputs:
+        B(t) = Pr(y(t)) 
+        or
+        B(i,t) = Pr(y(t) | Q(t)=i) 
+        B2(i,k,t) = Pr(y(t) | Q(t)=i, M(t)=k) 
     
     If the number of mixture components differs depending on Q, just set the trailing
     entries of mixmat to 0, e.g., 2 components if Q=1, 3 components if Q=2,
@@ -432,7 +408,7 @@ def simmx(A, B):
         A (numpy.ndarray): The first feature matrix.
         B (numpy.ndarray, optional): The second feature matrix. If not provided, B will be set to A.
 
-    Returns:
+    Outputs:
         numpy.ndarray: The similarity matrix between A and B.
     """
     if B is None:

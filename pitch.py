@@ -153,11 +153,11 @@ def get_cent_vals(times, yinres, sr):
     
 
     Inputs:
-        - times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
-        - yinres: Dictionary-like object with 'f0' and 'sr'.
+        times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
+        yinres: Dictionary-like object with 'f0' and 'sr'.
 
     Outputs:
-        - cents: List of NumPy arrays containing cent values for each note.
+        cents: List of NumPy arrays containing cent values for each note.
     """
 
     cents = []
