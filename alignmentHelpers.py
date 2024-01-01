@@ -1,4 +1,4 @@
-from symbolic import Score
+from .symbolic import Score
 
 import numpy as np
 import mido
@@ -13,13 +13,13 @@ def get_ons_offs(onsoffs):
     Extracts a list of onset and offset from an inputted 
              3*N matrix of states and corresponding ending times 
              from AMPACT's HMM-based alignment algorithm
-    Inputs:
-        onsoffs - a 3*N alignment matrix, the first row is a list of N states
-           the second row is the time which the state ends, and the
-           third row is the state index
-    Outputs:
-        res.ons - list of onset times
-        res.offs - list of offset times
+    
+    :param onsoffs: A 3*N alignment matrix, the first row is a list of N states
+        the second row is the time which the state ends, and the
+        third row is the state index
+    :returns: 
+        - res.ons: List of onset times
+        - res.offs: List of offset times
     """
     
     # Find indices where the first row is equal to 3
@@ -101,45 +101,3 @@ def midi2nmat(filename):
     nmat = [event for event in nmat if event[5] == 1]
 
     return np.array(nmat)
-
-    
-def get_timing_data(midifile, times):
-    """
-    Create a note matrix with performance timings
-
-    Inputs:
-        midifile - name of midifile
-        times - note onset and offset times
-
-    Outputs:
-        nmatNew - MIDI toolbox note matrix with performance timings
-                   (mim@mr-pc.org), all rights reserved
-    """    
-    # Read quantized MIDI file
-    midi_data = Score(midifile)            
-    nmat_from_script = midi_data.nmats() 
-
-    nmat_vals = nmat_from_script['Piano'].values
-    new_nmat_from_script = nmat_vals[nmat_vals[:, 4] != -1]
-    print(new_nmat_from_script)
-
-
-    nmat_from_func = midi2nmat(midifile) # This instead?
-    print(nmat_from_func[1::2])
-    
-
-    # START HERE!!!
-    # Then build the proper nmat as from MATLAB.  DOES THIS NEED TO BE BUILT???
-    nmat_old = np.empty((0,7))    
-    
-    nmat_old[:, :2] /= 2 # Problem???    
-    
-    # Replace timing information in MIDI file with performance timings
-    nmat_new = nmat_old.copy()
-    
-    nmat_new[:, 5:7] = [times['ons'].values, (times['offs'] - times['ons']).values]
-    offset = nmat_new[0, 5] - nmat_old[0, 0]
-    nmat_new[:, 5] -= offset
-    nmat_new[:, :2] = nmat_new[:, 5:7]
-
-    return nmat_new

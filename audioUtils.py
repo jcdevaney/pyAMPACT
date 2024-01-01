@@ -10,17 +10,16 @@ def find_mids(x, mins, maxes, windowLength_ms, sr):
     values of peaks and then finds the x values of the signal 
     that are closest to the average between the min and max 
     peak.
+    
+    :param x: Inputted signal in cents.
+    :param mins: Indices of minima of x.
+    :param maxes: Indices of maxima of x.
+    :param windowLength_ms: Window length in miliseconds.
+    :param sr: Sampling rate of x (frame rate of frequency analysis).
 
-    Inputs:
-        x - inputted signal in cents
-        mins - indices of minima of x
-        maxes - indices of maxima of x
-        windowLength_ms - window length in miliseconds
-        sr - sampling rate of x (frame rate of frequency analysis)
-
-    Outputs:
-        x_mids - midpoint locations in x axis between peaks and troughs  
-        y_mids - midpoint locations in y axis between peaks and troughs  
+    :returns:
+        - x_mids - midpoint locations in x axis between peaks and troughs  
+        - y_mids - midpoint locations in y axis between peaks and troughs  
     """
     # Convert window length from milliseconds to frames
     windowLength = int(round(windowLength_ms * sr / 1000.0) * 2)
@@ -51,8 +50,6 @@ def find_mids(x, mins, maxes, windowLength_ms, sr):
 
     return x_mids, y_mids
 
-import numpy as np
-
 
 
 
@@ -64,16 +61,16 @@ def find_peaks(x, window_length_ms, sr, min_count):
     Points that are the min or max of more than minCount windows
     are returned.
 
-    Inputs:
-        x - inputted signal
-        windowLength_ms - window length in ms
-        sr - sampling rate
-        minCount - minimum number of windows that a point needs to be the max
-            of to be considered a minimum or a maximum
+    
+    :param x: Inputted signal.
+    :param windowLength_ms: Window length in ms.
+    :param sr: Sampling rate.
+    :param minCount: Minimum number of windows that a point needs to be the max
+        of to be considered a minimum or a maximum.
 
-    Outputs:
-       mins - minimum values in the signal
-        maxes - maximum values in the signal
+    :returns:
+        - mins: Minimum values in the signal.
+        - maxes: Maximum values in the signal.
     """
     # ADDED THIS
     min_count = min_count / 12
@@ -92,10 +89,10 @@ def find_peaks(x, window_length_ms, sr, min_count):
     # Calculate window length in samples
     window_length = int(window_length_ms * sr / 1000)    
     # Calculate the minimum and maximum values
-    for i in range(len(x) - window_length):        
+    for i in range(len(x) - window_length):
         w = x[i:i+window_length]
-        di_min = np.argmin(w)        
-        di_max = np.argmax(w)        
+        di_min = np.argmin(w)
+        di_max = np.argmax(w)  
         mins[i + di_min] += 1
         maxes[i + di_max] += 1
 
@@ -118,17 +115,17 @@ def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
     the findPeaks function and x_mids and y_mids may come from
     the findMids function.
 
-    Inputs:
-        x - vector of f0 estimates in cents
-        mins - indices of minima of x
-        maxes - indices of maxima of x
-        x_mids - midpoint locations in x axis between peaks and troughs  
-        y_mids - midpoint locations in y axis between peaks and troughs  
-        thresh_cents - minimum distance in cents from midpoint for peaks and
-            troughs
+    
+    :params x: Vector of f0 estimates in cents.
+    :params mins: Indices of minima of x.
+    :params maxes: Indices of maxima of x.
+    :params x_mids: Midpoint locations in x axis between peaks and troughs.
+    :params y_mids: Midpoint locations in y axis between peaks and troughs. 
+    :params thresh_cents: Minimum distance in cents from midpoint for peaks and
+        troughs.
 
-    Outputs:
-        steady - steady-state portion of inputted signal x
+    :returns:
+        - steady: Steady-state portion of inputted signal x.
     """
     # Find extrema that are far enough away from the midpoints    
     peaks = np.sort(np.concatenate((mins, maxes)))       
@@ -159,8 +156,11 @@ def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
 
 
 def freq_and_mag_matrices(audiofile, sr):
-    """
+    """    
     Calculate the frequency and magnitude matrices
+
+    :param audiofile: Path to audio file.
+    :param sr: Target sample rate.
     """
         
     y, sr = librosa.load(audiofile)

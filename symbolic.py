@@ -6,7 +6,7 @@ import music21 as m21
 m21.environment.set('autoDownload', 'allow')
 import os
 import requests
-from symbolicUtils import *
+from .symbolicUtils import *
 import tempfile
 
 

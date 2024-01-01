@@ -1,24 +1,12 @@
-# COMPLETE/TESTED
 import numpy as np
 from scipy.interpolate import interp1d
 # from synthtrax import synthtrax
 from scipy.fftpack import dct, idct
 
 def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=1):
-    
-    # # Return to this later...if necessary
-    # # This constructs X based on matrices, don't need?
-    # if X is None: # nargs < 8
-    #     win_s = 0.064
-    #     WIN = int(win_s * SR)
-    #     nHOP = int(WIN / 4)
-
-    #     # Filter out rows with zero magnitude sum
-    #     M2 = M[np.sum(M, axis=1) != 0, :]
-    #     F2 = F[np.sum(M, axis=1) != 0, :]
-
-        
-    #     X = synthtrax(F2, M2, SR, WIN, nHOP)
+    """
+    NEEDS INFO UPDATED
+    """
 
     # Perceived pitch
     res_ppitch = perceived_pitch(f0_vals, SR / hop, 1)
@@ -107,16 +95,15 @@ def perceived_pitch(f0s, sr, gamma=100000):
     pitch of frequency-modulated Tones. Journal of the 
     Acoustical Society of America. 109(2):701?12.
 
-    Inputs:
-        f0s - vector of fundamental frequency estimates
-        sr - 1/sample rate of the f0 estimates (e.g. the hop rate in Hz of yin)
-        gamma - sets the relative weighting of quickly changing vs slowly 
-            changing portions of  notes. - a high gamma (e.g., 1000000)  
-            gives more weight to slowly changing portions.
+    :param f0s: Vector of fundamental frequency estimates
+    :param sr: 1/sample rate of the f0 estimates (e.g. the hop rate in Hz of yin)
+    :param gamma: Sets the relative weighting of quickly changing vs slowly 
+        changing portions of  notes. - a high gamma (e.g., 1000000)  
+        gives more weight to slowly changing portions.
 
-    Outputs:
-        res.ons - list of onset times
-        res.offs - list of offset times
+    :returns:
+        - res.ons: List of onset times
+        - res.offs: List of offset times
     """
 
     # Remove NaN values from f0s
@@ -143,7 +130,6 @@ def perceived_pitch(f0s, sr, gamma=100000):
     return pp1, pp2    
 
 
-import numpy as np
 
 def get_cent_vals(times, yinres, sr):
     # CENTS IN BETWEEN SEQUENTIAL NOTES
@@ -151,13 +137,10 @@ def get_cent_vals(times, yinres, sr):
     """
     Get cent values (in relation to A, 440 Hz) for each note.
     
+    :param times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
+    :param yinres: Dictionary-like object with 'f0' and 'sr'.
 
-    Inputs:
-        times: Dictionary-like object with 'ons' and 'offs' representing onset and offset times.
-        yinres: Dictionary-like object with 'f0' and 'sr'.
-
-    Outputs:
-        cents: List of NumPy arrays containing cent values for each note.
+    :return: List of NumPy arrays containing cent values for each note.
     """
 
     cents = []
@@ -200,13 +183,11 @@ def smooth_note(x, x_mid, y_mid):
     Generate a smoothed trajectory of a note by connecting the
     midpoints between peaks and troughs.
 
-    Inputs:
-        x - inputted signal 
-        x_mid - midpoint locations in x axis between peaks and troughs  
-        y_mid - midpoint locations in y axis between peaks and troughs  
+    :param x: Inputted signal.
+    :param x_mid: Midpoint locations in x axis between peaks and troughs. 
+    :param y_mid: Midpoint locations in y axis between peaks and troughs.
 
-    Outputs:
-        smoothed - smoothed version of inputted signal x
+    :return: Smoothed version of inputted signal x.
     """
     # Make a note the same size as x
     smoothed = np.zeros_like(x)
@@ -228,14 +209,13 @@ def note_dct(x, Ndct, sr):
     of DCT coefficients to be calculated sr is the sampling rate 
     of the signal
 
-    Inputs:
-        x - signal to be analyzed
-        Ndct - number of DCT coefficients to be calculated
-        sr - sampling rate
+    :param x: Signal to be analyzed.
+    :param Ndct: Number of DCT coefficients to be calculated.
+    :param sr: Sampling rate.
 
-    Outputs:
-        coefs - DCT coefficients
-        approx - reconstruction of X using the Ndct number of DCT coefficients
+    :returns:    
+        - coefs: DCT coefficients.
+        - approx: Reconstruction of X using the Ndct number of DCT coefficients.
     """
     # Calculate DCT coefficients using librosa's dct function    
     coefsTmp = dct(x)

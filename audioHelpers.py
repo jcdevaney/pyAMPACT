@@ -64,15 +64,13 @@ def fill_priormat_gauss(Nobs, ons, offs, Nstates):
     Creates a prior matrix based on the DTW alignment (supplied by the input
     variables ons and offs. A rectangular window with half a Gaussian on
     each side over the onsets and offsets estimated by the DTW alignment.
+    
+    :params Nobs: Number of observations
+    :params ons: Vector of onset times predicted by DTW alignment
+    :params offs: Vector of offset times predicted by DTW alignment
+    :params Nstates: Number of states in the hidden Markov model
 
-    Inputs:
-        Nobs - number of observations
-        ons - vector of onset times predicted by DTW alignment
-        offs - vector of offset times predicted by DTW alignment
-        Nstates - number of states in the hidden Markov model
-
-    Outputs: 
-        prior - prior matrix based on DTW alignment
+    :return prior: Prior matrix based on DTW alignment
     """
     if Nstates is None:
         Nstates = 5
@@ -203,16 +201,15 @@ def viterbi_path(prior, transmat, obslik):
     VITERBI Find the most-probable (Viterbi) path through the HMM state trellis.
     path = viterbi(prior, transmat, obslik)
 
-    Inputs:
-        prior(i) = Pr(Q(1) = i)
-        transmat(i,j) = Pr(Q(t+1)=j | Q(t)=i)
-        obslik(i,t) = Pr(y(t) | Q(t)=i)
+    
+    :param prior(i): Pr(Q(1) = i)
+    :param transmat(i,j): Pr(Q(t+1)=j | Q(t)=i)
+    :param obslik(i,t): Pr(y(t) | Q(t)=i)
 
-    Outputs:
-        path(t) = q(t), where q1 ... qT is the argmax of the above expression.
-
-    delta(j,t) = prob. of the best sequence of length t-1 and then going to state j, and O(1:t)
-    psi(j,t) = the best predecessor state, given that we ended up in state j at t
+    :returns:
+        - path(t): q(t), where q1 ... qT is the argmax of the above expression.
+        - delta(j,t) = prob. of the best sequence of length t-1 and then going to state j, and O(1:t)
+        - psi(j,t) = the best predecessor state, given that we ended up in state j at t
     """ 
     T = obslik.shape[1]    
     prior = prior.reshape(-1, 1)
@@ -227,15 +224,6 @@ def viterbi_path(prior, transmat, obslik):
     scale = np.ones(T)
 
     t = 0
-        
-    # # Added this
-    # if prior.size != obslik.size:
-    #     if prior.size < obslik.size:
-    #         # Expand 'prior' to match the size of 'obslik'
-    #         prior = np.resize(prior, obslik.shape)
-    #     else:
-    #         # Expand 'obslik' to match the size of 'prior'
-    #         obslik = np.resize(obslik, prior.shape)
         
     
     delta[:, t] = prior.flatten() * obslik[:, t]        
@@ -271,29 +259,26 @@ def mixgauss_prob(data, means, covariances, weights):
     If Q does not exist, ignore references to Q=j below.
     Alternatively, you may ignore M if this is a conditional Gaussian.
     
-    Inputs:
-        data(:,t) = t'th observation vector 
     
-    mu(:,k) = E[Y(t) | M(t)=k] 
-    or mu(:,j,k) = E[Y(t) | Q(t)=j, M(t)=k]
+    :param data(:,t): t'th observation vector     
+    :param mu(:,k): E[Y(t) | M(t)=k] 
+        or mu(:,j,k) = E[Y(t) | Q(t)=j, M(t)=k]    
+    :param Sigma(:,:,j,k): Cov[Y(t) | Q(t)=j, M(t)=k]
+        or there are various faster, special cases:
+        - Sigma() - scalar, spherical covariance independent of M,Q.
+        - Sigma(:,:) diag or full, tied params independent of M,Q. 
+        - Sigma(:,:,j) tied params independent of M. 
     
-    Sigma(:,:,j,k) = Cov[Y(t) | Q(t)=j, M(t)=k]
-    or there are various faster, special cases:
-      Sigma() - scalar, spherical covariance independent of M,Q.
-      Sigma(:,:) diag or full, tied params independent of M,Q. 
-      Sigma(:,:,j) tied params independent of M. 
+    :param mixmat(k): Pr(M(t)=k) = prior
+        or mixmat(j,k) = Pr(M(t)=k | Q(t)=j) 
+        Not needed if M is not defined.
     
-    mixmat(k) = Pr(M(t)=k) = prior
-    or mixmat(j,k) = Pr(M(t)=k | Q(t)=j) 
-    Not needed if M is not defined.
+    :param unit_norm: - optional; if 1, means data(:,i) AND mu(:,i) each have unit norm (slightly faster)
     
-    unit_norm - optional; if 1, means data(:,i) AND mu(:,i) each have unit norm (slightly faster)
-    
-    Outputs:
-        B(t) = Pr(y(t)) 
-        or
-        B(i,t) = Pr(y(t) | Q(t)=i) 
-        B2(i,k,t) = Pr(y(t) | Q(t)=i, M(t)=k) 
+    :returns:
+        - B(t) = Pr(y(t)) ||
+        - B(i,t) = Pr(y(t) | Q(t)=i) 
+        - B2(i,k,t) = Pr(y(t) | Q(t)=i, M(t)=k) 
     
     If the number of mixture components differs depending on Q, just set the trailing
     entries of mixmat to 0, e.g., 2 components if Q=1, 3 components if Q=2,
@@ -344,12 +329,10 @@ def fill_trans_mat(trans_seed, notes):
     and last states should be equivalent, as they will be overlapped
     with each other.
     
-    Inputs:
-      transseed - transition matrix seed
-      notes - number of notes being aligned
+    :param transseed: Transition matrix seed.
+    :param notes: Number of notes being aligned.
     
-    Outputs: 
-      trans - transition matrix
+    :return trans: Transition matrix
     """
 
     # Set up transition matrix
@@ -404,12 +387,10 @@ def simmx(A, B):
     """
     Calculate a similarity matrix between feature matrices A and B.
 
-    Args:
-        A (numpy.ndarray): The first feature matrix.
-        B (numpy.ndarray, optional): The second feature matrix. If not provided, B will be set to A.
+    :param A: The first feature matrix.
+    :param B: The second feature matrix. If not provided, B will be set to A.
 
-    Outputs:
-        numpy.ndarray: The similarity matrix between A and B.
+    :return: The similarity matrix between A and B.
     """
     if B is None:
         B = A

@@ -6,16 +6,15 @@ import pandas as pd
 
 
 from pytimbre.yin import yin
-# from alignmentHelpers import select_states
 from mido import MidiFile
-from alignmentHelpers import midi2nmat
-from audioHelpers import orio_simmx, simmx, dp
+from .alignmentHelpers import midi2nmat
+from .symbolic import Score
+from .audioHelpers import orio_simmx, simmx, dp
 
 # HMM libraries
-from audioHelpers import fill_trans_mat, viterbi_path, fill_priormat_gauss, mixgauss_prob
 from hmmlearn import hmm
 
-from symbolic import Score
+
     
 def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, covars, learn_params, width, target_sr, nharm, win_ms):
     """    
@@ -24,25 +23,24 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     This function returns the results of both the state spaces as well as the YIN analysis
     of the specified audio file.
 
-    Inputs:
-        filename - name of the audio file
-        midiname - name of the MIDI file
-        num_notes - number of notes in the MIDI file to be aligned
-        state_ord2 - vector of state sequence
-        note_num - vector of note numbers corresponding to state sequence
-        means - mean values for each state
-        covars - covariance values for each state
-        learn_params - flag as to whether to learn means and covars in the HMM
-        width - width parameter (you need to specify this value)
-        target_sr - target sample rate (you need to specify this value)
-        nharm - number of harmonics (you need to specify this value)
-        win_ms - window size in milliseconds (you need to specify this value)
+    :param filename: Name of the audio file.
+    :param midiname: Name of the MIDI file.
+    :param num_notes: Number of notes in the MIDI file to be aligned.
+    :param state_ord2: Vector of state sequence.
+    :param note_num: Vector of note numbers corresponding to state sequence.
+    :param means: Mean values for each state.
+    :param covars: Covariance values for each state.
+    :param learn_params: Flag as to whether to learn means and covars in the HMM.
+    :param width: Width parameter (you need to specify this value).
+    :param target_sr: Target sample rate (you need to specify this value).
+    :param win_ms: Window size in milliseconds (you need to specify this value).
+    :param nharm: Number of harmonics (you need to specify this value).
 
-    Outputs:
-        allstate - ending times for each state
-        selectstate - ending times for each state
-        spec - spectrogram of the audio file
-        yinres - structure of results of running the YIN algorithm on the audio signal indicated by the input variable filename
+    :returns: 
+        - allstate: Ending times for each state.
+        - selectstate: Ending times for each state.
+        - spec: Spectrogram of the audio file.
+        - yinres: Structure of results of running the YIN algorithm on the audio signal indicated by the input variable filename.
     """
 
     if learn_params is None:
@@ -90,20 +88,17 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
     Gets values for DTW alignment and YIN analysis of specified audio 
     signal and MIDI file
         
-    Inputs:
-        filename
-        midifile 
-        audiofile 
-        sr 
-        hop
+    :param filename: Name of the audio file.
+    :param midiname: Name of the MIDI file.
+    :param audiofile: Name of teh audio file.
+    :param sr: Sample rate.
+    :param hop: Hop size.        
         
-    Outputs: 
-        res
-            res.on list of DTW predicted onset times in seconds
-            res.off list of DTW predicted offset times in seconds
-        yinres (below are the two elements that are used)
-            yinres.ap aperiodicty estimates for each frame
-            yinres.pwr power estimates for each frame        
+    :returns:
+        - res.on list of DTW predicted onset times in seconds
+        - res.off list of DTW predicted offset times in seconds
+        - yinres.ap aperiodicty estimates for each frame
+        - yinres.pwr power estimates for each frame        
     """
 
     # Run DTW alignment
@@ -134,27 +129,7 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
         'minf0': np.min(librosa.midi_to_hz(np.array(pitch_list) - 1)),
     }        
 
-    # Parameters
-    #     ----------
-    #     x : ndarray [shape=(L, )], real - valued
-    #         Audio signal
-    #     Fs : int
-    #         Sampling frequency
-    #     N : int
-    #         Window size
-    #     H : int
-    #         Hop size
-    #     F_min : float
-    #         Minimal frequency
-    #     F_max : float
-    #         Maximal frequency
-    #     threshold : float
-    #         Threshold for cumulative mean normalized difference function
-    #     verbose : bool
-    #         Switch to activate/deactivate status bar
-
     f0, t, ap = yin(x=audiofile, Fs=P['sr'], N=win_ms, H=P['hop'], F_max=P['maxf0'], F_min=P['minf0'], threshold=P['thresh'])
-
 
     yinres = {
         'f0': f0, 
@@ -173,54 +148,27 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     Returns a matrix with the aligned onset and offset times (with corresponding MIDI
     note numbers) and a spectrogram of the audio.
 
-    Inputs:
-        sig: audio file
-        sr: sample rate
-        midorig: MIDI file
-        tres: time resolution for MIDI to spectrum information conversion
-        plot: boolean, whether to plot the spectrogram
+    :param sig: Audio file.
+    :param sr: Sample rate
+    :param midorig: MIDI file.
+    :param tres: Time resolution for MIDI to spectrum information conversion.
+    :param plot: Boolean, whether to plot the spectrogram.
 
-    Outputs:
-        align: dynamic time warping MIDI-audio alignment structure
-            align.on: onset times
-            align.off: offset times
-            align.midiNote: MIDI note numbers
-        spec: spectrogram    
+    :returns:
+        - align: dynamic time warping MIDI-audio alignment structure
+            - align.on: onset times
+            - align.off: offset times
+            - align.midiNote: MIDI note numbers
+        - spec: spectrogram    
     """
     
     # midorig is the path string, not the file
-    # midi_data = pretty_midi.PrettyMIDI(midorig)
-    midi_data = MidiFile(midorig)
-    # Initialize lists to store data
-    on_times = []
-    off_times = []
     midi_notes = []
 
     # Now done in alignMidiWav
     y, sr = librosa.load(audiofile)
-    # Get the spectrogram of the audio
-    # THIS may need revisiting, shortcut to creating spectrogram instead of via alignMidiWav etc.
-    # The data array does show up differently vs MATLAB but this is likely fine.
     spec = librosa.feature.melspectrogram(y=y, sr=sr)
 
-    # librosa.display.specshow(librosa.power_to_db(spec, ref=np.max), y_axis='mel', x_axis='time')
-    # plt.colorbar(format='%+2.0f dB')
-    # plt.title('Mel Spectrogram')
-    # plt.show()
-
-    # INS
-    #    MF is the name of the MIDI file, WF is the name of the wav file.
-    #    TH is the time step resolution (default 0.050).
-    #    ST is the similarity type: 0 (default) is triangle inequality;
-    #       1 is Orio-style "peak structure distance".
-
-    # OUTS
-    #    m is the map s.t. M(:,m) \approxeq D
-    #    [p,q] are the path from DP
-    #    S is the similarity matrix.
-    #    D is the spectrogram
-    #    M is the midi-note-derived mask.
-    #    N is note-mask (provided by CSV)
     m, p, q, S, D, M, N = align_midi_wav(
         MF=midorig, WF=audiofile, TH=tres, ST=0, width=width, tsr=targetsr, nhar=nharm, wms=winms)
 
@@ -238,26 +186,6 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     # The alignment needs to happen against the nmat values...
     nmat = midi2nmat(midorig)
     
-    
-    # # Iterate through the MIDI tracks
-    # currentTime = 0
-    # for track in midi_data.tracks:
-    #     for msg in track:
-    #         if msg.type == 'note_on':
-    #             on_times.append(currentTime + msg.time)
-    #             currentTime += msg.time
-    #             # CATCH as no note_off msgs are in the example.mid
-    #             off_times.append(currentTime + 5)
-    #             midi_notes.append(msg.note)
-    #         elif msg.type == 'note_off':
-    #             off_times.append(msg.time)
-
-    # off_times.pop(0)  # Remove first index as it is not a true off time
-
-    # # Convert times to absolute times
-    # cumulative_time = 0
-    # on_times = [cumulative_time + time for time in on_times]
-    # off_times = [cumulative_time + time for time in off_times]
 
     # Assuming you want data for the first instrument
     align = {
@@ -277,17 +205,18 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     Align a midi file to a wav file using the "peak structure
     distance" of Orio et al. that use the MIDI notes to build 
     a mask that is compared against harmonics in the audio.
-    
-    Inputs:
-        MF is the name of the MIDI file, WF is the name of the wav file.
-        TH is the time step resolution (default 0.050).
-        ST is the similarity type: 0 (default) is triangle inequality;
-        1 is Orio-style "peak structure distance".
-        S is the similarity matrix.
-        [p,q] are the path from DP
-        D is the spectrogram, M is the midi-note-derived mask.
-        m is the map s.t. M(:,m) \approxeq D
-    2008-03-20 Dan Ellis dpwe@ee.columbia.edu
+        
+    :param MF: is the name of the MIDI file, WF is the name of the wav file.
+    :param TH: is the time step resolution (default 0.050).
+    :param ST: is the similarity type: 0 (default) is triangle inequality;
+
+    :returns:
+        - m: Is the map s.t. M(:,m).            
+        - [p,q]: Are the path from DP.
+        - S: The similarity matrix.
+        - D: Is the spectrogram. 
+        - M: Is the midi-note-derived mask.
+        - N: Is Orio-style "peak structure distance".    
     """
 
     piece = Score(MF)
@@ -355,22 +284,19 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     frames for which that state is occupied.  Highlight is a list of 
     notes for which the steady state will be highlighted.
     
-    Inputs:
-        trace - 3-D matrix of a list of states (trace(1,:)), the times   
-             they end at (trace(2,:)), and the state indices (trace(3,:))
-        mid - midi file
-        spec - spectogram of audio file (from alignmidiwav.m)            
+    
+    :param trace: 3-D matrix of a list of states (trace(1,:)), the times
+        they end at (trace(2,:)), and the state indices (trace(3,:))
+    :param mid: Midi file.
+    :param spec: Spectrogram of audio file (from align_midi_wav). 
+    
+    :return: Visualized spectrogram            
+
     """
 
     if fig is None:
         fig = 1
 
-    # # COMMENT OUT FOR > 1 NOTES
-    # if trace[1, -1] == 0:
-    #     trace = trace[:, :-1]
-
-    # if trace[1, -2] == 0:
-    #     trace[1, -2] = trace[1, -3]
 
     # hop size between frames
     stft_hop = 0.0225  # Adjusted from 0.025
@@ -383,8 +309,7 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     notes = notes[notes != -1]
     
     
-
-    # ADJUST CONTRAST...
+    # ADJUST CONTRAST AND CHECK HARMONICS...
     # Plot spectrogram of the audio file
     fig = plt.figure(fig)
     plt.imshow(20 * np.log10(spec), aspect='auto', origin='lower', cmap='gray')
@@ -411,11 +336,13 @@ def plot_fine_align(stateType, occupancy, notes, stftHop):
     """    
     Plot the HMM alignment based on the output of YIN.
 
-    Inputs:
-        stateType - List of states in the HMM.
-        occupancy - List indicating the time (in seconds) at which the states in stateType end.
-        notes - List of MIDI note numbers that are played.
-        stftHop - The hop size between frames in the spectrogram.
+    
+    :param stateType: List of states in the HMM.
+    :param occupancy: List indicating the time (in seconds) at which the states in stateType end.
+    :param notes: List of MIDI note numbers that are played.
+    :param stftHop: The hop size between frames in the spectrogram.
+
+    :return: Spectrogram plot of HMM alignment
     """
 
     # Define styles for different states
@@ -446,173 +373,173 @@ def plot_fine_align(stateType, occupancy, notes, stftHop):
 
 
 # Currently not in use
-
-def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=False):    
-    """
-      Refines DTW alignment values with a three-state HMM, identifying 
-      silence,transient, and steady state parts of the signal. The HMM  
-      uses the DTW alignment as a prior. 
+# def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=False):    
+#     """
+#       Refines DTW alignment values with a three-state HMM, identifying 
+#       silence,transient, and steady state parts of the signal. The HMM  
+#       uses the DTW alignment as a prior. 
     
-    Inputs:
-        notenum - number of notes to be aligned
-        means - 3x2 matrix of mean aperiodicy and power values HMM states
-              column - silence, trans, steady state
-              rows - aperiodicity, power
-        covars - 3x2 matrix of covariances for the aperiodicy and power
-            values (as per means)
-        align - 
-        res - structure containing inital DTW aligment
-        yinres - structure containg yin analysis of the signal
-        sr - sampling rate of the signal
+#     Inputs:
+#         notenum - number of notes to be aligned
+#         means - 3x2 matrix of mean aperiodicy and power values HMM states
+#               column - silence, trans, steady state
+#               rows - aperiodicity, power
+#         covars - 3x2 matrix of covariances for the aperiodicy and power
+#             values (as per means)
+#         align - 
+#         res - structure containing inital DTW aligment
+#         yinres - structure containg yin analysis of the signal
+#         sr - sampling rate of the signal
     
-    Outputs: 
-        vpath - verterbi path
-        startingState - starting state for the HMM
-        prior - prior matrix from DTW alignment
-        trans - transition matrix
-        meansFull - means matrix
-        covarsFull - covariance matrix
-        mixmat - matrix of priors for GMM for each state
-        obs - two row matrix observations (aperiodicty and power)
-        stateOrd - modified state order sequence
-    """
+#     Outputs: 
+#         vpath - verterbi path
+#         startingState - starting state for the HMM
+#         prior - prior matrix from DTW alignment
+#         trans - transition matrix
+#         meansFull - means matrix
+#         covarsFull - covariance matrix
+#         mixmat - matrix of priors for GMM for each state
+#         obs - two row matrix observations (aperiodicty and power)
+#         stateOrd - modified state order sequence
+#     """
 
-    if not learnparams:
-        shift = 0
+#     if not learnparams:
+#         shift = 0
 
-    # Create vectors of onsets and offsets times from DTW alignment
-    align['on'] = np.array(align['on'])
-    align['off'] = np.array(align['off'])
-    ons = np.floor(align['on'] * sr / 32).astype(int)
-    offs = np.floor(align['off'] * sr / 32).astype(int)
+#     # Create vectors of onsets and offsets times from DTW alignment
+#     align['on'] = np.array(align['on'])
+#     align['off'] = np.array(align['off'])
+#     ons = np.floor(align['on'] * sr / 32).astype(int)
+#     offs = np.floor(align['off'] * sr / 32).astype(int)
 
-    # Create observation matrix
-    # obs = np.zeros((3, offs[notenum] + 50))
-    obs = np.zeros((3, yinres['ap'].size))
+#     # Create observation matrix
+#     # obs = np.zeros((3, offs[notenum] + 50))
+#     obs = np.zeros((3, yinres['ap'].size))
 
-    # - 1 to account for 0 index of Python
-    obs[0, :] = np.sqrt(yinres['ap'][:offs[notenum - 1] + 50])
-    # obs[1, :] = np.sqrt(yinres['pwr'][:offs[notenum - 1] + 50]) # Changed
-    obs[1, :] = np.sqrt(yinres['time'][:offs[notenum - 1] + 50])
-    # obs[2, :] = 69 + 12 * yinres['f0'][:offs[notenum - 1] + 50]  # Convert octave to MIDI note
+#     # - 1 to account for 0 index of Python
+#     obs[0, :] = np.sqrt(yinres['ap'][:offs[notenum - 1] + 50])
+#     # obs[1, :] = np.sqrt(yinres['pwr'][:offs[notenum - 1] + 50]) # Changed
+#     obs[1, :] = np.sqrt(yinres['time'][:offs[notenum - 1] + 50])
+#     # obs[2, :] = 69 + 12 * yinres['f0'][:offs[notenum - 1] + 50]  # Convert octave to MIDI note
 
-    yinres['f0'] = np.ceil(yinres['f0'])
-    midiPitches = librosa.hz_to_midi(yinres['f0'])
-    # Convert octave to MIDI note
-    obs[2, :] = midiPitches[:offs[notenum - 1] + 50]
+#     yinres['f0'] = np.ceil(yinres['f0'])
+#     midiPitches = librosa.hz_to_midi(yinres['f0'])
+#     # Convert octave to MIDI note
+#     obs[2, :] = midiPitches[:offs[notenum - 1] + 50]
 
-    # Replace any NaNs in the observation matrix with zeros
-    obs[np.isnan(obs)] = 0
+#     # Replace any NaNs in the observation matrix with zeros
+#     obs[np.isnan(obs)] = 0
 
-    # Refine the list of onsets and offsets according to the number of notes
-    prior_ons = ons[:notenum]  # Ignore added 0 placeholder
-    prior_offs = offs[:notenum]
-    notes = len(prior_ons)  # Normalize
+#     # Refine the list of onsets and offsets according to the number of notes
+#     prior_ons = ons[:notenum]  # Ignore added 0 placeholder
+#     prior_offs = offs[:notenum]
+#     notes = len(prior_ons)  # Normalize
 
-    # Define states: silence, trans, steady state
-    # Rows: aperiodicity, power
-    state_ord_seed = [1, 2, 3, 2, 1]
-    # state_ord = np.tile(state_ord_seed[:-1], notes) + [state_ord_seed[-1]] # This is 21 size
-    state_ord = np.concatenate([np.tile(
-        state_ord_seed[:-1], notes), [state_ord_seed[-1]]])  # This gives both 20 size
+#     # Define states: silence, trans, steady state
+#     # Rows: aperiodicity, power
+#     state_ord_seed = [1, 2, 3, 2, 1]
+#     # state_ord = np.tile(state_ord_seed[:-1], notes) + [state_ord_seed[-1]] # This is 21 size
+#     state_ord = np.concatenate([np.tile(
+#         state_ord_seed[:-1], notes), [state_ord_seed[-1]]])  # This gives both 20 size
 
-    # Use state_ord to expand means and covars for each appearance
-    midi_notes = np.tile(align['midiNote'][:notenum], len(state_ord_seed) - 1)
-    midi_notes = np.append(midi_notes, align['midiNote'][notenum - 1])
-    # Changed state_ord - 1
-    means_full = np.vstack((means[:, state_ord - 1], midi_notes))
-    covars = covars.reshape(3, 2, 2)
-    covars[0, 1, 0] = 100
-    covars[1, 1, 0] = 5
-    covars[2, 1, 0] = 1
-    covars_full = covars[state_ord - 1, :, :]  # deleted one :, to make 2-D
+#     # Use state_ord to expand means and covars for each appearance
+#     midi_notes = np.tile(align['midiNote'][:notenum], len(state_ord_seed) - 1)
+#     midi_notes = np.append(midi_notes, align['midiNote'][notenum - 1])
+#     # Changed state_ord - 1
+#     means_full = np.vstack((means[:, state_ord - 1], midi_notes))
+#     covars = covars.reshape(3, 2, 2)
+#     covars[0, 1, 0] = 100
+#     covars[1, 1, 0] = 5
+#     covars[2, 1, 0] = 1
+#     covars_full = covars[state_ord - 1, :, :]  # deleted one :, to make 2-D
 
-    mixmat = np.ones(len(state_ord))
+#     mixmat = np.ones(len(state_ord))
 
-    # Transition matrix seed
-    # {steady state, transient, silence, transient, steady state}
-    # Original, commented out 4th index to see results...
-    trans_seed = np.zeros((5, 5))
-    # trans_seed = np.zeros((4, 4))
-    trans_seed[0, 0] = 0.99
-    trans_seed[1, 1] = 0.98
-    trans_seed[2, 2] = 0.98
-    trans_seed[3, 3] = 0.98
-    trans_seed[4, 4] = 0.99
-    trans_seed[0, 1] = 0.0018
-    trans_seed[0, 2] = 0.0007
-    trans_seed[0, 3] = 0.0042
-    trans_seed[0, 4] = 0.0033
-    trans_seed[1, 2] = 0.0018
-    trans_seed[1, 3] = 0.0102
-    trans_seed[1, 4] = 0.0080
-    trans_seed[2, 3] = 0.0112
-    trans_seed[2, 4] = 0.0088
-    trans_seed[3, 4] = 0.02
+#     # Transition matrix seed
+#     # {steady state, transient, silence, transient, steady state}
+#     # Original, commented out 4th index to see results...
+#     trans_seed = np.zeros((5, 5))
+#     # trans_seed = np.zeros((4, 4))
+#     trans_seed[0, 0] = 0.99
+#     trans_seed[1, 1] = 0.98
+#     trans_seed[2, 2] = 0.98
+#     trans_seed[3, 3] = 0.98
+#     trans_seed[4, 4] = 0.99
+#     trans_seed[0, 1] = 0.0018
+#     trans_seed[0, 2] = 0.0007
+#     trans_seed[0, 3] = 0.0042
+#     trans_seed[0, 4] = 0.0033
+#     trans_seed[1, 2] = 0.0018
+#     trans_seed[1, 3] = 0.0102
+#     trans_seed[1, 4] = 0.0080
+#     trans_seed[2, 3] = 0.0112
+#     trans_seed[2, 4] = 0.0088
+#     trans_seed[3, 4] = 0.02
 
-    # Call filltransmat to expand the transition matrix to the appropriate size
-    trans = fill_trans_mat(trans_seed, notes)
+#     # Call filltransmat to expand the transition matrix to the appropriate size
+#     trans = fill_trans_mat(trans_seed, notes)
 
-    # Create starting state space matrix
-    starting_state = np.zeros(4 * notes + 1)
-    starting_state[0] = 1
+#     # Create starting state space matrix
+#     starting_state = np.zeros(4 * notes + 1)
+#     starting_state[0] = 1
 
-    prior = fill_priormat_gauss(obs.shape[0], prior_ons, prior_offs, 5)    
+#     prior = fill_priormat_gauss(obs.shape[0], prior_ons, prior_offs, 5)    
     
-    if learnparams:
-        # Use the fit function from the hmmlearn library to learn the HMM parameters
-        model = hmm.GMMHMM(n_components=5, n_mix=1,
-                           covariance_type='diag', n_iter=1)
-        model.startprob_ = starting_state
-        model.transmat_ = trans
-        model.means_ = means_full.T
-        model.covars_ = covars_full.T
-        model.fit(obs.T)
+#     if learnparams:
+#         # Use the fit function from the hmmlearn library to learn the HMM parameters
+#         model = hmm.GMMHMM(n_components=5, n_mix=1,
+#                            covariance_type='diag', n_iter=1)
+#         model.startprob_ = starting_state
+#         model.transmat_ = trans
+#         model.means_ = means_full.T
+#         model.covars_ = covars_full.T
+#         model.fit(obs.T)
 
-    # like = mixgauss_prob(obs, means_full, covars_full, mixmat)
+#     # like = mixgauss_prob(obs, means_full, covars_full, mixmat)
 
-    # Use the Viterbi algorithm to find the most likely path
-    # pr_like = prior * like
-    # vpath = hmm.ViterbiHMM(starting_state, trans, pr_like)
+#     # Use the Viterbi algorithm to find the most likely path
+#     # pr_like = prior * like
+#     # vpath = hmm.ViterbiHMM(starting_state, trans, pr_like)
 
-    # Define the filename
-    # pLikeData = "./test_files/priorlike_oneNote_runHMM.csv"
-    pLikeData = "./test_files/priorlike_threeNote_runHMM.csv"
-    # pLikeData = "./test_files/priorlike_sixNote_runHMM.csv"
+#     # Define the filename
+#     # pLikeData = "./test_files/priorlike_oneNote_runHMM.csv"
+#     pLikeData = "./test_files/priorlike_threeNote_runHMM.csv"
+#     # pLikeData = "./test_files/priorlike_sixNote_runHMM.csv"
     
-    # Read the data from the file
-    dtype = {'index': str, 'value': float}
-    pr_like = pd.read_csv(pLikeData, dtype=dtype,
-                          sep='\s+', names=['index', 'value'])
+#     # Read the data from the file
+#     dtype = {'index': str, 'value': float}
+#     pr_like = pd.read_csv(pLikeData, dtype=dtype,
+#                           sep='\s+', names=['index', 'value'])
 
-    # Initialize an empty dictionary to store the data
-    data_dict = {}
+#     # Initialize an empty dictionary to store the data
+#     data_dict = {}
 
-    # Open the text file for reading
-    with open(pLikeData, 'r') as file:
-        # Iterate through each line in the file
-        for line in file:
-            # Split the line into two parts based on whitespace
-            parts = line.split()
-            # Extract the index from the first part and convert it to a tuple
-            index = tuple(map(int, parts[0].strip('()').split(',')))
-            # Parse the value from the second part
-            value = float(parts[1])
-            # Store the data in the dictionary with the index as the key
-            data_dict[index] = value
+#     # Open the text file for reading
+#     with open(pLikeData, 'r') as file:
+#         # Iterate through each line in the file
+#         for line in file:
+#             # Split the line into two parts based on whitespace
+#             parts = line.split()
+#             # Extract the index from the first part and convert it to a tuple
+#             index = tuple(map(int, parts[0].strip('()').split(',')))
+#             # Parse the value from the second part
+#             value = float(parts[1])
+#             # Store the data in the dictionary with the index as the key
+#             data_dict[index] = value
 
-    # Determine the shape of the numpy array based on the maximum index values
-    num_rows = max(index[0] for index in data_dict.keys())
-    num_cols = max(index[1] for index in data_dict.keys())
+#     # Determine the shape of the numpy array based on the maximum index values
+#     num_rows = max(index[0] for index in data_dict.keys())
+#     num_cols = max(index[1] for index in data_dict.keys())
 
-    # Initialize a numpy array with zeros
-    pr_like = np.zeros((num_rows, num_cols))
+#     # Initialize a numpy array with zeros
+#     pr_like = np.zeros((num_rows, num_cols))
 
-    # Fill the numpy array with the values from the dictionary
-    for index, value in data_dict.items():
-        pr_like[index[0] - 1, index[1] - 1] = value
+#     # Fill the numpy array with the values from the dictionary
+#     for index, value in data_dict.items():
+#         pr_like[index[0] - 1, index[1] - 1] = value
 
-    vpath = viterbi_path(starting_state, trans, pr_like)
-    # vpath = librosa.sequence.viterbi(prob=starting_state, transition=trans, pr_like)
+#     vpath = viterbi_path(starting_state, trans, pr_like)
+#     # vpath = librosa.sequence.viterbi(prob=starting_state, transition=trans, pr_like)
    
-    return vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord
+#     return vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord
+

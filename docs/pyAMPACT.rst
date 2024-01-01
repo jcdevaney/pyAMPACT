@@ -4,8 +4,6 @@ pyAMPACT package
 Submodules
 ----------
 
-
-
 pyAMPACT.align module
 --------------------------------
 
