@@ -1,4 +1,4 @@
-from .symbolic import Score
+from symbolic import Score
 
 import numpy as np
 import mido

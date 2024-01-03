@@ -4,12 +4,15 @@ import librosa
 import librosa.display
 import pandas as pd
 
+import sys
+import os
+sys.path.append(os.pardir)
 
 from pytimbre.yin import yin
 from mido import MidiFile
-from .alignmentHelpers import midi2nmat
-from .symbolic import Score
-from .audioHelpers import orio_simmx, simmx, dp
+from alignmentHelpers import midi2nmat
+from symbolic import Score
+from audioHelpers import orio_simmx, simmx, dp
 
 # HMM libraries
 from hmmlearn import hmm
