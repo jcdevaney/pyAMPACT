@@ -1,3 +1,5 @@
+# Put audioHelpers into performanceParams.py
+
 import numpy as np
 from scipy.signal import gaussian
 from scipy.stats import multivariate_normal

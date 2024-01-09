@@ -4,6 +4,7 @@ import librosa
 import librosa.display
 import pandas as pd
 
+
 import sys
 import os
 sys.path.append(os.pardir)
@@ -52,7 +53,7 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # Refine state_ord2 to correspond to the number of states specified in num_notes
     note_num = np.array(note_num)    
     num_states = max(np.where(note_num <= num_notes)[0])    
-    state_ord2 = state_ord2[:num_states] # Original    
+    # state_ord2 = state_ord2[:num_states] # Original    
     note_num = note_num[:num_states] # Original
     
 
@@ -69,14 +70,14 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     
     audiofile = None  # Clear the audiofile variable
     
-
     
     # # selectstate construction, in progress   
-    lengthOfNotes = note_num + 1    
+    lengthOfNotes = note_num + 1       
     selectstate = np.empty((3, len(lengthOfNotes)))            
     interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]
     interleaved = [val / 2 for val in interleaved]    
     selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
+    
     
     selectstate[1, :] = interleaved[:-1][:selectstate[1, :].shape[0]]
 
@@ -114,10 +115,16 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
     piece = Score(midi_file)
     notes = piece.midiPitches()
 
-   
+   # Get a list of column names
+    column_names = notes.columns.tolist()
+
+    # Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
+    # Can be done later...
+    reference_column = column_names[0]
+
     # Number of notes to align
-    pitch_list = [];
-    for note in notes['Synth Voice']: # Hardcoded. Fix this?
+    pitch_list = [];    
+    for note in notes[reference_column].values: # Hardcoded. Fix this?
         if note != -1: # Exclude rests
             pitch_list.append(note)
     # Define parameters for YIN analysis    
@@ -190,6 +197,21 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     nmat = midi2nmat(midorig)
     
 
+    # # Load the audio file    
+    # y, sr = librosa.load(audiofile)
+
+    # # Calculate the onset times
+    # onset_frames = librosa.onset.onset_detect(y, sr=sr, units='time')
+
+    # # Convert onset frames to time
+    # onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+    
+
+    # # Print the onset times
+    # print("Onset Times:", onset_times)
+    
+    
+
     # Assuming you want data for the first instrument
     align = {
         'nmat': nmat,
@@ -197,6 +219,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'off': nmat[:,3],
         'midiNote': midi_notes
     }    
+    
 
     return align, spec, dtw
 
@@ -304,12 +327,21 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     # hop size between frames
     stft_hop = 0.0225  # Adjusted from 0.025
 
+    
+
     # Read MIDI file
     # This used to take in whole nmat, but now just pitches.
     # note, vel, start time, end time, duration, note is processed    
     piece = Score(mid)
-    notes = piece.midiPitches()['Synth Voice']
-    notes = notes[notes != -1]
+    notes = piece.midiPitches()
+    
+
+    # Get a list of column names
+    column_names = notes.columns.tolist()
+
+    # Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
+    # Can be done later...
+    reference_column = column_names[0]
     
     
     # ADJUST CONTRAST AND CHECK HARMONICS...
@@ -325,7 +357,7 @@ def alignment_visualiser(trace, mid, spec, fig=1):
 
     # Zoom in on fundamental frequencies
     # notes = nmat[:, 0]  # Note
-    notes = notes.values    
+    notes = notes[reference_column].values    
     notes = (2 ** ((notes - 105) / 12)) * 440
     notes = np.append(notes, notes[-1])
     nlim = len(notes)
@@ -363,13 +395,13 @@ def plot_fine_align(stateType, occupancy, notes, stftHop):
     # Create the plot
     stateNote = (np.maximum(1, np.cumsum(stateType == 3) + 1)) - 1
     for i in range(segments.shape[0]):
-        # style = styles[int(stateType[i + 1]) - 1]
+        print(stateType)
+        style = styles[int(stateType[i + 1]) - 1]
         x = segments[i, :]
         y = np.tile(notes[stateNote[i]], (2, 1))
 
-        # Temp REMOVE plots
-        # plt.plot(x, y, color=style['color'], marker=style['marker'],
-        #          linestyle=style['linestyle'], linewidth=style['linewidth'])
+        plt.plot(x, y, color=style['color'], marker=style['marker'],
+                 linestyle=style['linestyle'], linewidth=style['linewidth'])
 
     plt.show()
 

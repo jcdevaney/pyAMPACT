@@ -1,3 +1,5 @@
+# Put these into the align.py file
+
 from symbolic import Score
 
 import numpy as np

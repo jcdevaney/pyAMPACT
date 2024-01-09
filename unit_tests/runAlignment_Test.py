@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.pardir)
-from align import run_alignment
+from alignment import run_alignment
 
 # Define a mock function for get_vals
 def mock_get_vals(filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms):

@@ -5,7 +5,7 @@ import pandas as pd
 
 
 # import functions
-from align import run_alignment, alignment_visualiser
+from alignment import run_alignment, alignment_visualiser
 from alignmentHelpers import get_ons_offs
 from pitch import estimate_perceptual_parameters, get_cent_vals, smooth_note, note_dct
 from audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
@@ -14,22 +14,31 @@ from pitch import estimate_perceptual_parameters
 import sys
 
 # Specify audio and MIDI file NAMES
-audio_file = './audio_files/avemaria.wav'
-midi_file = './audio_files/avemaria.mid'
-# audio_file = './audio_files/example3note.wav'
-# midi_file = './test_files/monophonic3notes.mid'
+# audio_file = './audio_files/avemaria.wav'
+# midi_file = './audio_files/avemaria.mid'
+audio_file = './audio_files/example3note.wav'
+midi_file = './test_files/monophonic3notes.mid'
 piece = Score(midi_file)
 notes = piece.midiPitches()
 
 # Number of notes to align
 num_notes = 0;
-for note in notes['Synth Voice']: # Hardcoded. Fix this?
+
+# Get a list of column names
+column_names = notes.columns.tolist()
+
+# Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
+# Can be done later...
+reference_column = column_names[0]
+
+for note in notes[reference_column].values: # Hardcoded. Fix this?
     if note != -1: # Exclude rests
         num_notes += 1        
 
+
 # Define state order and note numbers
-# state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
-state_ord = np.repeat(np.arange(1, num_notes + 1), 2)        
+state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
+# state_ord = np.repeat(np.arange(1, num_notes + 1), 2) # Something like this?
 note_num = np.repeat(np.arange(1, num_notes + 1), 2)
 
 
@@ -73,15 +82,16 @@ fixed_labels = pd.read_csv('./test_files/exampleFixed.txt', delimiter='\t', head
 # Build JSON
 nmat = piece.nmats()
 
-xmlIds = nmat['Synth Voice'].index
+xmlIds = nmat['Piano'].index
+# xmlIds = nmat['Piano'].index
 
-measures = nmat['Synth Voice']['MEASURE'].values,
-onsets = nmat['Synth Voice']['ONSET'].values,
-durations = nmat['Synth Voice']['DURATION'].values,
-parts = "Synth Voice" # Hardcoded
-midis = nmat['Synth Voice']['MIDI'].values,
-onset_secs = nmat['Synth Voice']['ONSET_SEC'].values,
-offset_secs = nmat['Synth Voice']['OFFSET_SEC'].values
+measures = nmat['Piano']['MEASURE'].values,
+onsets = nmat['Piano']['ONSET'].values,
+durations = nmat['Piano']['DURATION'].values,
+parts = "Piano" # Hardcoded
+midis = nmat['Piano']['MIDI'].values,
+onset_secs = nmat['Piano']['ONSET_SEC'].values,
+offset_secs = nmat['Piano']['OFFSET_SEC'].values
 
 
 # Add -1 to signify ending
@@ -145,7 +155,7 @@ for i in range(len(xmlIds)):
         "MEASURE": measures[i],
         "ONSET": onsets[i],
         "DURATION": durations[i],
-        "PART":"Synth Voice",
+        "PART":"Piano",
         "MIDI": midis[i],
         "ONSET_SEC": onset_secs[i],
         "OFFSET_SEC": offset_secs[i]
@@ -159,15 +169,9 @@ audio_df = pd.DataFrame([audio_params])
 audio_df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
 
 
+# Everything beyond here is not yet live...
+sys.exit()
 
-
-# Map timing information to the quantized MIDI file
-# nmat_new = get_timing_data(midi_file, times)
-
-# Write the new MIDI file
-# midi = MidiFile()
-# midi.tracks.append(nmat2midi(nmat_new, midi_file))
-# midi.save('./audio_output_files/examplePerformance.mid')
 
 # Get cent values for each note
 cents = get_cent_vals(times, yin_res, target_sr)  # Original
