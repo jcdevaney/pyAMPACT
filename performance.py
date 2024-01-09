@@ -242,3 +242,7 @@ def note_dct(x, Ndct, sr):
 
     
     return coefs, approx
+
+# See estimatePercetualParameters line 38 in MATLAB
+
+# getLoudnessEstimates in MATLAB

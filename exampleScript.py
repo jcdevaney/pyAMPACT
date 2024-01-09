@@ -5,18 +5,15 @@ import pandas as pd
 
 
 # import functions
-from alignment import run_alignment, alignment_visualiser
-from alignmentHelpers import get_ons_offs
-from pitch import estimate_perceptual_parameters, get_cent_vals, smooth_note, note_dct
-from audioUtils import find_peaks, find_mids, freq_and_mag_matrices, find_steady
-from pitch import estimate_perceptual_parameters
+from alignment import run_alignment, alignment_visualiser, freq_and_mag_matrices, find_peaks, find_mids
+from performance import estimate_perceptual_parameters, get_cent_vals
 
 import sys
 
 # Specify audio and MIDI file NAMES
-# audio_file = './audio_files/avemaria.wav'
-# midi_file = './audio_files/avemaria.mid'
-audio_file = './audio_files/example3note.wav'
+# audio_file = './test_files/avemaria_full.wav'
+# midi_file = './test_files/avemaria_full.mid'
+audio_file = './test_files/example3note.wav'
 midi_file = './test_files/monophonic3notes.mid'
 piece = Score(midi_file)
 notes = piece.midiPitches()
@@ -65,33 +62,22 @@ select_state, spec, yin_res, align = run_alignment(
 # Visualize the alignment
 alignment_visualiser(select_state, midi_file, spec, 1)
 
-# Get onset and offset times
-times = align # From run_alignment
-
-times_df = pd.DataFrame({'ons': times['on'], 'offs': times['off']})
-# MATLAB turns to .txt file, Here is makes CSV, change .csv to .txt to get planned text file
-times_df.to_csv('./audio_output_files/example.csv', sep='\t', index=False, header=False)
-
-# Load data into a Pandas DataFrame
-fixed_labels = pd.read_csv('./test_files/exampleFixed.txt', delimiter='\t', header=None)
-# Assign columns to 'ons' and 'offs'
-# times = pd.DataFrame({'ons': fixed_labels.iloc[:, 0].values, 'offs': fixed_labels.iloc[:, 1].values})
-
-
 
 # Build JSON
 nmat = piece.nmats()
 
-xmlIds = nmat['Piano'].index
+instrumentList = list(nmat.keys())
+
+xmlIds = nmat[instrumentList[0]].index
 # xmlIds = nmat['Piano'].index
 
-measures = nmat['Piano']['MEASURE'].values,
-onsets = nmat['Piano']['ONSET'].values,
-durations = nmat['Piano']['DURATION'].values,
-parts = "Piano" # Hardcoded
-midis = nmat['Piano']['MIDI'].values,
-onset_secs = nmat['Piano']['ONSET_SEC'].values,
-offset_secs = nmat['Piano']['OFFSET_SEC'].values
+measures = nmat[instrumentList[0]]['MEASURE'].values,
+onsets = nmat[instrumentList[0]]['ONSET'].values,
+durations = nmat[instrumentList[0]]['DURATION'].values,
+parts = nmat[instrumentList[0]]
+midis = nmat[instrumentList[0]]['MIDI'].values,
+onset_secs = nmat[instrumentList[0]]['ONSET_SEC'].values,
+offset_secs = nmat[instrumentList[0]]['OFFSET_SEC'].values
 
 
 # Add -1 to signify ending
@@ -112,6 +98,9 @@ pwr_values = yin_res['ap']
 # Construct frequency and magnitude matrices
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
 res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
+
+# Get onset and offset times
+times = align # From run_alignment
 
 combined_times = np.column_stack((np.repeat(times['on'], 1), np.repeat(times['off'], 1)))
 combined_times = np.append(combined_times, -1)
@@ -166,7 +155,7 @@ for i in range(len(xmlIds)):
 # Create DataFrames from the dictionary
 audio_df = pd.DataFrame([audio_params])
 
-audio_df.to_json("./test_files/cdata_from_audioScript.json", orient="records", indent=4)
+audio_df.to_json("./output_files/cdata_from_alignment_script.json", orient="records", indent=4)
 
 
 # Everything beyond here is not yet live...
