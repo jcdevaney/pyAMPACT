@@ -143,7 +143,7 @@ class Score:
             flat.makeMeasures(inPlace=True)
             flat.makeAccidentals(inPlace=True)
             self._flatParts.append(flat.flatten())   # you have to flatten again after calling makeMeasures
-            name = flat.partName if (flat.partName and flat.partName not in self.partNames) else 'Part-' + str(i + 1)
+            name = flat.partName if (flat.partName and flat.partName not in self.partNames) else f'Part-{i + 1}'
             self.partNames.append(name)
 
     def _partList(self):
@@ -396,7 +396,7 @@ class Score:
                 tsigs = self._timeSignatures(False)
                 tsig1 = tsigs.iat[0, 0]
                 scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1',
-                    'meter.count': str(tsig1.numerator), 'meter.unit': str(tsig1.denominator)})
+                    'meter.count': f'{tsig1.numerator}', 'meter.unit': f'{tsig1.denominator}'})
             else:
                 scoreDef = ET.Element('scoreDef', {'xml:id': next(idGen), 'n': '1'})
             pgHead = ET.SubElement(scoreDef, 'pgHead')
@@ -416,10 +416,10 @@ class Score:
                 attribs = {'label': staff, 'n': str(i + 1), 'xml:id': next(idGen), 'lines': '5'}
                 if self.score is not None:
                     clef = clefs.iloc[0, i]
-                    attribs['clef.line'] = str(clef.line)
+                    attribs['clef.line'] = f'{clef.line}'
                     attribs['clef.shape'] = clef.sign
                     if clef.octaveChange != 0:
-                        attribs['clef.dis'] = str(abs(clef.octaveChange) * 8)
+                        attribs['clef.dis'] = f'{abs(clef.octaveChange) * 8}'
                         attribs['clef.dis.place'] = 'below' if clef.octaveChange < 0 else 'above'
                     ksig = ksigs.iloc[0, i]
                     if ksig:
@@ -488,7 +488,7 @@ class Score:
                 self._analyses['xmlIDs'] = df
                 return df
         # either not xml/mei, or an idString wasn't found
-        df = self._parts(multi_index=True).applymap(lambda obj: str(obj.id), na_action='ignore')
+        df = self._parts(multi_index=True).applymap(lambda obj: f'{obj.id}', na_action='ignore')
         self._analyses['xmlIDs'] = df
         return df
 
@@ -1114,7 +1114,7 @@ class Score:
         key = ('jsonCDATA', json_path)
         if key not in self._analyses:
             nmats = self.nmats(json_path=json_path, include_cdata=True)
-            cols = ['ONSET_SEC'] + next(iter(nmats.values())).columns[7:].to_list()
+            cols = ['ONSET_SEC', *next(iter(nmats.values())).columns[7:]]
             post = {}
             for partName, df in nmats.items():
                 res = df[cols].copy()
@@ -1252,7 +1252,7 @@ class Score:
         if stop and stop + 1 < self._measures().iloc[:, 0].max():
             tk = tk[:tk.index(f'={stop + 1}')]
         encoded = base64.b64encode(tk.encode()).decode()
-        if len(encoded) > 1900:
+        if len(encoded) > 2000:
             print(f'''\nAt {len(encoded)} characters, this excerpt is too long to be passed in a url. Instead,\
             \n to see the whole score you can run .toKern("your_file_name"), then drag and drop\
             \nthat file to VHV: https://verovio.humdrum.org/''')
@@ -1294,8 +1294,7 @@ class Score:
         """
         key = ('toKern', data)
         if key not in self._analyses:
-            _me = self._measures()
-            me = _me.astype('string').applymap(lambda cell: '=' + cell + '-' if cell == '0' else '=' + cell, na_action='ignore')
+            me = self._measures().applymap(lambda cell: f'={cell}-' if cell == 0 else f'={cell}', na_action='ignore')
             events = self.kernNotes()
             isMI = isinstance(events.index, pd.MultiIndex)
             includeLyrics, includeDynamics = False, False
@@ -1486,7 +1485,7 @@ class Score:
                                 addMEINote(nrc, parent)
                             elif nrc.isRest:
                                 rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
-                                    'dur': duration2MEI[nrc.quarterLength], 'dots': str(nrc.duration.dots)})
+                                    'dur': duration2MEI[nrc.quarterLength], 'dots': f'{nrc.duration.dots}'})
                             else:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
