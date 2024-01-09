@@ -81,53 +81,22 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
     'eighth':  '8',
     'quarter': '8'      # make quarter grace notes default to eighth notes too
 }
+
 duration2MEI = {
-    12:               'breve',
-    8:                'breve',
-    Fraction(16, 3):  'breve',
-    6:                '1',
-    4:                '1',
-    Fraction(8, 3):   '1',
-    3:                '2',
-    2:                '2',
-    Fraction(4, 3):   '2',
-    'quarter':        '4',
-    1.5:              '4',
-    1:                '4',
-    Fraction(2, 3):   '4',
-    'eighth':         '8',
-    .75:              '8',
-    .5:               '8',
-    Fraction(1, 3):   '8',
-    '16th':           '16',
-    .375:             '16',
-    .25:              '16',
-    Fraction(1, 6):   '16',
-    '32nd':           '32',
-    .1875:            '32',
-    .125:             '32',
-    Fraction(1, 12):  '32',
-    '64th':           '64',
-    .09375:           '64',
-    .0625:            '64',
-    Fraction(1, 24):  '64',
-    '128th':          '128',
-    .046875:          '128',
-    .03125:           '128',
-    Fraction(1, 48):  '128',
-    '256th':          '256',
-    .0234375:         '256',
-    .015625:          '256',
-    Fraction(1, 96):  '256',
-    '512th':          '512',
-    .01171875:        '512',
-    .0078125:         '512',
-    Fraction(1, 192): '512',
-    '1024th':         '1024',
-    .005859375:       '1024',
-    .00390625:        '1024',
-    Fraction(1, 384): '1024'
+    'breve':   'breve',
+    'whole':   '1',
+    'half':    '2',
+    'quarter': '4',
+    'eighth':  '8',
+    '16th':    '16',
+    '32nd':    '32',
+    '64th':    '64',
+    '128th':   '128',
+    '256th':   '256',
+    '512th':   '512',
+    '1024th':  '1024'
 }
+
 function_pattern = re.compile('[^TtPpDd]')
 imported_scores = {}
 tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
@@ -186,12 +155,12 @@ Example
 
 def addMEINote(note, parent):
     note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
-        'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': str(note.duration.dots)})
+        'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': f'{note.duration.dots}'})
     if note.duration.isGrace:
         note_el.set('grace', 'acc')
         note_el.set('dur', duration2MEI[note.duration.type])
     else:
-        note_el.set('dur', duration2MEI[note.quarterLength])
+        note_el.set('dur', duration2MEI[note.duration.type])
     alter = note.pitch.alter or 0
     if note.pitch.accidental and note.pitch.accidental.displayStatus:
         if alter > 0:

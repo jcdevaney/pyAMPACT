@@ -1455,7 +1455,7 @@ class Score:
                 mi = me.iloc[:, i]
                 mi.name = 'Measure'
                 addTieBreakers((ei, mi))
-                mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes.
+                mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes. # TODO: check case of nachschlag grace notes
                 part = pd.concat((ei, mi), axis=1).dropna(how='all').sort_index(level=[0, 1])
                 part.Measure = part.Measure.ffill()
                 parts.append(part.set_index('Measure', append=True))
@@ -1468,11 +1468,13 @@ class Score:
                 stack = stack.loc[start:]
             if isinstance(stop, int):
                 stack = stack.loc[:stop]
+            uniqueStaves = stack.index.get_level_values(1).unique()
+            uniqueLayers = stack.index.get_level_values(2).unique()
             for measure in stack.index.get_level_values(0).unique():
                 meas_el = ET.SubElement(section, 'measure', {'n': f'{measure}'})
-                for staff in stack.index.get_level_values(1).unique():
+                for staff in uniqueStaves:
                     staff_el = ET.SubElement(meas_el, 'staff', {'n': f'{staff}'})
-                    for layer in stack.index.get_level_values(2).unique():
+                    for layer in uniqueLayers:
                         if (measure, staff, layer) not in stack.index:
                             continue
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
@@ -1485,7 +1487,7 @@ class Score:
                                 addMEINote(nrc, parent)
                             elif nrc.isRest:
                                 rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
-                                    'dur': duration2MEI[nrc.quarterLength], 'dots': f'{nrc.duration.dots}'})
+                                    'dur': duration2MEI[nrc.duration.type], 'dots': f'{nrc.duration.dots}'})
                             else:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in nrc.notes:
