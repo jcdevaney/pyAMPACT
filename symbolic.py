@@ -533,7 +533,8 @@ class Score:
             for i, flat_part in enumerate(self._flatParts):
                 ser = pd.Series(flat_part.getElementsByClass(['Clef']), name=self.partNames[i])
                 ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
-                # ser = ser[~ser.index.duplicated(keep='last')]
+                ser = ser[~ser.index.duplicated(keep='last')]
+
                 if not ser.index.is_unique:
                     isUnique = False
                 parts.append(ser)
@@ -1447,6 +1448,11 @@ class Score:
 
             # assign column names in format (partNumber, voiceNumer) with no splitting up of chords
             events = self._parts(compact=True, number=True).copy()
+            clefs = self._m21Clefs().copy()
+            if 0.0 in clefs.index:
+                clefs.drop(0.0, inplace=True)
+            clefs.index = pd.MultiIndex.from_product([clefs.index, [-9]])
+            clefs.columns = pd.MultiIndex.from_tuples([(x, 1) for x in range(1, len(clefs.columns) + 1)], names=['Staff', 'Layer'])
             me = self._measures(compact=True)
             me.columns = events.columns
             parts = []
@@ -1455,11 +1461,16 @@ class Score:
                 mi = me.iloc[:, i]
                 mi.name = 'Measure'
                 addTieBreakers((ei, mi))
+                if partName in clefs.columns:
+                    ci = clefs.loc[:, partName].dropna()
+                    ei = pd.concat((ci, ei)).sort_index()
                 mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes. # TODO: check case of nachschlag grace notes
-                part = pd.concat((ei, mi), axis=1).dropna(how='all').sort_index(level=[0, 1])
+                part = pd.concat((ei, mi), axis=1)
+                p2 = part.dropna(how='all').sort_index(level=[0, 1])
+                part = p2
                 part.Measure = part.Measure.ffill()
                 parts.append(part.set_index('Measure', append=True))
-            df = pd.concat(parts, axis=1).droplevel([0, 1])
+            df = pd.concat(parts, axis=1).sort_index().droplevel([0, 1])
             df.columns = events.columns
             stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
             if isinstance(start, int) and isinstance(stop, int) and start > stop:
@@ -1479,20 +1490,23 @@ class Score:
                             continue
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
                         parent = layer_el
-                        for nrc in stack.loc[[(measure, staff, layer)]].values:
-                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'start' and parent == layer_el:
+                        for el in stack.loc[[(measure, staff, layer)]].values:
+                            if isinstance(el, m21.clef.Clef):
+                                clef_el = ET.SubElement(layer_el, 'clef', {'xml:id': next(idGen), 'shape': el.sign, 'line': f'{el.line}'})
+                            if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'start' and parent == layer_el:
                                 beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
                                 parent = beam_el
-                            if nrc.isNote:
-                                addMEINote(nrc, parent)
-                            elif nrc.isRest:
+
+                            if hasattr(el, 'isNote') and el.isNote:
+                                addMEINote(el, parent)
+                            elif hasattr(el, 'isRest') and el.isRest:
                                 rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
-                                    'dur': duration2MEI[nrc.duration.type], 'dots': f'{nrc.duration.dots}'})
-                            else:
+                                    'dur': duration2MEI[el.duration.type], 'dots': f'{el.duration.dots}'})
+                            elif hasattr(el, 'isChord') and el.isChord:
                                 chord_el = ET.SubElement(parent, 'chord')
-                                for note in nrc.notes:
+                                for note in el.notes:
                                     addMEINote(note, chord_el)
-                            if hasattr(nrc, 'beams') and nrc.beams.beamsList and nrc.beams.beamsList[0].type == 'stop':
+                            if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
 
             self.insertScoreDef(root)
