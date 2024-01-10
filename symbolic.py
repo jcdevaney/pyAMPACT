@@ -1504,10 +1504,9 @@ class Score:
             self.insertScoreDef(root)
 
 
+            stack = self._meiStack()
             if isinstance(start, int) or isinstance(stop, int):
-                stack = self._meiStack().copy()
-            else:
-                stack = self._meiStack()
+                stack = stack.copy()
             if isinstance(start, int) and isinstance(stop, int) and start > stop:
                 start, stop = stop, start
             if isinstance(start, int):
@@ -1526,6 +1525,8 @@ class Score:
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
                         parent = layer_el
                         for el in stack.loc[[(measure, staff, layer)]].values:
+                            if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'start':
+                                    parent = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
                             if hasattr(el, 'isNote') and el.isNote:
                                 addMEINote(el, parent)
                             elif hasattr(el, 'isRest') and el.isRest:
@@ -1541,9 +1542,6 @@ class Score:
 
                             if isinstance(el, m21.clef.Clef):
                                 clef_el = ET.SubElement(parent, 'clef', {'xml:id': next(idGen), 'shape': el.sign, 'line': f'{el.line}'})
-                            elif hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'start' and parent == layer_el:
-                                beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
-                                parent = beam_el
                             elif isinstance(el, m21.meter.TimeSignature):
                                 attrs_el = ET.SubElement(parent, 'attributes', {'xml:id': next(idGen)})
                                 tsig_el = ET.SubElement(attrs_el, 'time', {'xml:id': next(idGen)})
