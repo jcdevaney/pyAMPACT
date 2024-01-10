@@ -1395,6 +1395,62 @@ class Score:
             with open(path_name, 'w') as f:
                 f.write(self._analyses[key])
 
+    def _meiStack(self):
+        """
+        Return a DataFrame stacked to be a multi-indexed series containing the
+        score elements to be processed into the MEI format. This is used  for
+        MEI output. Only used internally.
+
+        :return: A Series of the score in MEI format
+
+        See Also
+        --------
+        :meth:`toMEI`
+        """
+        if '_meiStack' not in self._analyses:
+            # assign column names in format (partNumber, voiceNumer) with no splitting up of chords
+            events = self._parts(compact=True, number=True).copy()
+            clefs = self._m21Clefs().copy()
+            mi = pd.MultiIndex.from_tuples([(x, 1) for x in range(1, len(clefs.columns) + 1)], names=['Staff', 'Layer'])
+            if 0.0 in clefs.index:
+                clefs.drop(0.0, inplace=True)
+            clefs.index = pd.MultiIndex.from_product([clefs.index, [-9]])
+            clefs.columns = mi
+            ksigs = self._keySignatures(False).copy()
+            if 0.0 in ksigs.index:
+                ksigs.drop(0.0, inplace=True)
+            ksigs.index = pd.MultiIndex.from_product([ksigs.index, [-8]])
+            ksigs.columns = mi
+            tsigs = self._timeSignatures(ratio=False).copy()
+            if 0.0 in tsigs.index:
+                tsigs.drop(0.0, inplace=True)
+            tsigs.index = pd.MultiIndex.from_product([tsigs.index, [-7]])
+            tsigs.columns = mi
+            me = self._measures(compact=True)
+            me.columns = events.columns
+            parts = []
+            for i, partName in enumerate(events.columns):
+                ei = events.iloc[:, i]
+                mi = me.iloc[:, i]
+                mi.name = 'Measure'
+                addTieBreakers((ei, mi))
+                if partName in clefs.columns:
+                    ci = clefs.loc[:, partName].dropna()
+                    ki = ksigs.loc[:, partName].dropna()
+                    ti = tsigs.loc[:, partName].dropna()
+                    ei = pd.concat((ci, ki, ti, ei)).sort_index()
+                mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes. # TODO: check case of nachschlag grace notes
+                part = pd.concat((ei, mi), axis=1)
+                p2 = part.dropna(how='all').sort_index(level=[0, 1])
+                part = p2
+                part.Measure = part.Measure.ffill()
+                parts.append(part.set_index('Measure', append=True))
+            df = pd.concat(parts, axis=1).sort_index().droplevel([0, 1])
+            df.columns = events.columns
+            stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
+            self._analyses['_meiStack'] = stack
+        return self._analyses['_meiStack']
+
     def toMEI(self, file_name='', indentation='\t', data='', start=None, stop=None):
         """
         Create an MEI representation of the score. If no `file_name` is passed
@@ -1445,34 +1501,13 @@ class Score:
             mdiv = ET.SubElement(body, 'mdiv')
             score = ET.SubElement(mdiv, 'score')
             section = ET.SubElement(score, 'section')
+            self.insertScoreDef(root)
 
-            # assign column names in format (partNumber, voiceNumer) with no splitting up of chords
-            events = self._parts(compact=True, number=True).copy()
-            clefs = self._m21Clefs().copy()
-            if 0.0 in clefs.index:
-                clefs.drop(0.0, inplace=True)
-            clefs.index = pd.MultiIndex.from_product([clefs.index, [-9]])
-            clefs.columns = pd.MultiIndex.from_tuples([(x, 1) for x in range(1, len(clefs.columns) + 1)], names=['Staff', 'Layer'])
-            me = self._measures(compact=True)
-            me.columns = events.columns
-            parts = []
-            for i, partName in enumerate(events.columns):
-                ei = events.iloc[:, i]
-                mi = me.iloc[:, i]
-                mi.name = 'Measure'
-                addTieBreakers((ei, mi))
-                if partName in clefs.columns:
-                    ci = clefs.loc[:, partName].dropna()
-                    ei = pd.concat((ci, ei)).sort_index()
-                mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes. # TODO: check case of nachschlag grace notes
-                part = pd.concat((ei, mi), axis=1)
-                p2 = part.dropna(how='all').sort_index(level=[0, 1])
-                part = p2
-                part.Measure = part.Measure.ffill()
-                parts.append(part.set_index('Measure', append=True))
-            df = pd.concat(parts, axis=1).sort_index().droplevel([0, 1])
-            df.columns = events.columns
-            stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
+
+            if isinstance(start, int) or isinstance(stop, int):
+                stack = self._meiStack().copy()
+            else:
+                stack = self._meiStack()
             if isinstance(start, int) and isinstance(stop, int) and start > stop:
                 start, stop = stop, start
             if isinstance(start, int):
@@ -1491,12 +1526,6 @@ class Score:
                         layer_el = ET.SubElement(staff_el, 'layer', {'n': f'{layer}'})
                         parent = layer_el
                         for el in stack.loc[[(measure, staff, layer)]].values:
-                            if isinstance(el, m21.clef.Clef):
-                                clef_el = ET.SubElement(layer_el, 'clef', {'xml:id': next(idGen), 'shape': el.sign, 'line': f'{el.line}'})
-                            if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'start' and parent == layer_el:
-                                beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
-                                parent = beam_el
-
                             if hasattr(el, 'isNote') and el.isNote:
                                 addMEINote(el, parent)
                             elif hasattr(el, 'isRest') and el.isRest:
@@ -1508,8 +1537,29 @@ class Score:
                                     addMEINote(note, chord_el)
                             if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
+                                continue
 
-            self.insertScoreDef(root)
+                            if isinstance(el, m21.clef.Clef):
+                                clef_el = ET.SubElement(parent, 'clef', {'xml:id': next(idGen), 'shape': el.sign, 'line': f'{el.line}'})
+                            elif hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'start' and parent == layer_el:
+                                beam_el = ET.SubElement(layer_el, 'beam', {'xml:id': next(idGen)})
+                                parent = beam_el
+                            elif isinstance(el, m21.meter.TimeSignature):
+                                attrs_el = ET.SubElement(parent, 'attributes', {'xml:id': next(idGen)})
+                                tsig_el = ET.SubElement(attrs_el, 'time', {'xml:id': next(idGen)})
+                                numerator_el = ET.SubElement(tsig_el, 'beats')
+                                numerator_el.text = f'{el.numerator}'
+                                denominator_el = ET.SubElement(tsig_el, 'beatType')
+                                denominator_el.text = f'{el.denominator}'
+                            elif isinstance(el, m21.key.KeySignature):
+                                score_def_el = ET.Element('scoreDef', {'xml:id': next(idGen)})
+                                key_sig_el = ET.SubElement(score_def_el, 'keySig', {'xml:id': next(idGen)})
+                                if el.sharps >= 0:
+                                    key_sig_el.set('sig', f'{el.sharps}s')
+                                else:
+                                    key_sig_el.set('sig', f'{abs(el.sharps)}f')
+                                section.insert(len(section) - 1, score_def_el)
+
             indentMEI(root, indentation)
             self._analyses[key] = ET.ElementTree(root)
 
