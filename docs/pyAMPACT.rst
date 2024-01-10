@@ -4,59 +4,27 @@ pyAMPACT package
 Submodules
 ----------
 
-pyAMPACT.align module
+
+pyAMPACT.alignment module
 --------------------------------
 
-.. automodule:: pyAMPACT.align
+.. automodule:: pyAMPACT.alignment
    :members:
    :undoc-members:
    :show-inheritance:
 
+pyAMPACT.alignmentUtils
+--------------------------------
 
-pyAMPACT.loudness module
------------------------------------
-
-.. automodule:: pyAMPACT.loudness
+.. automodule:: pyAMPACT.alignmentUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyAMPACT.pitch module
+pyAMPACT.performance
 --------------------------------
 
-.. automodule:: pyAMPACT.pitch
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyAMPACT.timbre module
---------------------------------
-
-.. automodule:: pyAMPACT.timbre
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyAMPACT.alignmentHelpers module
---------------------------------
-
-.. automodule:: pyAMPACT.alignmentHelpers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyAMPACT.audioHelpers module
---------------------------------
-
-.. automodule:: pyAMPACT.audioHelpers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyAMPACT.audioUtils
---------------------------------
-
-.. automodule:: pyAMPACT.audioUtils
+.. automodule:: pyAMPACT.performance
    :members:
    :undoc-members:
    :show-inheritance:

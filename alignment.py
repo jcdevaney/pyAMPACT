@@ -46,7 +46,10 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
 
     # Refine state_ord2 to correspond to the number of states specified in num_notes
     note_num = np.array(note_num)    
+    
     num_states = max(np.where(note_num <= num_notes)[0])    
+    
+
     # state_ord2 = state_ord2[:num_states] # Original    
     note_num = note_num[:num_states] # Original
     
@@ -60,22 +63,35 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
 
     align, yinres, spec, dtw = get_vals(
         filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
+        
     
-    
+
     audiofile = None  # Clear the audiofile variable
     
+    # print(align['on'])
+    # print(align['off'])
     
     # # selectstate construction, in progress   
-    lengthOfNotes = note_num + 1       
+    lengthOfNotes = note_num + 1
+    
     selectstate = np.empty((3, len(lengthOfNotes)))            
     interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]
-    interleaved = [val / 2 for val in interleaved]    
+    # print(interleaved)
+    # interleaved = [val / 2 for val in interleaved]                
+    
     selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
-    
-    
     selectstate[1, :] = interleaved[:-1][:selectstate[1, :].shape[0]]
-
     selectstate[2, :] = note_num
+    # print(selectstate)
+
+    # Output from above
+    # selectstate = np.array([[1, 3, 2, 3, 2],
+    #                         [0, 4.5936, 4.8384, 5.49216, 5.5296],
+    #                         [1, 1, 2, 2, 3]])
+
+    # selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
+    #                         [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
+    #                         [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
     
     return selectstate, spec, yinres, align
 
@@ -140,6 +156,8 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
         'time': t,  
         'ap': ap  
     }    
+
+        
     
     return res, yinres, spec, dtw
 
@@ -185,12 +203,13 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'notemask': M,
         'pianoroll': N
     }
-
-    # THIS IS INCOMPLETE
-    # The alignment needs to happen against the nmat values...
-    nmat = midi2nmat(midorig)
     
 
+    # THIS IS INCOMPLETE
+    # The alignment needs to happen against the nmat values...    
+    nmat = midi2nmat(midorig)
+    
+    
     # # Load the audio file    
     # y, sr = librosa.load(audiofile)
 
@@ -226,7 +245,8 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     distance" of Orio et al. that use the MIDI notes to build 
     a mask that is compared against harmonics in the audio.
         
-    :param MF: is the name of the MIDI file, WF is the name of the wav file.
+    :param MF: is the name of the MIDI file, 
+    :param WF: is the name of the wav file.
     :param TH: is the time step resolution (default 0.050).
     :param ST: is the similarity type: 0 (default) is triangle inequality;
 
@@ -256,13 +276,14 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
     # basenote = 21  # Corresponds to MIDI note A0
     # tuning = 1.0
+
     # M = notes2mask(N, fft_len, tsr, nhar, basenote, width, tuning)  # You need to implement notes2mask function
 
     N = np.array(sampled_grid)
     # N = N.astype(np.int16)
 
     mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
-                      base_note=0, tuning_factor=1, obs=20)
+                      base_note=0, tuning_factor=1, obs=20)    
 
     # INT or FLOAT?
     M = np.array(mask)  # provided as CSV
@@ -317,11 +338,8 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     if fig is None:
         fig = 1
 
-
     # hop size between frames
-    stft_hop = 0.0225  # Adjusted from 0.025
-
-    
+    stft_hop = 0.023  # Adjusted from 0.025
 
     # Read MIDI file
     # This used to take in whole nmat, but now just pitches.
@@ -329,7 +347,6 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     piece = Score(mid)
     notes = piece.midiPitches()
     
-
     # Get a list of column names
     column_names = notes.columns.tolist()
 
@@ -347,21 +364,43 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     plt.ylabel('Midinote')
     plt.clim([plt.gci().get_clim()[0], plt.gci().get_clim()[1] - 50])
     plt.colorbar()
+    
+    
     # plt.show() # Uncomment to show
 
     # Zoom in on fundamental frequencies
     # notes = nmat[:, 0]  # Note
-    notes = notes[reference_column].values    
+    
+    notes = notes[notes[reference_column].values != -1]
+    # notes = notes[reference_column].values
     notes = (2 ** ((notes - 105) / 12)) * 440
-    notes = np.append(notes, notes[-1])
+    # notes = np.append(notes, notes[-1])
     nlim = len(notes)
+    notes = notes[reference_column].values
 
+    # # Normalize the second row based on the first value being adjusted to 0
+    # normalized_row = trace[1, :] - trace[1, 0]
+
+    # # Update the second row in the trace array with the normalized values
+    # trace[1, :] = normalized_row
+
+    # Hardcoded as taken from MATLAB
+    trace = np.zeros((3, 6)) # Size adjustment for sake of example...
+    notes = [58.27047019, 55.0, 58.27047019, 58.27047019]    
+    trace[0,:] = [1, 3, 2, 3, 2, 3]
+    trace[1,:] = [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859]
+    # print(trace[0,:])
+    # print(trace[1,:])
+    # print(notes)
+    
+
+ 
     plot_fine_align(trace[0, :], trace[1, :],
                     notes[:nlim], stft_hop)  # Original
 
-
     
-def plot_fine_align(stateType, occupancy, notes, stftHop):    
+    
+def plot_fine_align(stateType, occupancy, notes, stftHop):        
     """    
     Plot the HMM alignment based on the output of YIN.
 
@@ -386,9 +425,11 @@ def plot_fine_align(stateType, occupancy, notes, stftHop):
     cs = np.array(occupancy) / stftHop
     segments = np.vstack((cs[:-1], cs[1:])).T
 
-    # Create the plot
-    stateNote = (np.maximum(1, np.cumsum(stateType == 3) + 1)) - 1
-    for i in range(segments.shape[0]):        
+    # Create the plot    
+    stateNote = (np.maximum(1, np.cumsum(stateType == 3) + 1)) - 1        
+    
+    for i in range(segments.shape[0]):             
+        # style = styles[int(stateNote[i + 1]) - 1] # This could work?   
         style = styles[int(stateType[i + 1]) - 1]
         x = segments[i, :]
         y = np.tile(notes[stateNote[i]], (2, 1))
@@ -451,26 +492,26 @@ def midi2nmat(filename):
     nmat = []
 
     # Convert ticks per beat to seconds per tick
-    ticks_per_beat = mid.ticks_per_beat    
-    seconds_per_tick = 60 / (5000000 / ticks_per_beat)
-
+    ticks_per_beat = mid.ticks_per_beat
+    seconds_per_tick = 60 / (50000000 / ticks_per_beat)
+    
     current_tempo = 500000  # Default tempo
 
     for track in mid.tracks:
         cum_time = 0
-        starttime = 0
+        start_time = 0
 
-        for msg in track:
+        for msg in track:                        
             cum_time += msg.time
 
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
                 current_tempo = tempo
 
-            if msg.type == 'note_on' and msg.velocity > 0:
+            if msg.type == 'note_on' and msg.velocity > 0:                                
                 note = msg.note
                 velocity = msg.velocity
-                start_time = cum_time * seconds_per_tick
+                start_time = cum_time * seconds_per_tick                
                 nmat.append([note, velocity, start_time, 0, 0, 0])
 
             if msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
@@ -489,8 +530,7 @@ def midi2nmat(filename):
                     last_event[5] = 1  # Mark the note as processed
 
     # Filter out unprocessed notes
-    nmat = [event for event in nmat if event[5] == 1]
-
+    nmat = [event for event in nmat if event[5] == 1]    
     return np.array(nmat)
 
 

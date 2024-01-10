@@ -1,10 +1,9 @@
-from symbolic import Score
-
 import numpy as np
 import pandas as pd
 
 
 # import functions
+from symbolic import Score
 from alignment import run_alignment, alignment_visualiser, freq_and_mag_matrices, find_peaks, find_mids
 from performance import estimate_perceptual_parameters, get_cent_vals
 
@@ -15,11 +14,12 @@ import sys
 # midi_file = './test_files/avemaria_full.mid'
 audio_file = './test_files/example3note.wav'
 midi_file = './test_files/monophonic3notes.mid'
+
 piece = Score(midi_file)
 notes = piece.midiPitches()
 
 # Number of notes to align
-num_notes = 0;
+num_notes = 0
 
 # Get a list of column names
 column_names = notes.columns.tolist()
@@ -33,11 +33,15 @@ for note in notes[reference_column].values: # Hardcoded. Fix this?
         num_notes += 1        
 
 
-# Define state order and note numbers
-state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
-# state_ord = np.repeat(np.arange(1, num_notes + 1), 2) # Something like this?
-note_num = np.repeat(np.arange(1, num_notes + 1), 2)
+# Hardcoded values for the three note example.
 
+state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
+note_num = [1,1,2,2,3,3]
+
+# UNCOMMENT FOR DYNAMIC
+# Dynamic state ord, but not accurate based on events.  These ultimately color code the lines
+# state_ord = np.tile(np.arange(1, 4), int((2 * num_notes + 2) / 3) + 1)[:num_notes * 2]
+# note_num = np.repeat(np.arange(1, num_notes + 1), 2)
 
 
 # Load singing means and covariances
