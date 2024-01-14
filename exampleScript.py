@@ -4,7 +4,7 @@ import pandas as pd
 
 # import functions
 from symbolic import Score
-from alignment import run_alignment, alignment_visualiser, freq_and_mag_matrices, find_peaks, find_mids
+from alignment import run_alignment, alignment_visualiser, ifgram, freq_and_mag_matrices, find_peaks, find_mids
 from performance import estimate_perceptual_parameters, get_cent_vals
 
 import sys
@@ -38,11 +38,6 @@ for note in notes[reference_column].values: # Hardcoded. Fix this?
 state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
 note_num = [1,1,2,2,3,3]
 
-# UNCOMMENT FOR DYNAMIC
-# Dynamic state ord, but not accurate based on events.  These ultimately color code the lines
-# state_ord = np.tile(np.arange(1, 4), int((2 * num_notes + 2) / 3) + 1)[:num_notes * 2]
-# note_num = np.repeat(np.arange(1, num_notes + 1), 2)
-
 
 # Load singing means and covariances
 means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
@@ -66,6 +61,9 @@ select_state, spec, yin_res, align = run_alignment(
 # Visualize the alignment
 alignment_visualiser(select_state, midi_file, spec, 1)
 
+# Is 2048 okay?
+ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
+
 
 # Build JSON
 nmat = piece.nmats()
@@ -85,9 +83,6 @@ offset_secs = nmat[instrumentList[0]]['OFFSET_SEC'].values
 
 
 # Add -1 to signify ending
-# Some values have different lengths and will hit an error when calculating starting idx and end_idx.
-# Specifically around the chunking of values per note.  This could be remedied by doing chunk calculations
-# separately, but for now adding -1 as placeholders for the end of the piece.
 measures = np.append(measures, -1)
 onsets = np.append(onsets, -1)
 durations = np.append(durations, -1)

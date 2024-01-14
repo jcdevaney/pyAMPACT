@@ -48,10 +48,8 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     note_num = np.array(note_num)    
     
     num_states = max(np.where(note_num <= num_notes)[0])    
-    
-
-    # state_ord2 = state_ord2[:num_states] # Original    
-    note_num = note_num[:num_states] # Original
+          
+    note_num = note_num[:num_states]
     
 
     # Read audio file and perform DTW alignment and YIN analysis
@@ -65,33 +63,17 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
         filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
         
     
-
     audiofile = None  # Clear the audiofile variable
     
-    # print(align['on'])
-    # print(align['off'])
-    
-    # # selectstate construction, in progress   
+    # # selectstate construction
     lengthOfNotes = note_num + 1
     
     selectstate = np.empty((3, len(lengthOfNotes)))            
-    interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]
-    # print(interleaved)
-    # interleaved = [val / 2 for val in interleaved]                
+    interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]    
     
     selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
     selectstate[1, :] = interleaved[:-1][:selectstate[1, :].shape[0]]
     selectstate[2, :] = note_num
-    # print(selectstate)
-
-    # Output from above
-    # selectstate = np.array([[1, 3, 2, 3, 2],
-    #                         [0, 4.5936, 4.8384, 5.49216, 5.5296],
-    #                         [1, 1, 2, 2, 3]])
-
-    # selectstate = np.array([[1.0000, 3.0000, 2.0000, 3.0000, 2.0000, 3.0000],
-    #                         [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859],
-    #                         [1.0000, 1.0000, 2.0000, 2.0000, 3.0000, 3.0000]])
     
     return selectstate, spec, yinres, align
 
@@ -126,10 +108,7 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
     notes = piece.midiPitches()
 
    # Get a list of column names
-    column_names = notes.columns.tolist()
-
-    # Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
-    # Can be done later...
+    column_names = notes.columns.tolist()    
     reference_column = column_names[0]
 
     # Number of notes to align
@@ -157,8 +136,6 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
         'ap': ap  
     }    
 
-        
-    
     return res, yinres, spec, dtw
 
 
@@ -204,27 +181,8 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'pianoroll': N
     }
     
-
-    # THIS IS INCOMPLETE
-    # The alignment needs to happen against the nmat values...    
     nmat = midi2nmat(midorig)
     
-    
-    # # Load the audio file    
-    # y, sr = librosa.load(audiofile)
-
-    # # Calculate the onset times
-    # onset_frames = librosa.onset.onset_detect(y, sr=sr, units='time')
-
-    # # Convert onset frames to time
-    # onset_times = librosa.frames_to_time(onset_frames, sr=sr)
-    
-
-    # # Print the onset times
-    # print("Onset Times:", onset_times)
-    
-    
-
     # Assuming you want data for the first instrument
     align = {
         'nmat': nmat,
@@ -273,20 +231,14 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     hop_length = int((TH * tsr * 1000))
     D = librosa.feature.melspectrogram(
         y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
+    
 
-    # basenote = 21  # Corresponds to MIDI note A0
-    # tuning = 1.0
-
-    # M = notes2mask(N, fft_len, tsr, nhar, basenote, width, tuning)  # You need to implement notes2mask function
-
-    N = np.array(sampled_grid)
-    # N = N.astype(np.int16)
+    N = np.array(sampled_grid)    
 
     mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
                       base_note=0, tuning_factor=1, obs=20)    
 
-    # INT or FLOAT?
-    M = np.array(mask)  # provided as CSV
+    M = np.array(mask)
     M = M.astype(np.int16)
 
     # Calculate the peak-structure-distance similarity matrix
@@ -294,10 +246,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         S = orio_simmx(M, D)
     else:
         S = simmx(M, D)
-
-    # Threshold for matching a "silence" state 0..1
-    # silstatethresh = 0.4;
-    # S[onsetcols-1, :] = silstatethresh * np.max(S)
+    
 
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
@@ -341,22 +290,12 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     # hop size between frames
     stft_hop = 0.023  # Adjusted from 0.025
 
-    # Read MIDI file
-    # This used to take in whole nmat, but now just pitches.
-    # note, vel, start time, end time, duration, note is processed    
+    # Read MIDI file    
     piece = Score(mid)
     notes = piece.midiPitches()
     
-    # Get a list of column names
-    column_names = notes.columns.tolist()
-
-    # Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
-    # Can be done later...
-    reference_column = column_names[0]
     
-    
-    # ADJUST CONTRAST AND CHECK HARMONICS...
-    # Plot spectrogram of the audio file
+    # Plot spectrogram
     fig = plt.figure(fig)
     plt.imshow(20 * np.log10(spec), aspect='auto', origin='lower', cmap='gray')
     plt.title('Spectrogram with Aligned MIDI Notes Overlaid')
@@ -366,79 +305,30 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     plt.colorbar()
     
     
-    # plt.show() # Uncomment to show
+    plt.show() # Uncomment to show
 
-    # Zoom in on fundamental frequencies
-    # notes = nmat[:, 0]  # Note
-    
-    notes = notes[notes[reference_column].values != -1]
-    # notes = notes[reference_column].values
-    notes = (2 ** ((notes - 105) / 12)) * 440
-    # notes = np.append(notes, notes[-1])
-    nlim = len(notes)
-    notes = notes[reference_column].values
 
-    # # Normalize the second row based on the first value being adjusted to 0
-    # normalized_row = trace[1, :] - trace[1, 0]
+def ifgram(audiofile, tsr, win_ms):
+    # win_samps = int(tsr / win_ms) # low-res
+    win_samps = 2048 # Placeholder for now, default
+    y, sr = librosa.load(audiofile)
 
-    # # Update the second row in the trace array with the normalized values
-    # trace[1, :] = normalized_row
+    freqs, times, mags = librosa.reassigned_spectrogram(y=y, sr=tsr,
+                                                         n_fft=win_samps)
+    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+        
 
-    # Hardcoded as taken from MATLAB
-    trace = np.zeros((3, 6)) # Size adjustment for sake of example...
-    notes = [58.27047019, 55.0, 58.27047019, 58.27047019]    
-    trace[0,:] = [1, 3, 2, 3, 2, 3]
-    trace[1,:] = [0.9818, 4.1941, 4.1941, 4.8929, 4.9205, 6.6859]
-    # print(trace[0,:])
-    # print(trace[1,:])
-    # print(notes)
-    
-
- 
-    plot_fine_align(trace[0, :], trace[1, :],
-                    notes[:nlim], stft_hop)  # Original
-
-    
-    
-def plot_fine_align(stateType, occupancy, notes, stftHop):        
-    """    
-    Plot the HMM alignment based on the output of YIN.
-
-    
-    :param stateType: List of states in the HMM.
-    :param occupancy: List indicating the time (in seconds) at which the states in stateType end.
-    :param notes: List of MIDI note numbers that are played.
-    :param stftHop: The hop size between frames in the spectrogram.
-
-    :return: Spectrogram plot of HMM alignment
-    """
-
-    # Define styles for different states
-    styles = [
-        # {'color': 'red', 'marker': '+', 'linestyle': '-', 'linewidth': 2},
-        {'color': 'none', 'marker': '+', 'linestyle': '-',
-            'linewidth': 2},
-        {'color': 'green', 'marker': '+', 'linestyle': '-', 'linewidth': 2},
-        {'color': 'blue', 'marker': '+', 'linestyle': '-', 'linewidth': 2}]
-
-    # Calculate segment boundaries
-    cs = np.array(occupancy) / stftHop
-    segments = np.vstack((cs[:-1], cs[1:])).T
-
-    # Create the plot    
-    stateNote = (np.maximum(1, np.cumsum(stateType == 3) + 1)) - 1        
-    
-    for i in range(segments.shape[0]):             
-        # style = styles[int(stateNote[i + 1]) - 1] # This could work?   
-        style = styles[int(stateType[i + 1]) - 1]
-        x = segments[i, :]
-        y = np.tile(notes[stateNote[i]], (2, 1))
-
-        plt.plot(x, y, color=style['color'], marker=style['marker'],
-                 linestyle=style['linestyle'], linewidth=style['linewidth'])
+    fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
+    img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
+    ax[0].set(title="Spectrogram", xlabel=None)
+    ax[0].label_outer()
+    ax[1].scatter(times, freqs, c=mags_db, cmap="magma", alpha=0.1, s=5)
+    ax[1].set_title("Reassigned spectrogram")
+    fig.colorbar(img, ax=ax, format="%+2.f dB")
 
     plt.show()
 
+    
 
 def get_ons_offs(onsoffs):
     """
@@ -532,6 +422,7 @@ def midi2nmat(filename):
     # Filter out unprocessed notes
     nmat = [event for event in nmat if event[5] == 1]    
     return np.array(nmat)
+    
 
 
 def find_mids(x, mins, maxes, windowLength_ms, sr):
@@ -603,7 +494,7 @@ def find_peaks(x, window_length_ms, sr, min_count):
         - mins: Minimum values in the signal.
         - maxes: Maximum values in the signal.
     """
-    # ADDED THIS
+    
     min_count = min_count / 12
     
     # Would this work???
@@ -706,178 +597,3 @@ def freq_and_mag_matrices(audiofile, sr):
     mag_mat = np.abs(D)    
 
     return freq_mat, mag_mat
-
-
-
-
-# Currently not in use
-# def run_HMM_alignment(notenum, means, covars, align, yinres, sr, learnparams=False):    
-#     """
-#       Refines DTW alignment values with a three-state HMM, identifying 
-#       silence,transient, and steady state parts of the signal. The HMM  
-#       uses the DTW alignment as a prior. 
-    
-#     Inputs:
-#         notenum - number of notes to be aligned
-#         means - 3x2 matrix of mean aperiodicy and power values HMM states
-#               column - silence, trans, steady state
-#               rows - aperiodicity, power
-#         covars - 3x2 matrix of covariances for the aperiodicy and power
-#             values (as per means)
-#         align - 
-#         res - structure containing inital DTW aligment
-#         yinres - structure containg yin analysis of the signal
-#         sr - sampling rate of the signal
-    
-#     Outputs: 
-#         vpath - verterbi path
-#         startingState - starting state for the HMM
-#         prior - prior matrix from DTW alignment
-#         trans - transition matrix
-#         meansFull - means matrix
-#         covarsFull - covariance matrix
-#         mixmat - matrix of priors for GMM for each state
-#         obs - two row matrix observations (aperiodicty and power)
-#         stateOrd - modified state order sequence
-#     """
-
-#     if not learnparams:
-#         shift = 0
-
-#     # Create vectors of onsets and offsets times from DTW alignment
-#     align['on'] = np.array(align['on'])
-#     align['off'] = np.array(align['off'])
-#     ons = np.floor(align['on'] * sr / 32).astype(int)
-#     offs = np.floor(align['off'] * sr / 32).astype(int)
-
-#     # Create observation matrix
-#     # obs = np.zeros((3, offs[notenum] + 50))
-#     obs = np.zeros((3, yinres['ap'].size))
-
-#     # - 1 to account for 0 index of Python
-#     obs[0, :] = np.sqrt(yinres['ap'][:offs[notenum - 1] + 50])
-#     # obs[1, :] = np.sqrt(yinres['pwr'][:offs[notenum - 1] + 50]) # Changed
-#     obs[1, :] = np.sqrt(yinres['time'][:offs[notenum - 1] + 50])
-#     # obs[2, :] = 69 + 12 * yinres['f0'][:offs[notenum - 1] + 50]  # Convert octave to MIDI note
-
-#     yinres['f0'] = np.ceil(yinres['f0'])
-#     midiPitches = librosa.hz_to_midi(yinres['f0'])
-#     # Convert octave to MIDI note
-#     obs[2, :] = midiPitches[:offs[notenum - 1] + 50]
-
-#     # Replace any NaNs in the observation matrix with zeros
-#     obs[np.isnan(obs)] = 0
-
-#     # Refine the list of onsets and offsets according to the number of notes
-#     prior_ons = ons[:notenum]  # Ignore added 0 placeholder
-#     prior_offs = offs[:notenum]
-#     notes = len(prior_ons)  # Normalize
-
-#     # Define states: silence, trans, steady state
-#     # Rows: aperiodicity, power
-#     state_ord_seed = [1, 2, 3, 2, 1]
-#     # state_ord = np.tile(state_ord_seed[:-1], notes) + [state_ord_seed[-1]] # This is 21 size
-#     state_ord = np.concatenate([np.tile(
-#         state_ord_seed[:-1], notes), [state_ord_seed[-1]]])  # This gives both 20 size
-
-#     # Use state_ord to expand means and covars for each appearance
-#     midi_notes = np.tile(align['midiNote'][:notenum], len(state_ord_seed) - 1)
-#     midi_notes = np.append(midi_notes, align['midiNote'][notenum - 1])
-#     # Changed state_ord - 1
-#     means_full = np.vstack((means[:, state_ord - 1], midi_notes))
-#     covars = covars.reshape(3, 2, 2)
-#     covars[0, 1, 0] = 100
-#     covars[1, 1, 0] = 5
-#     covars[2, 1, 0] = 1
-#     covars_full = covars[state_ord - 1, :, :]  # deleted one :, to make 2-D
-
-#     mixmat = np.ones(len(state_ord))
-
-#     # Transition matrix seed
-#     # {steady state, transient, silence, transient, steady state}
-#     # Original, commented out 4th index to see results...
-#     trans_seed = np.zeros((5, 5))
-#     # trans_seed = np.zeros((4, 4))
-#     trans_seed[0, 0] = 0.99
-#     trans_seed[1, 1] = 0.98
-#     trans_seed[2, 2] = 0.98
-#     trans_seed[3, 3] = 0.98
-#     trans_seed[4, 4] = 0.99
-#     trans_seed[0, 1] = 0.0018
-#     trans_seed[0, 2] = 0.0007
-#     trans_seed[0, 3] = 0.0042
-#     trans_seed[0, 4] = 0.0033
-#     trans_seed[1, 2] = 0.0018
-#     trans_seed[1, 3] = 0.0102
-#     trans_seed[1, 4] = 0.0080
-#     trans_seed[2, 3] = 0.0112
-#     trans_seed[2, 4] = 0.0088
-#     trans_seed[3, 4] = 0.02
-
-#     # Call filltransmat to expand the transition matrix to the appropriate size
-#     trans = fill_trans_mat(trans_seed, notes)
-
-#     # Create starting state space matrix
-#     starting_state = np.zeros(4 * notes + 1)
-#     starting_state[0] = 1
-
-#     prior = fill_priormat_gauss(obs.shape[0], prior_ons, prior_offs, 5)    
-    
-#     if learnparams:
-#         # Use the fit function from the hmmlearn library to learn the HMM parameters
-#         model = hmm.GMMHMM(n_components=5, n_mix=1,
-#                            covariance_type='diag', n_iter=1)
-#         model.startprob_ = starting_state
-#         model.transmat_ = trans
-#         model.means_ = means_full.T
-#         model.covars_ = covars_full.T
-#         model.fit(obs.T)
-
-#     # like = mixgauss_prob(obs, means_full, covars_full, mixmat)
-
-#     # Use the Viterbi algorithm to find the most likely path
-#     # pr_like = prior * like
-#     # vpath = hmm.ViterbiHMM(starting_state, trans, pr_like)
-
-#     # Define the filename
-#     # pLikeData = "./test_files/priorlike_oneNote_runHMM.csv"
-#     pLikeData = "./test_files/priorlike_threeNote_runHMM.csv"
-#     # pLikeData = "./test_files/priorlike_sixNote_runHMM.csv"
-    
-#     # Read the data from the file
-#     dtype = {'index': str, 'value': float}
-#     pr_like = pd.read_csv(pLikeData, dtype=dtype,
-#                           sep='\s+', names=['index', 'value'])
-
-#     # Initialize an empty dictionary to store the data
-#     data_dict = {}
-
-#     # Open the text file for reading
-#     with open(pLikeData, 'r') as file:
-#         # Iterate through each line in the file
-#         for line in file:
-#             # Split the line into two parts based on whitespace
-#             parts = line.split()
-#             # Extract the index from the first part and convert it to a tuple
-#             index = tuple(map(int, parts[0].strip('()').split(',')))
-#             # Parse the value from the second part
-#             value = float(parts[1])
-#             # Store the data in the dictionary with the index as the key
-#             data_dict[index] = value
-
-#     # Determine the shape of the numpy array based on the maximum index values
-#     num_rows = max(index[0] for index in data_dict.keys())
-#     num_cols = max(index[1] for index in data_dict.keys())
-
-#     # Initialize a numpy array with zeros
-#     pr_like = np.zeros((num_rows, num_cols))
-
-#     # Fill the numpy array with the values from the dictionary
-#     for index, value in data_dict.items():
-#         pr_like[index[0] - 1, index[1] - 1] = value
-
-#     vpath = viterbi_path(starting_state, trans, pr_like)
-#     # vpath = librosa.sequence.viterbi(prob=starting_state, transition=trans, pr_like)
-   
-#     return vpath, starting_state, prior, trans, means_full, covars_full, mixmat, obs, state_ord
-

@@ -13,7 +13,7 @@ def dp(M):
     """
     r, c = M.shape
 
-    # Initialize cost matrix D - PROBLEM!
+    # Initialize cost matrix D
     D = np.zeros((r + 1, c + 1))
     # D[0, :] = np.nan
     # D[:, 0] = np.nan
@@ -189,15 +189,6 @@ def flatTopGaussian(x, b1, t1, t2, b2):
         return w
 
 
-    # left = librosa.util.normalize(librosa.filters.gaussian(x, std=(t1 - b1) / 2 + 1))
-    # middle = np.ones(t2 - t1 - 1)
-    # right = librosa.util.normalize(librosa.filters.gaussian(x, std=(b2 - t2) / 2 + 1))
-
-    # takeOneOut = t1 == t2
-    # w = np.concatenate((left[0:t1], middle, right[t2 + takeOneOut:]))
-    # return w
-
-
 def viterbi_path(prior, transmat, obslik):
     """
     VITERBI Find the most-probable (Viterbi) path through the HMM state trellis.
@@ -217,8 +208,6 @@ def viterbi_path(prior, transmat, obslik):
     prior = prior.reshape(-1, 1)
     Q = len(prior)
 
-    
-
     scaled = False
     delta = np.zeros((Q, T))    
     psi = np.zeros((Q, T), dtype=int)
@@ -227,14 +216,11 @@ def viterbi_path(prior, transmat, obslik):
 
     t = 0
         
-    
     delta[:, t] = prior.flatten() * obslik[:, t]        
-
 
     if scaled:
         delta[:, t] /= np.sum(delta[:, t])
         scale[t] = 1 / np.sum(delta[:, t])
-    
 
     psi[:, t] = 0    
     for t in range(1, T):
@@ -297,17 +283,12 @@ def mixgauss_prob(data, means, covariances, weights):
     probs = gmm.predict_proba(data)
     # print('probs', probs)
 
-# 'probs' now contains the conditional probabilities for each data point and each component.
-    
+    # 'probs' now contains the conditional probabilities for each data point and each component.
     N = len(data)
     K = len(means)    
     
 
-    covariances = [np.eye(5), np.eye(5)]
-    # print('data', data.shape)
-    # print('means', means.shape)
-    # print(covariances)
-    # covariances = means + covariances.reshape(1, -1)  # Reshape array2 to (1, 5)
+    covariances = [np.eye(5), np.eye(5)]    
     likelihood_matrix = np.zeros((N, K))    
 
     
