@@ -16,6 +16,13 @@ Welcome to pyAMPACT's documentation!
 
 .. toctree::
    :maxdepth: 1
+   :caption: Getting Started
+
+   install
+      
+
+.. toctree::
+   :maxdepth: 1
    :caption: Documentation
 
    alignment
