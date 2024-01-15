@@ -1,5 +1,3 @@
-# Substitute with https://librosa.org/doc-playground/0.9.1/generated/librosa.reassigned_spectrogram.html?highlight=reassigned_spectrogram
-
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt

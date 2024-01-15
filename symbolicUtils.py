@@ -1,3 +1,32 @@
+"""
+symbolicUtils
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    _escape_cdata
+    addMEINote
+    addTieBreakers
+    kernClefHelper
+    combineRests
+    combineUnisons
+    fromJSON
+    _id_gen
+    indentMEI
+    _kernChordHelper
+    kernFooter
+    kernHeader
+    _kernNoteHelper
+    kernNRCHelper
+    noteRestHelper
+    remove_namespaces
+    removeTied
+    snapTo
+
+"""
+
 import json
 import numpy as np
 import pandas as pd

@@ -1,3 +1,27 @@
+"""
+alignment
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    run_alignment
+    get_vals
+    runDTWAlignment
+    align_midi_wav
+    alignment_visualiser
+    ifgram
+    get_ons_offs
+    midi2nmat
+    find_mids
+    find_peaks
+    find_steady
+    freq_and_mag_matrices
+
+
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
@@ -196,7 +220,6 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
 
 
 
-
 def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):    
     """
     Align a midi file to a wav file using the "peak structure
@@ -264,8 +287,8 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
     return m, p, q, S, D, M, N
 
+  
 
-    
 def alignment_visualiser(trace, mid, spec, fig=1):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
@@ -306,6 +329,7 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     
     
     plt.show() # Uncomment to show
+
 
 
 def ifgram(audiofile, tsr, win_ms):
@@ -474,7 +498,6 @@ def find_mids(x, mins, maxes, windowLength_ms, sr):
 
 
 
-
 def find_peaks(x, window_length_ms, sr, min_count):
     """
     Find peaks and troughs in a waveform
@@ -526,6 +549,7 @@ def find_peaks(x, window_length_ms, sr, min_count):
     return mins, maxes
 
 
+
 def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
     """
     Find the steady-state portion of a note.
@@ -575,6 +599,7 @@ def find_steady(x, mins, maxes, x_mids, y_mids, thresh_cents):
 
     steady = x_mids[start_idx : end_idx + 1]    
     return steady
+
 
 
 def freq_and_mag_matrices(audiofile, sr):

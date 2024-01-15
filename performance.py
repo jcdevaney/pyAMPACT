@@ -1,3 +1,21 @@
+"""
+performance
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    estimate_perceptual_parameters
+    calculate_vibrato
+    perceived_pitch
+    get_cent_vals
+    smooth_note
+    note_dct
+
+
+"""
+
 import numpy as np
 from scipy.interpolate import interp1d
 # from synthtrax import synthtrax
@@ -85,7 +103,6 @@ def calculate_vibrato(note_vals, sr):
     return vibrato_depth, vibrato_rate
 
 
-
 def perceived_pitch(f0s, sr, gamma=100000):
     """
     Calculate the perceived pitch of a note based on 
@@ -129,7 +146,6 @@ def perceived_pitch(f0s, sr, gamma=100000):
     return pp1, pp2    
 
 
-
 def get_cent_vals(times, yinres, sr):
     """
     Get cent values (in relation to A, 440 Hz) for each note.
@@ -170,9 +186,7 @@ def get_cent_vals(times, yinres, sr):
         else:
             break
 
-    return cents
-
-    
+    return cents  
 
 
 def smooth_note(x, x_mid, y_mid):
@@ -196,7 +210,6 @@ def smooth_note(x, x_mid, y_mid):
     interp_func = interp1d(x_mid, y_mid, kind='linear', fill_value='extrapolate')    
     smoothed[x_range] = interp_func(x_range)        
     return smoothed
-
 
 
 def note_dct(x, Ndct, sr):
@@ -239,7 +252,3 @@ def note_dct(x, Ndct, sr):
 
     
     return coefs, approx
-
-# See estimatePercetualParameters line 38 in MATLAB
-
-# getLoudnessEstimates in MATLAB

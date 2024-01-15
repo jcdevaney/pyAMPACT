@@ -1,4 +1,25 @@
-# Put audioHelpers into performanceParams.py
+"""
+alignmentUtils
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    dp
+    fill_priormat_gauss
+    gh
+    flatTopGaussIdx
+    g
+    flatTopGaussian
+    viterbi_path
+    mixgauss_prob
+    fill_trans_mat
+    orio_simmx
+    simmx
+
+
+"""
 
 import numpy as np
 from scipy.signal import gaussian
@@ -58,9 +79,7 @@ def dp(M):
     return p, q, D
 
 
-
 # Gaussian/Viterbi functions
-
 def fill_priormat_gauss(Nobs, ons, offs, Nstates):
     """
     Creates a prior matrix based on the DTW alignment (supplied by the input
@@ -119,8 +138,7 @@ def gh(v1, i1, v2, i2, domain, frac=0.5):
     x1 = g(v1, i1, domain)
     x2 = g(v2, i2, domain)
     return int(frac * x1 + (1 - frac) * x2)
-
-    
+ 
 
 def flatTopGaussIdx(x, b1, bi1, t1, ti1, t2, ti2, b2, bi2):
     """
@@ -240,7 +258,6 @@ def viterbi_path(prior, transmat, obslik):
     return path
 
 
-
 def mixgauss_prob(data, means, covariances, weights):
     """
     Notation: Y is observation, M is mixture component, and both may be conditioned on Q.
@@ -301,7 +318,6 @@ def mixgauss_prob(data, means, covariances, weights):
 
 
 # Matrix functions
-
 def fill_trans_mat(trans_seed, notes):
     """
     Makes a transition matrix from a seed transition matrix.  The seed
@@ -365,6 +381,7 @@ def orio_simmx(M, D):
         S[r, :] = np.sqrt(np.dot(M[:, r], D)) / nDc
 
     return S
+
 
 def simmx(A, B):
     """

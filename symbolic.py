@@ -1,3 +1,15 @@
+"""
+symbolic
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    Score
+
+"""
+
 import ast
 import base64
 import copy
