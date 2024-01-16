@@ -186,7 +186,7 @@ class Score:
                         else:
                             notGraces[offset] = [nrc]
                     
-                ser = pd.Series(notGraces, 'object')
+                ser = pd.Series(notGraces)
                 if ser.empty:   # no note, rest, or chord objects detected in this part
                     ser.name = self.partNames[ii]
                     parts.append(ser)
@@ -220,7 +220,7 @@ class Score:
                                     break
 
                 if len(graces):  # add all the grace notes found to col0
-                    part0 = pd.concat((pd.Series(graces, graceOffsets), df.iloc[:, 0].dropna())).sort_index(kind='mergesort', dtypes='object')
+                    part0 = pd.concat((pd.Series(graces, graceOffsets), df.iloc[:, 0].dropna())).sort_index(kind='mergesort')
                     isUnique = False
                 else:
                     part0 = df.iloc[:, 0].dropna()
@@ -246,7 +246,7 @@ class Score:
                             strand.name = f'{self.partNames[ii]}__{len(strands) + 1}'
                             divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI], dtype='string'))
                             joinNdx = endNdx + thisDur        # find a suitable endpoint to rejoin this strand
-                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii], dtype='string'), name=(strand.name, joinNdx)))
+                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=(strand.name, joinNdx), dtype='string'))
                             strands.append(strand)
                             startI = endI + 1
                 kernStrands.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
@@ -543,7 +543,7 @@ class Score:
             parts = []
             isUnique = True
             for i, flat_part in enumerate(self._flatParts):
-                ser = pd.Series(flat_part.getElementsByClass(['Clef'], dtype='object'), name=self.partNames[i])
+                ser = pd.Series(flat_part.getElementsByClass(['Clef']), name=self.partNames[i])
                 ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
                 ser = ser[~ser.index.duplicated(keep='last')]
 
