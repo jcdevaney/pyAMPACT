@@ -392,6 +392,16 @@ def kernFooter(fileExtension):
 !!!ONB: Translated from a {fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT
 !!!title: @{{OTL}}"""
 
+def kernHeader(metadata):
+    """
+    Return a string of the kern format header global comments.
+
+    The header includes the composer and title metadata.
+
+    :return: A string representing the kern format header.
+    """
+    return f'!!!COM: {metadata["composer"]}\n!!!OTL: {metadata["title"]}'
+
 def _kernNoteHelper(_note):
     """
     Parse a music21 note object into a kern note token.
