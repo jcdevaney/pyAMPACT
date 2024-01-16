@@ -421,7 +421,7 @@ class Score:
                     if clef.octaveChange != 0:
                         attribs['clef.dis'] = f'{abs(clef.octaveChange) * 8}'
                         attribs['clef.dis.place'] = 'below' if clef.octaveChange < 0 else 'above'
-                    ksig = ksigs.iloc[0, i]
+                    ksig = ksigs.iloc[0, i] if not ksigs.empty else None
                     if ksig:
                         val = len(ksig.alteredPitches)
                         if val > 0 and ksig.alteredPitches[0].accidental.modifier == '-':
@@ -1530,12 +1530,22 @@ class Score:
                             if hasattr(el, 'isNote') and el.isNote:
                                 addMEINote(el, parent)
                             elif hasattr(el, 'isRest') and el.isRest:
-                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
+                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': f'{el.id}',
                                     'dur': duration2MEI[el.duration.type], 'dots': f'{el.duration.dots}'})
                             elif hasattr(el, 'isChord') and el.isChord:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in el.notes:
                                     addMEINote(note, chord_el)
+                            if hasattr(el, 'expressions'):
+                                for exp in el.expressions:
+                                    if exp.name == 'fermata':
+                                        ferm_el = ET.SubElement(meas_el, 'fermata',
+                                                {'xml:id': next(idGen), 'startid': parent[-1].get('xml:id')})
+                            if hasattr(el, 'getSpannerSites'):
+                                for spanner in el.getSpannerSites():
+                                    if isinstance(spanner, m21.spanner.Slur) and el == spanner[0]:
+                                        ET.SubElement(meas_el, 'slur', {'xml:id': next(idGen),
+                                                'startid': f'{el.id}', 'endid': f'{spanner.getLast().id}'})
                             if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
                                 continue
