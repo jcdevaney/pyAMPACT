@@ -386,7 +386,7 @@ class Score:
 
         for spine in ('function', 'harm', 'harmKeys', 'chord'):
             if spine not in self._analyses:
-                self._analyses[spine] = pd.Series()
+                self._analyses[spine] = pd.Series(dtype='string')
         if 'cdata' not in self._analyses:
             self._analyses['cdata'] = pd.DataFrame()
 
@@ -951,8 +951,8 @@ class Score:
                 durBeat = dur.iloc[:, i].dropna()
                 part = pd.Series(partName, midi.index)
                 xmlID = ids.iloc[:, i].dropna()
-                onsetSec = pd.Series()
-                offsetSec = pd.Series()
+                onsetSec = pd.Series(dtype='float64')
+                offsetSec = pd.Series(dtype='float64')
                 df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
                 df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
                 df.MEASURE.ffill(inplace=True)
