@@ -3,14 +3,33 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
+**************
+pyAMPACT
+**************
+`pyAMPACT` is a python package for XYZ...
+
+
+
 Welcome to pyAMPACT's documentation!
 ====================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: Getting Started
 
-   modules
+   install
+      
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Documentation
+
+   alignment
+   alignmentUtils
+   performance
+   symbolic
+   symbolicUtils
 
 Indices and tables
 ==================

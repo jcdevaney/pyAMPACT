@@ -1,4 +1,25 @@
-# Put audioHelpers into performanceParams.py
+"""
+alignmentUtils
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    dp
+    fill_priormat_gauss
+    gh
+    flatTopGaussIdx
+    g
+    flatTopGaussian
+    viterbi_path
+    mixgauss_prob
+    fill_trans_mat
+    orio_simmx
+    simmx
+
+
+"""
 
 import numpy as np
 from scipy.signal import gaussian
@@ -13,7 +34,7 @@ def dp(M):
     """
     r, c = M.shape
 
-    # Initialize cost matrix D - PROBLEM!
+    # Initialize cost matrix D
     D = np.zeros((r + 1, c + 1))
     # D[0, :] = np.nan
     # D[:, 0] = np.nan
@@ -58,9 +79,7 @@ def dp(M):
     return p, q, D
 
 
-
 # Gaussian/Viterbi functions
-
 def fill_priormat_gauss(Nobs, ons, offs, Nstates):
     """
     Creates a prior matrix based on the DTW alignment (supplied by the input
@@ -119,8 +138,7 @@ def gh(v1, i1, v2, i2, domain, frac=0.5):
     x1 = g(v1, i1, domain)
     x2 = g(v2, i2, domain)
     return int(frac * x1 + (1 - frac) * x2)
-
-    
+ 
 
 def flatTopGaussIdx(x, b1, bi1, t1, ti1, t2, ti2, b2, bi2):
     """
@@ -189,15 +207,6 @@ def flatTopGaussian(x, b1, t1, t2, b2):
         return w
 
 
-    # left = librosa.util.normalize(librosa.filters.gaussian(x, std=(t1 - b1) / 2 + 1))
-    # middle = np.ones(t2 - t1 - 1)
-    # right = librosa.util.normalize(librosa.filters.gaussian(x, std=(b2 - t2) / 2 + 1))
-
-    # takeOneOut = t1 == t2
-    # w = np.concatenate((left[0:t1], middle, right[t2 + takeOneOut:]))
-    # return w
-
-
 def viterbi_path(prior, transmat, obslik):
     """
     VITERBI Find the most-probable (Viterbi) path through the HMM state trellis.
@@ -217,8 +226,6 @@ def viterbi_path(prior, transmat, obslik):
     prior = prior.reshape(-1, 1)
     Q = len(prior)
 
-    
-
     scaled = False
     delta = np.zeros((Q, T))    
     psi = np.zeros((Q, T), dtype=int)
@@ -227,14 +234,11 @@ def viterbi_path(prior, transmat, obslik):
 
     t = 0
         
-    
     delta[:, t] = prior.flatten() * obslik[:, t]        
-
 
     if scaled:
         delta[:, t] /= np.sum(delta[:, t])
         scale[t] = 1 / np.sum(delta[:, t])
-    
 
     psi[:, t] = 0    
     for t in range(1, T):
@@ -252,7 +256,6 @@ def viterbi_path(prior, transmat, obslik):
         path[t] = psi[path[t + 1], t + 1]
 
     return path
-
 
 
 def mixgauss_prob(data, means, covariances, weights):
@@ -297,17 +300,12 @@ def mixgauss_prob(data, means, covariances, weights):
     probs = gmm.predict_proba(data)
     # print('probs', probs)
 
-# 'probs' now contains the conditional probabilities for each data point and each component.
-    
+    # 'probs' now contains the conditional probabilities for each data point and each component.
     N = len(data)
     K = len(means)    
     
 
-    covariances = [np.eye(5), np.eye(5)]
-    # print('data', data.shape)
-    # print('means', means.shape)
-    # print(covariances)
-    # covariances = means + covariances.reshape(1, -1)  # Reshape array2 to (1, 5)
+    covariances = [np.eye(5), np.eye(5)]    
     likelihood_matrix = np.zeros((N, K))    
 
     
@@ -320,7 +318,6 @@ def mixgauss_prob(data, means, covariances, weights):
 
 
 # Matrix functions
-
 def fill_trans_mat(trans_seed, notes):
     """
     Makes a transition matrix from a seed transition matrix.  The seed
@@ -384,6 +381,7 @@ def orio_simmx(M, D):
         S[r, :] = np.sqrt(np.dot(M[:, r], D)) / nDc
 
     return S
+
 
 def simmx(A, B):
     """

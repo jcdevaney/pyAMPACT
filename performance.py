@@ -1,3 +1,21 @@
+"""
+performance
+==============
+
+
+.. autosummary::
+    :toctree: generated/
+
+    estimate_perceptual_parameters
+    calculate_vibrato
+    perceived_pitch
+    get_cent_vals
+    smooth_note
+    note_dct
+
+
+"""
+
 import numpy as np
 from scipy.interpolate import interp1d
 # from synthtrax import synthtrax
@@ -46,7 +64,6 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     res_mean_spec_flux = np.mean(res_spec_flux)
     
 
-
     # Spectral Flatness
     XLog = np.log(M + 1e-20)
     res_spec_flat = np.exp(np.mean(XLog, axis=0)) / np.mean(M, axis=0)
@@ -84,7 +101,6 @@ def calculate_vibrato(note_vals, sr):
     vibrato_rate = w[noteVibratoPos]  # Index into FFT frequency grid to find position in Hz
 
     return vibrato_depth, vibrato_rate
-
 
 
 def perceived_pitch(f0s, sr, gamma=100000):
@@ -130,10 +146,7 @@ def perceived_pitch(f0s, sr, gamma=100000):
     return pp1, pp2    
 
 
-
 def get_cent_vals(times, yinres, sr):
-    # CENTS IN BETWEEN SEQUENTIAL NOTES
-    # Check the reference of yin in MATLAB vs yin in librosa
     """
     Get cent values (in relation to A, 440 Hz) for each note.
     
@@ -159,8 +172,8 @@ def get_cent_vals(times, yinres, sr):
         # Calculate the cent values for each frequency
         cent = 1200 * np.log2(frequencies / ref_pitch)
         
-
         # average_cent = np.mean(cent)        
+        
         # WITHOUT AVERAGING        
         # cents.append(cent)
 
@@ -173,9 +186,7 @@ def get_cent_vals(times, yinres, sr):
         else:
             break
 
-    return cents
-
-    
+    return cents  
 
 
 def smooth_note(x, x_mid, y_mid):
@@ -199,7 +210,6 @@ def smooth_note(x, x_mid, y_mid):
     interp_func = interp1d(x_mid, y_mid, kind='linear', fill_value='extrapolate')    
     smoothed[x_range] = interp_func(x_range)        
     return smoothed
-
 
 
 def note_dct(x, Ndct, sr):
@@ -242,7 +252,3 @@ def note_dct(x, Ndct, sr):
 
     
     return coefs, approx
-
-# See estimatePercetualParameters line 38 in MATLAB
-
-# getLoudnessEstimates in MATLAB
