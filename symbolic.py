@@ -186,7 +186,7 @@ class Score:
                         else:
                             notGraces[offset] = [nrc]
                     
-                ser = pd.Series(notGraces)
+                ser = pd.Series(notGraces, 'object')
                 if ser.empty:   # no note, rest, or chord objects detected in this part
                     ser.name = self.partNames[ii]
                     parts.append(ser)
@@ -220,7 +220,7 @@ class Score:
                                     break
 
                 if len(graces):  # add all the grace notes found to col0
-                    part0 = pd.concat((pd.Series(graces, graceOffsets), df.iloc[:, 0].dropna())).sort_index(kind='mergesort')
+                    part0 = pd.concat((pd.Series(graces, graceOffsets), df.iloc[:, 0].dropna())).sort_index(kind='mergesort', dtypes='object')
                     isUnique = False
                 else:
                     part0 = df.iloc[:, 0].dropna()
@@ -244,9 +244,9 @@ class Score:
                         if abs(nextNdx - endNdx - thisDur) > .00003:
                             strand = part.iloc[startI:endI + 1].copy()
                             strand.name = f'{self.partNames[ii]}__{len(strands) + 1}'
-                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI]))
+                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii], dtype='string'), name=part.index[startI]))
                             joinNdx = endNdx + thisDur        # find a suitable endpoint to rejoin this strand
-                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=(strand.name, joinNdx)))
+                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii], dtype='string'), name=(strand.name, joinNdx)))
                             strands.append(strand)
                             startI = endI + 1
                 kernStrands.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
@@ -543,7 +543,7 @@ class Score:
             parts = []
             isUnique = True
             for i, flat_part in enumerate(self._flatParts):
-                ser = pd.Series(flat_part.getElementsByClass(['Clef']), name=self.partNames[i])
+                ser = pd.Series(flat_part.getElementsByClass(['Clef'], dtype='object'), name=self.partNames[i])
                 ser.index = ser.apply(lambda nrc: nrc.offset).astype(float).round(5)
                 ser = ser[~ser.index.duplicated(keep='last')]
 
@@ -603,7 +603,7 @@ class Score:
             piece.dynamics()
         """
         if 'dynamics' not in self._analyses:
-            dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._flatParts]
+            dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}, dtype='string') for sf in self._flatParts]
             dyns = pd.concat(dyns, axis=1)
             dyns.columns = self.partNames
             dyns.dropna(how='all', axis=1, inplace=True)
@@ -786,7 +786,7 @@ class Score:
                     vals = []
                 if not part.empty:
                     vals.append(self.score.highestTime - ndx[-1])
-                sers.append(pd.Series(vals, part.index))
+                sers.append(pd.Series(vals, part.index, dtype='float64'))
             res = pd.concat(sers, axis=1, sort=True)
             if not multi_index and isinstance(res.index, pd.MultiIndex):
                 res = res.droplevel(1)
@@ -947,9 +947,9 @@ class Score:
             for i, partName in enumerate(self._parts().columns):
                 meas = ms.iloc[:, i]
                 midi = mp.iloc[:, i].dropna()
-                onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
+                onsetBeat = pd.Series(midi.index.get_level_values(0), index=midi.index, dtype='float64')
                 durBeat = dur.iloc[:, i].dropna()
-                part = pd.Series(partName, midi.index)
+                part = pd.Series(partName, midi.index, dtype='string')
                 xmlID = ids.iloc[:, i].dropna()
                 onsetSec = pd.Series(dtype='float64')
                 offsetSec = pd.Series(dtype='float64')
