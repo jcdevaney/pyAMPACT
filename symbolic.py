@@ -244,7 +244,7 @@ class Score:
                         if abs(nextNdx - endNdx - thisDur) > .00003:
                             strand = part.iloc[startI:endI + 1].copy()
                             strand.name = f'{self.partNames[ii]}__{len(strands) + 1}'
-                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii], dtype='string'), name=part.index[startI]))
+                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI], dtype='string'))
                             joinNdx = endNdx + thisDur        # find a suitable endpoint to rejoin this strand
                             divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii], dtype='string'), name=(strand.name, joinNdx)))
                             strands.append(strand)
