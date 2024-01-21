@@ -9,6 +9,21 @@ from performance import estimate_perceptual_parameters, get_cent_vals
 
 import sys
 
+"""
+Params:
+- audio_file (path)
+- midi_file (path)
+width = 3
+target_sr = 4000
+n_harm = 3
+win_ms = 100
+
+Outputs:
+cdata_file (path)
+
+"""
+
+
 # Specify audio and MIDI file NAMES
 # audio_file = './test_files/avemaria_full.wav'
 # midi_file = './test_files/avemaria_full.mid'

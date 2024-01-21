@@ -112,6 +112,8 @@ _duration2Kern = {  # keys get rounded to 5 decimal places
 }
 
 duration2MEI = {
+    'maxima':  'maxima',
+    'longa':   'longa',
     'breve':   'breve',
     'whole':   '1',
     'half':    '2',
@@ -182,9 +184,9 @@ Example
     piece.harm()
 """
 
-def addMEINote(note, parent):
+def addMEINote(note, parent, syl=None):
     note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
-        'pname': f'{note.step.lower()}', 'xml:id': next(idGen), 'dots': f'{note.duration.dots}'})
+        'pname': f'{note.step.lower()}', 'xml:id': f'{note.id}', 'dots': f'{note.duration.dots}'})
     if note.duration.isGrace:
         note_el.set('grace', 'acc')
         note_el.set('dur', duration2MEI[note.duration.type])
@@ -208,6 +210,16 @@ def addMEINote(note, parent):
             note_el.set('accid.ges', 'f'*int(-alter))
         else:
             note_el.set('accid.ges', 'n')
+    if note.lyric:
+        verse_el = ET.SubElement(note_el, 'verse', {'n': '1', 'xml:id': next(idGen)})
+        syl_el = ET.SubElement(verse_el, 'syl', {'xml:id': next(idGen)})
+        syl_el.text = note.lyric.strip().split('\n')[0]
+    for exp in note.expressions:
+        if 'Dynamic' in exp.classes:
+            dyn_el = ET.SubElement(note_el, 'dynam', {'xml:id': next(idGen)})
+            dyn_el.text = exp.value
+        # import pdb; pdb.set_trace()
+
 
 def addTieBreakers(partList):
     """
@@ -441,7 +453,11 @@ def _kernNoteHelper(_note):
         grace = ''
         dur = _duration2Kern[round(float(_note.quarterLength), 5)]
     grace = 'q' if _note.duration.isGrace else ''   # TODO: make this sensitive to notehead and practical duration
-    return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{beaming}{endBracket}'
+    fermata = ''
+    for exp in _note.expressions:
+        if exp.name == 'fermata':
+            fermata = ';'
+    return f'{startBracket}{dur}{letter}{acc}{longa}{grace}{fermata}{beaming}{endBracket}'
 
 def kernNRCHelper(nrc):
     """
@@ -460,7 +476,7 @@ def kernNRCHelper(nrc):
     elif nrc.isRest:
         return f'{_duration2Kern.get(round(float(nrc.quarterLength), 5))}r'
     else:
-        return _kernChordHelper(nrc)
+        return ' '.join([_kernNoteHelper(note) for note in nrc.notes])
 
 def noteRestHelper(nr):
     """

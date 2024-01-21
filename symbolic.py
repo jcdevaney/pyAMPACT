@@ -244,9 +244,9 @@ class Score:
                         if abs(nextNdx - endNdx - thisDur) > .00003:
                             strand = part.iloc[startI:endI + 1].copy()
                             strand.name = f'{self.partNames[ii]}__{len(strands) + 1}'
-                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI]))
+                            divisiStarts.append(pd.Series(('*^', '*^'), index=(strand.name, self.partNames[ii]), name=part.index[startI], dtype='string'))
                             joinNdx = endNdx + thisDur        # find a suitable endpoint to rejoin this strand
-                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=(strand.name, joinNdx)))
+                            divisiEnds.append(pd.Series(('*v', '*v'), index=(strand.name, self.partNames[ii]), name=(strand.name, joinNdx), dtype='string'))
                             strands.append(strand)
                             startI = endI + 1
                 kernStrands.extend(sorted(strands, key=lambda _strand: _strand.last_valid_index()))
@@ -386,7 +386,7 @@ class Score:
 
         for spine in ('function', 'harm', 'harmKeys', 'chord'):
             if spine not in self._analyses:
-                self._analyses[spine] = pd.Series()
+                self._analyses[spine] = pd.Series(dtype='string')
         if 'cdata' not in self._analyses:
             self._analyses['cdata'] = pd.DataFrame()
 
@@ -433,7 +433,7 @@ class Score:
                     if clef.octaveChange != 0:
                         attribs['clef.dis'] = f'{abs(clef.octaveChange) * 8}'
                         attribs['clef.dis.place'] = 'below' if clef.octaveChange < 0 else 'above'
-                    ksig = ksigs.iloc[0, i]
+                    ksig = ksigs.iloc[0, i] if not ksigs.empty else None
                     if ksig:
                         val = len(ksig.alteredPitches)
                         if val > 0 and ksig.alteredPitches[0].accidental.modifier == '-':
@@ -603,7 +603,7 @@ class Score:
             piece.dynamics()
         """
         if 'dynamics' not in self._analyses:
-            dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}) for sf in self._flatParts]
+            dyns = [pd.Series({obj.offset: obj.value for obj in sf.getElementsByClass('Dynamic')}, dtype='string') for sf in self._flatParts]
             dyns = pd.concat(dyns, axis=1)
             dyns.columns = self.partNames
             dyns.dropna(how='all', axis=1, inplace=True)
@@ -786,7 +786,7 @@ class Score:
                     vals = []
                 if not part.empty:
                     vals.append(self.score.highestTime - ndx[-1])
-                sers.append(pd.Series(vals, part.index))
+                sers.append(pd.Series(vals, part.index, dtype='float64'))
             res = pd.concat(sers, axis=1, sort=True)
             if not multi_index and isinstance(res.index, pd.MultiIndex):
                 res = res.droplevel(1)
@@ -947,12 +947,12 @@ class Score:
             for i, partName in enumerate(self._parts().columns):
                 meas = ms.iloc[:, i]
                 midi = mp.iloc[:, i].dropna()
-                onsetBeat = pd.Series(midi.index.get_level_values(0), index = midi.index)
+                onsetBeat = pd.Series(midi.index.get_level_values(0), index=midi.index, dtype='float64')
                 durBeat = dur.iloc[:, i].dropna()
-                part = pd.Series(partName, midi.index)
+                part = pd.Series(partName, midi.index, dtype='string')
                 xmlID = ids.iloc[:, i].dropna()
-                onsetSec = pd.Series()
-                offsetSec = pd.Series()
+                onsetSec = pd.Series(dtype='float64')
+                offsetSec = pd.Series(dtype='float64')
                 df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
                 df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
                 df.MEASURE.ffill(inplace=True)
@@ -1542,12 +1542,22 @@ class Score:
                             if hasattr(el, 'isNote') and el.isNote:
                                 addMEINote(el, parent)
                             elif hasattr(el, 'isRest') and el.isRest:
-                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': next(idGen),
+                                rest_el = ET.SubElement(parent, 'rest', {'xml:id': f'{el.id}',
                                     'dur': duration2MEI[el.duration.type], 'dots': f'{el.duration.dots}'})
                             elif hasattr(el, 'isChord') and el.isChord:
                                 chord_el = ET.SubElement(parent, 'chord')
                                 for note in el.notes:
                                     addMEINote(note, chord_el)
+                            if hasattr(el, 'expressions'):
+                                for exp in el.expressions:
+                                    if exp.name == 'fermata':
+                                        ferm_el = ET.SubElement(meas_el, 'fermata',
+                                                {'xml:id': next(idGen), 'startid': parent[-1].get('xml:id')})
+                            if hasattr(el, 'getSpannerSites'):
+                                for spanner in el.getSpannerSites():
+                                    if isinstance(spanner, m21.spanner.Slur) and el == spanner[0]:
+                                        ET.SubElement(meas_el, 'slur', {'xml:id': next(idGen),
+                                                'startid': f'{el.id}', 'endid': f'{spanner.getLast().id}'})
                             if hasattr(el, 'beams') and el.beams.beamsList and el.beams.beamsList[0].type == 'stop':
                                 parent = layer_el
                                 continue

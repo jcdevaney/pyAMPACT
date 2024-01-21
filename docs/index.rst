@@ -19,7 +19,7 @@ Welcome to pyAMPACT's documentation!
    :caption: Getting Started
 
    install
-      
+  
 
 .. toctree::
    :maxdepth: 1
@@ -30,6 +30,7 @@ Welcome to pyAMPACT's documentation!
    performance
    symbolic
    symbolicUtils
+
 
 Indices and tables
 ==================
