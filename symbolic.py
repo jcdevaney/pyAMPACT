@@ -330,65 +330,71 @@ class Score:
         if self.fileExtension == 'krn' or path:
             humFile = m21.humdrum.spineParser.HumdrumFile(path or self.path)
             humFile.parseFilename()
+            foundSpines = set()
             for spine in humFile.spineCollection:
-                if spine.spineType in ('harm', 'function', 'chord', 'cdata'):
-                    start = False
-                    vals, valPositions = [], []
-                    if spine.spineType == 'harm':
-                        keyVals, keyPositions = [], []
-                    for i, event in enumerate(spine.eventList):
-                        contents = event.contents
-                        if contents.endswith(':') and contents.startswith('*'):
-                            start = True
-                            # there usually won't be any m21 objects at the same position as the key events,
-                            # so use the position from the next item in eventList if there is a next item.
-                            if spine.spineType == 'harm' and i + 1 < len(spine.eventList):
-                                keyVals.append(contents[1:-1])     # [1:-1] to remove the * and : characters
-                                keyPositions.append(spine.eventList[i+1].position)
-                            continue
-                        elif not start or '!' in contents or '=' in  contents or '*' in contents:
-                            continue
-                        else:
-                            if spine.spineType == 'function':
-                                func = function_pattern.sub('', contents)
-                                if len(func):
-                                    vals.append(func)
-                                else:
-                                    continue
+                if spine.spineType in ('kern', 'text', 'dynam'):
+                    continue
+                foundSpines.add(spine.spineType)
+                start = False
+                vals, valPositions = [], []
+                if spine.spineType == 'harm':
+                    keyVals, keyPositions = [], []
+                for i, event in enumerate(spine.eventList):
+                    contents = event.contents
+                    if contents.endswith(':') and contents.startswith('*'):
+                        start = True
+                        # there usually won't be any m21 objects at the same position as the key events,
+                        # so use the position from the next item in eventList if there is a next item.
+                        if spine.spineType == 'harm' and i + 1 < len(spine.eventList):
+                            keyVals.append(contents[1:-1])     # [1:-1] to remove the * and : characters
+                            keyPositions.append(spine.eventList[i+1].position)
+                        continue
+                    elif not start or '!' in contents or '=' in  contents or '*' in contents:
+                        continue
+                    else:
+                        if spine.spineType == 'function':
+                            func = function_pattern.sub('', contents)
+                            if len(func):
+                                vals.append(func)
                             else:
-                                vals.append(contents)
-                            valPositions.append(event.position)
+                                continue
+                        else:
+                            vals.append(contents)
+                        valPositions.append(event.position)
 
-                    df1 = self._priority()
-                    name = spine.spineType.title()
-                    if name == 'Cdata':
-                        df2 = pd.DataFrame([ast.literal_eval(val) for val in vals], index=valPositions)
-                    else:
-                        df2 = pd.DataFrame({name: vals}, index=valPositions)
-                    joined = df1.join(df2, on='Priority')
-                    if name != 'Cdata':   # get all the columns from the third to the end. Usually just 1 col except for cdata
-                        res = joined.iloc[:, 2].copy()
-                    else:
-                        res = joined.iloc[:, 2:].copy()
-                    res.index = joined['Offset']
-                    res.index.name = ''
-                    self._analyses[spine.spineType] = res
-                    if spine.spineType == 'harm' and len(keyVals):
-                        keyName = 'harmKeys'
-                        # key records are usually not found at a kern line with notes so take the next valid one
-                        keyPositions = [df1.iat[np.where(df1.Priority >= kp)[0][0], 0] for kp in keyPositions]
-                        df3 = pd.DataFrame({keyName: keyVals}, index=keyPositions)
-                        joined = df1.join(df3, on='Priority')
-                        ser = joined.iloc[:, 2].copy()
-                        ser.index = joined['Offset']
-                        ser.index.name = ''
-                        self._analyses[keyName] = ser
+                df1 = self._priority()
+                name = spine.spineType.title()
+                if name == 'Cdata':
+                    df2 = pd.DataFrame([ast.literal_eval(val) for val in vals], index=valPositions)
+                else:
+                    df2 = pd.DataFrame({name: vals}, index=valPositions)
+                joined = df1.join(df2, on='Priority')
+                if name != 'Cdata':   # get all the columns from the third to the end. Usually just 1 col except for cdata
+                    res = joined.iloc[:, 2].copy()
+                else:
+                    res = joined.iloc[:, 2:].copy()
+                res.index = joined['Offset']
+                res.index.name = ''
+                self._analyses[spine.spineType] = res
+                if spine.spineType == 'harm' and len(keyVals):
+                    keyName = 'harmKeys'
+                    # key records are usually not found at a kern line with notes so take the next valid one
+                    keyPositions = [df1.iat[np.where(df1.Priority >= kp)[0][0], 0] for kp in keyPositions]
+                    df3 = pd.DataFrame({keyName: keyVals}, index=keyPositions)
+                    joined = df1.join(df3, on='Priority')
+                    ser = joined.iloc[:, 2].copy()
+                    ser.index = joined['Offset']
+                    ser.index.name = ''
+                    self._analyses[keyName] = ser
 
         for spine in ('function', 'harm', 'harmKeys', 'chord'):
             if spine not in self._analyses:
                 self._analyses[spine] = pd.Series(dtype='string')
         if 'cdata' not in self._analyses:
             self._analyses['cdata'] = pd.DataFrame()
+        if len(foundSpines):
+            print('Detected and imported these spine types:', *foundSpines)
+            self.foundSpines = foundSpines
 
     def insertScoreDef(self, root):
         """
@@ -646,6 +652,19 @@ class Score:
     def cdata(self, snap_to=None, filler='forward', output='dataframe'):
         return snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
     cdata.__doc__ = reused_docstring
+
+    def getSpines(self, spineType):
+        """
+        Return a pandas DataFrame of a given spine type.
+
+        :param spineType: A string representing the spine type to return.
+        :return: A pandas DataFrame of the given spine type.
+        """
+        if spineType.startswith('**'):
+            spineType = spineType[2:]
+        if hasattr(self, 'foundSpines') and spineType in self.foundSpines:
+            return self._analyses[spineType].copy()
+        print(f'Either this is not a kern file or no {spineType} spines were found.')
 
     def _m21ObjectsNoTies(self):
         """
