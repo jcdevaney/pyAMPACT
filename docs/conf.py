@@ -19,7 +19,7 @@ sys.path.insert(0, srcpath)
 project = 'pyAMPACT'
 copyright = '2023, AMPACT Research Team'
 author = 'AMPACT Research Team'
-release = '1.0.0'
+release = '0.0.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -40,4 +40,5 @@ exclude_patterns = ['docs', '_build', 'Thumbs.db', '.DS_Store', 'sandbox.py']
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_static_path = []
+html_baseurl = 'https://daniel-mckemie.github.io'

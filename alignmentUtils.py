@@ -28,6 +28,8 @@ from sklearn.mixture import GaussianMixture
 
 
 def dp(M):
+
+
     """
     Use dynamic programming to find a min-cost path through matrix M.
     Return state sequence in p,q
@@ -77,6 +79,24 @@ def dp(M):
     D = D[1:r + 1, 1:c + 1]        
 
     return p, q, D
+
+
+def db(X, U='voltage', R=1):
+    """
+    Converts the elements of X to decibel units.
+
+    Parameters:
+    - X: Input values (voltage or power measurements)
+    - U: Units ('voltage' or 'power'), default is 'voltage'
+    - R: Reference load in Ohms, default is 1
+
+    Returns:
+    - Result in decibel units
+    """
+    if U.lower() == 'power':
+        return 10 * np.log10(X)
+    else:
+        return 20 * np.log10(X / R)
 
 
 # Gaussian/Viterbi functions

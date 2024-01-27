@@ -21,14 +21,13 @@ from scipy.interpolate import interp1d
 # from synthtrax import synthtrax
 from scipy.fftpack import dct, idct
 
-def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=1):
+def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=1):        
     """
     NEEDS INFO UPDATED
     """
 
     # Perceived pitch
-    res_ppitch = perceived_pitch(f0_vals, SR / hop, 1)
-
+    res_ppitch = perceived_pitch(f0_vals, SR / hop, 1)    
     # Jitter
     tmp_jitter = np.abs(np.diff(f0_vals))
     res_jitter = np.mean(tmp_jitter)
@@ -38,6 +37,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     detrended_f0_vals = f0_vals - mean_f0_vals
     res_vibrato_depth, res_vibrato_rate = calculate_vibrato(detrended_f0_vals, SR / hop)
 
+    
     # Shimmer
     tmp_shimmer = 10 * np.log10(pwr_vals[1:] / pwr_vals[0])
     res_shimmer = np.mean(np.abs(tmp_shimmer))
@@ -79,7 +79,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
         "shimmer": res_shimmer,
         "pwr_vals": res_pwr_vals,
         "f0_vals": res_f0_vals,        
-        # "spec_centroid": res_spec_centroid,
+        # "spec_centroid": res_spec_centroid, # can get from librosa
         "spec_slope": res_spec_slope,
         "mean_spec_slope": res_mean_spec_slope,
         "spec_flux": res_spec_flux,
@@ -95,7 +95,8 @@ def calculate_vibrato(note_vals, sr):
     L = len(note_vals)  # Length of signal
     Y = np.fft.fft(note_vals) / L  # Run FFT on normalized note vals
     w = np.arange(0, L) * sr / L  # Set FFT frequency grid
-
+    print(Y)
+    
     vibrato_depth_tmp, noteVibratoPos = max(abs(Y)), np.argmax(abs(Y))  # Find the max value and its position
     vibrato_depth = vibrato_depth_tmp * 2  # Multiply the max by 2 to find depth (above and below zero)
     vibrato_rate = w[noteVibratoPos]  # Index into FFT frequency grid to find position in Hz

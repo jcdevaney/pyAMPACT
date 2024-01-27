@@ -32,13 +32,16 @@ import sys
 import os
 sys.path.append(os.pardir)
 
-from pytimbre.yin import yin
+from f0EstWeightedSum import f0_est_weighted_sum
+from f0EstWeightedSumSpec import f0_est_weighted_sum_spec
+
+from performance import estimate_perceptual_parameters
 from symbolic import Score
 from alignmentUtils import orio_simmx, simmx, dp
 
 
     
-def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, covars, learn_params, width, target_sr, nharm, win_ms):
+def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
@@ -46,34 +49,21 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     of the specified audio file.
 
     :param filename: Name of the audio file.
-    :param midiname: Name of the MIDI file.
-    :param num_notes: Number of notes in the MIDI file to be aligned.
-    :param state_ord2: Vector of state sequence.
-    :param note_num: Vector of note numbers corresponding to state sequence.
+    :param midiname: Name of the MIDI file.    
     :param means: Mean values for each state.
     :param covars: Covariance values for each state.
-    :param learn_params: Flag as to whether to learn means and covars in the HMM.
     :param width: Width parameter (you need to specify this value).
     :param target_sr: Target sample rate (you need to specify this value).
     :param win_ms: Window size in milliseconds (you need to specify this value).
     :param nharm: Number of harmonics (you need to specify this value).
 
     :returns: 
-        - allstate: Ending times for each state.
-        - selectstate: Ending times for each state.
+        - res.on list of DTW predicted onset times in seconds
+        - res.off list of DTW predicted offset times in seconds        
         - spec: Spectrogram of the audio file.
         - yinres: Structure of results of running the YIN algorithm on the audio signal indicated by the input variable filename.
     """
-
-    if learn_params is None:
-        learn_params = 0
-
-    # Refine state_ord2 to correspond to the number of states specified in num_notes
-    note_num = np.array(note_num)    
     
-    num_states = max(np.where(note_num <= num_notes)[0])    
-          
-    note_num = note_num[:num_states]
     
 
     # Read audio file and perform DTW alignment and YIN analysis
@@ -83,52 +73,14 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     # Normalize audio file
     audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2)) * 0.6
 
-    align, yinres, spec, dtw = get_vals(
-        filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
-        
-    
-    audiofile = None  # Clear the audiofile variable
-    
-    # # selectstate construction
-    lengthOfNotes = note_num + 1
-    
-    selectstate = np.empty((3, len(lengthOfNotes)))            
-    interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]    
-    
-    selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
-    selectstate[1, :] = interleaved[:-1][:selectstate[1, :].shape[0]]
-    selectstate[2, :] = note_num
-    
-    return selectstate, spec, yinres, align
-
-
-
-def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, win_ms):
-    """    
-    Gets values for DTW alignment and YIN analysis of specified audio 
-    signal and MIDI file
-        
-    :param filename: Name of the audio file.
-    :param midiname: Name of the MIDI file.
-    :param audiofile: Name of teh audio file.
-    :param sr: Sample rate.
-    :param hop: Hop size.        
-        
-    :returns:
-        - res.on list of DTW predicted onset times in seconds
-        - res.off list of DTW predicted offset times in seconds
-        - yinres.ap aperiodicty estimates for each frame
-        - yinres.pwr power estimates for each frame        
-    """
-
     # Run DTW alignment
     res, spec, dtw = runDTWAlignment(
-        filename, midi_file, 0.025, width, target_sr, nharm, win_ms)
+        filename, midiname, 0.025, width, target_sr, nharm, win_ms)
+        
     
-    # Normalize audiofile
-    audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2))    
     
-    piece = Score(midi_file)
+    piece = Score(midiname)
+    nmat = piece.nmats()
     notes = piece.midiPitches()
 
    # Get a list of column names
@@ -139,28 +91,53 @@ def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, w
     pitch_list = [];    
     for note in notes[reference_column].values: # Hardcoded. Fix this?
         if note != -1: # Exclude rests
-            pitch_list.append(note)
-    # Define parameters for YIN analysis    
-        
+            pitch_list.append(note) 
+            
 
-    P = {
-        'thresh': 1,  # originally 0.01 in MATLAB, no difference?
-        'sr': sr,
-        'hop': hop,
-        # Broadened range from 2 (added 2)
-        'maxf0': np.max(librosa.midi_to_hz(np.array(pitch_list) + 4)),
-        'minf0': np.min(librosa.midi_to_hz(np.array(pitch_list) - 1)),
-    }        
+    # FOR POLY
+    # Harmonic-Percussive Source Separation
+    harmonic, percussive = librosa.effects.hpss(audiofile)
 
-    f0, t, ap = yin(x=audiofile, Fs=P['sr'], N=win_ms, H=P['hop'], F_max=P['maxf0'], F_min=P['minf0'], threshold=P['thresh'])
+    # Use the harmonic component for pitch estimation
+    pitch, magnitudes = librosa.core.piptrack(y=harmonic, sr=sr)
 
-    yinres = {
-        'f0': f0, 
-        'time': t,  
-        'ap': ap  
-    }    
+    # Get the index of the maximum magnitude for each frame
+    max_magnitude_index = np.argmax(magnitudes, axis=0)
+    
 
-    return res, yinres, spec, dtw
+    # Convert the index to frequency    
+    pitch_frequencies = librosa.fft_frequencies(sr=sr, n_fft=len(audiofile))
+    estimated_pitch = pitch_frequencies[max_magnitude_index]
+    
+
+    # Plot the pitch track
+    plt.figure(figsize=(15, 5))
+    librosa.display.specshow(librosa.amplitude_to_db(magnitudes, ref=np.max),
+                             y_axis='log', x_axis='time', sr=sr)
+    
+    plt.colorbar()
+    plt.title('Estimated Pitch (Hz)')
+    plt.yticks([])
+    plt.show()
+
+    # Get onsets and offsets using librosa's onset detection
+    onset_frames = librosa.onset.onset_detect(y=harmonic, sr=sr, hop_length=32, units='frames', backtrack=True)    
+    onset_times = librosa.frames_to_time(onset_frames, sr=sr, hop_length=32)     
+
+    # Calculate the duration of one frame in seconds
+    frame_duration = librosa.samples_to_time(32, sr=sr)
+
+    # Calculate offset times by adding the frame duration to each onset time
+    offset_times = onset_times + frame_duration # This doesn't really do anything...
+
+    # print(res)
+    # print(estimated_pitch)
+    # print(onset_times)
+    # print(offset_times)
+       
+    
+    return res, dtw, spec, estimated_pitch, onset_times, offset_times
+
 
 
 
@@ -289,7 +266,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
   
 
-def alignment_visualiser(trace, mid, spec, fig=1):    
+def alignment_visualiser(mid, spec, fig=1):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
     resulting from the HMM aligner on the output of YIN.  Trace(1,:)
@@ -297,18 +274,12 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     frames for which that state is occupied.  Highlight is a list of 
     notes for which the steady state will be highlighted.
     
-    
-    :param trace: 3-D matrix of a list of states (trace(1,:)), the times
-        they end at (trace(2,:)), and the state indices (trace(3,:))
     :param mid: Midi file.
     :param spec: Spectrogram of audio file (from align_midi_wav). 
     
     :return: Visualized spectrogram            
 
     """
-
-    if fig is None:
-        fig = 1
 
     # hop size between frames
     stft_hop = 0.023  # Adjusted from 0.025
@@ -328,7 +299,7 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     plt.colorbar()
     
     
-    plt.show() # Uncomment to show
+    plt.show()
 
 
 
@@ -336,11 +307,14 @@ def ifgram(audiofile, tsr, win_ms):
     # win_samps = int(tsr / win_ms) # low-res
     win_samps = 2048 # Placeholder for now, default
     y, sr = librosa.load(audiofile)
-
+    
     freqs, times, mags = librosa.reassigned_spectrogram(y=y, sr=tsr,
-                                                         n_fft=win_samps)
-    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+                                                      n_fft=win_samps)
+  
         
+    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+    sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
+
 
     fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
     img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
@@ -349,10 +323,11 @@ def ifgram(audiofile, tsr, win_ms):
     ax[1].scatter(times, freqs, c=mags_db, cmap="magma", alpha=0.1, s=5)
     ax[1].set_title("Reassigned spectrogram")
     fig.colorbar(img, ax=ax, format="%+2.f dB")
-
-    plt.show()
-
+                  
     
+    plt.show()    
+    
+    return freqs, times, sig_pwr
 
 def get_ons_offs(onsoffs):
     """
