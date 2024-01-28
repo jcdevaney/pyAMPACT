@@ -32,12 +32,12 @@ cdata_file (path)
 # Specify audio and MIDI file NAMES
 # audio_file = './test_files/avemaria_full.wav'
 # midi_file = './test_files/avemaria_full.mid'
-# audio_file = './test_files/example3note.wav'
-# midi_file = './test_files/monophonic3notes.mid'
+audio_file = './test_files/example3note.wav'
+midi_file = './test_files/monophonic3notes.mid'
 
-# Poly
-audio_file = './test_files/polyExample.wav'
-midi_file = './test_files/polyExample.mid'
+# # Poly
+# audio_file = './test_files/polyExample.wav'
+# midi_file = './test_files/polyExample.mid'
 
 piece = Score(midi_file)
 notes = piece.midiPitches()

@@ -431,3 +431,35 @@ def simmx(A, B):
 
     return M
 
+import numpy as np
+
+def maptimes(t, intime, outtime):
+    """
+    Map the times in t according to the mapping that each point
+    in intime corresponds to that value in outtime.
+
+    Parameters:
+    - t: 1D numpy array, input times
+    - intime: 1D numpy array, input time points
+    - outtime: 1D numpy array, output time points
+
+    Returns:
+    - u: 2D numpy array, mapped times
+    """
+
+    t = t.flatten()  # make into a 1D array
+    nt = len(t)
+    nr = len(intime)
+
+    # Decidedly faster than outer-product-array way
+    u = t.copy()
+    for i in range(nt):
+        # u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)]
+        # u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)]
+        u[i] = outtime[min(np.where(intime > t[i])[0].min(), len(outtime) - 1)] # Not correct
+
+
+
+    u = u.reshape((nr, -1))
+    return u
+

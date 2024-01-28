@@ -27,6 +27,8 @@ import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 import mido
+import pandas as pd
+import matplotlib.pyplot as plt
 
 import sys
 import os
@@ -37,7 +39,9 @@ from f0EstWeightedSumSpec import f0_est_weighted_sum_spec
 
 from performance import estimate_perceptual_parameters
 from symbolic import Score
-from alignmentUtils import orio_simmx, simmx, dp
+from alignmentUtils import orio_simmx, simmx, dp, maptimes
+
+
 
 
     
@@ -74,7 +78,7 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
     audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2)) * 0.6
 
     # Run DTW alignment
-    res, spec, dtw = runDTWAlignment(
+    align, spec, dtw = runDTWAlignment(
         filename, midiname, 0.025, width, target_sr, nharm, win_ms)
         
     
@@ -118,25 +122,17 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
     plt.colorbar()
     plt.title('Estimated Pitch (Hz)')
     plt.yticks([])
-    plt.show()
+    # plt.show()
 
-    # Get onsets and offsets using librosa's onset detection
-    onset_frames = librosa.onset.onset_detect(y=harmonic, sr=sr, hop_length=32, units='frames', backtrack=True)    
-    onset_times = librosa.frames_to_time(onset_frames, sr=sr, hop_length=32)     
 
-    # Calculate the duration of one frame in seconds
-    frame_duration = librosa.samples_to_time(32, sr=sr)
+     
 
-    # Calculate offset times by adding the frame duration to each onset time
-    offset_times = onset_times + frame_duration # This doesn't really do anything...
-
-    # print(res)
-    # print(estimated_pitch)
-    # print(onset_times)
-    # print(offset_times)
+    
+    print(spec)
+    sys.exit()
        
     
-    return res, dtw, spec, estimated_pitch, onset_times, offset_times
+    return align, dtw, spec, estimated_pitch, onset_times, offset_times
 
 
 
@@ -169,8 +165,9 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     y, sr = librosa.load(audiofile)
     spec = librosa.feature.melspectrogram(y=y, sr=sr)
 
+    # Your align_midi_wav function returns values that we will use
     m, p, q, S, D, M, N = align_midi_wav(
-        MF=midorig, WF=audiofile, TH=tres, ST=0, width=width, tsr=targetsr, nhar=nharm, wms=winms)
+        MF=midorig, WF=audiofile, TH=tres, ST=1, width=width, tsr=targetsr, nhar=nharm, wms=winms)
 
     dtw = {
         'M': m,
@@ -181,17 +178,78 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'notemask': M,
         'pianoroll': N
     }
+
+    print(dtw['MA'])
+    print(dtw['RA'])
+    sys.exit()
+    nmat = midi2nmat(midorig) # Not accurate in polyphonic
     
-    nmat = midi2nmat(midorig)
+    # piece = Score(midorig)
+    # nmat = piece.nmats()    
     
-    # Assuming you want data for the first instrument
+    # Assuming align.nmat is a NumPy array
+    nmat[:, 5] = nmat[:, 4] + nmat[:, 5]
+    dtw_ma_array = np.array(dtw['MA'])
+    dtw_ra_array = np.array(dtw['RA'])
+    u = maptimes(nmat[:, 4:5], dtw_ma_array * tres, dtw_ma_array * tres)
+    # u = maptimes(nmat[:, 4:5], dtw['MA'] * tres, dtw['RA'] * tres)
+    print(u)
+    # nmat = np.column_stack((nmat, col1_values, col2_values))
+
+    
+
+    
+
+
+    # FOR FROM SYMBOLIC...
+    # all_onset_values = []
+    # for part_name, part_df in nmat.items():
+    #     onset_values = part_df['ONSET'].values
+    #     all_onset_values.extend(onset_values)
+    # print(all_onset_values)
+
+    # all_duration_values = []
+    # for part_name, part_df in nmat.items():
+    #     duration_values = part_df['DURATION'].values
+    #     all_duration_values.extend(duration_values)
+    # print(all_duration_values)
+
+    # selected_columns_values = {}
+    # for part_name, part_df in nmat.items():
+    #     selected_columns_values[part_name] = part_df.iloc[:,1:3].values        
+    # # print(selected_columns_values)
+
+    # all_float_pairs = []
+    # for part_name, values_array in selected_columns_values.items():
+    #     float_pairs = [tuple(row) for row in values_array]
+    #     all_float_pairs.extend(float_pairs)
+
+    # # Now, all_float_pairs is a list of tuples, each containing a pair of float values from the two columns
+    # print(all_float_pairs)
+
+    # # THE MAPTIMES FUNCTION NEEDS TO TAKE IN THE FLOAT PAIRS AND RETURN THE ONSET AND OFFSET TIMES!
+    # u = maptimes(all_float_pairs)
+    
+    sys.exit()
     align = {
-        'nmat': nmat,
-        'on': nmat[:,2],
-        'off': nmat[:,3],
-        'midiNote': midi_notes
-    }    
+        'nmat': nmat.copy(),  # Create an empty 2D array with 7 columns for nmat
+        'on': np.empty(0),         # Create an empty 1D array
+        'off': np.empty(0),        # Create an empty 1D array
+        'midiNote': np.empty(0)    # Create an empty 1D array
+    }
     
+    
+    sys.exit()
+    
+    
+
+    # Assign 'on', 'off', and 'midiNote' values from nmat
+    align['on'] = nmat['ONSET_SEC']
+    align['off'] = nmat['OFFSET_SEC']
+    align['midiNote'] = nmat['MIDI']
+
+
+    sys.exit()
 
     return align, spec, dtw
 
@@ -216,7 +274,8 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         - M: Is the midi-note-derived mask.
         - N: Is Orio-style "peak structure distance".    
     """
-
+    
+    
     piece = Score(MF)
     pianoRoll = piece.pianoRoll()      
 
@@ -225,12 +284,36 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     for row in pianoRoll:
         sampled_grid.append(row)
 
-    # Calculate spectrogram
-    y, sr = librosa.load(WF)
-    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
-    hop_length = int((TH * tsr * 1000))
-    D = librosa.feature.melspectrogram(
-        y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
+    d, sr = librosa.load(WF, sr=None, mono=False)
+
+    # Use sgram bins below 1k
+    targetsr = tsr
+    srgcd = np.gcd(targetsr, sr)
+    # dr = librosa.resample(d, orig_sr=sr, target_sr=targetsr // srgcd)
+
+    
+    # Choose win length as power of 2 closest to 100ms
+    winms = wms
+    fftlen = 2 ** round(np.log2(winms / 1000 * targetsr))
+    # Actually take the spectrogram
+    win = fftlen
+    
+    # d vs dr resample?
+    ovlp = round(win - TH * targetsr)
+    D = np.abs(librosa.core.stft(d, n_fft=fftlen, hop_length=ovlp, win_length=win))
+
+    librosa.display.specshow(librosa.amplitude_to_db(D, ref=np.max), sr=targetsr, hop_length=ovlp, x_axis='time', y_axis='log')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Spectrogram')
+    plt.show()
+
+    sys.exit()
+    # # Calculate spectrogram
+    # y, sr = librosa.load(WF)
+    # fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
+    # hop_length = int((TH * tsr * 1000))
+    # D = librosa.feature.melspectrogram(
+    #     y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
     
 
     N = np.array(sampled_grid)    
@@ -250,7 +333,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
-
+    print(S)
     # Do the DP search
     p, q, D = dp(1 - S)  # You need to implement dpfast function    
 
