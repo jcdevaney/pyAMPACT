@@ -72,6 +72,13 @@ class Score:
             self._import_function_harm_spines()
         self.public = '\n'.join([f'{prop.ljust(15)}{type(getattr(self, prop))}' for prop in dir(self) if not prop.startswith('_')])
         self._partList()
+        # Extract chord symbols
+        # chord_symbols = []
+        # for flat in self._flatParts:
+        #     for el in flat.getElementsByClass(m21.harmony.ChordSymbol):
+        #         if el.classes[0] == 'ChordSymbol':
+        #             import pdb; pdb.set_trace()
+        #             chord_symbols.append(el.figure)
     
     def _assignM21Attributes(self, path=''):
         """
@@ -349,13 +356,18 @@ class Score:
                             keyVals.append(contents[1:-1])     # [1:-1] to remove the * and : characters
                             keyPositions.append(spine.eventList[i+1].position)
                         continue
+                    elif not start and spine.spineType not in ('function', 'harm') and not contents.startswith('*'):
+                        start = True
+                        if not contents.startswith('!') and not contents.startswith('='):
+                            vals.append(contents)
+                            valPositions.append(event.position)
                     elif not start or '!' in contents or '=' in  contents or '*' in contents:
                         continue
                     else:
                         if spine.spineType == 'function':
-                            func = function_pattern.sub('', contents)
-                            if len(func):
-                                vals.append(func)
+                            functionLabel = function_pattern.sub('', contents)
+                            if len(functionLabel):
+                                vals.append(functionLabel)
                             else:
                                 continue
                         else:
@@ -375,7 +387,10 @@ class Score:
                     res = joined.iloc[:, 2:].copy()
                 res.index = joined['Offset']
                 res.index.name = ''
-                self._analyses[spine.spineType] = res
+                if spine.spineType not in self._analyses:
+                    self._analyses[spine.spineType] = [res]
+                else:
+                    self._analyses[spine.spineType].append(res)
                 if spine.spineType == 'harm' and len(keyVals):
                     keyName = 'harmKeys'
                     # key records are usually not found at a kern line with notes so take the next valid one
@@ -386,15 +401,15 @@ class Score:
                     ser.index = joined['Offset']
                     ser.index.name = ''
                     self._analyses[keyName] = ser
+            if len(foundSpines):
+                print('\n\tDetected and imported these spine types:\n\t\t', *foundSpines, '\n')
+                self.foundSpines = foundSpines
 
         for spine in ('function', 'harm', 'harmKeys', 'chord'):
             if spine not in self._analyses:
                 self._analyses[spine] = pd.Series(dtype='string')
         if 'cdata' not in self._analyses:
             self._analyses['cdata'] = pd.DataFrame()
-        if len(foundSpines):
-            print('Detected and imported these spine types:', *foundSpines)
-            self.foundSpines = foundSpines
 
     def insertScoreDef(self, root):
         """
@@ -634,23 +649,23 @@ class Score:
         return self._analyses['_priority']
 
     def harmKeys(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
+        return snapTo(self._analyses['harmKeys'], snap_to, filler, output)
     harmKeys.__doc__ = reused_docstring
 
     def harm(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
+        return snapTo(self._analyses['harm'], snap_to, filler, output)
     harm.__doc__ = reused_docstring
 
     def functions(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['function'].copy(), snap_to, filler, output)
+        return snapTo(self._analyses['function'], snap_to, filler, output)
     functions.__doc__ = reused_docstring
 
     def chords(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['chord'].copy(), snap_to, filler, output)
+        return snapTo(self._analyses['chord'], snap_to, filler, output)
     chords.__doc__ = reused_docstring
 
     def cdata(self, snap_to=None, filler='forward', output='dataframe'):
-        return snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
+        return snapTo(self._analyses['cdata'], snap_to, filler, output)
     cdata.__doc__ = reused_docstring
 
     def getSpines(self, spineType):
@@ -659,11 +674,29 @@ class Score:
 
         :param spineType: A string representing the spine type to return.
         :return: A pandas DataFrame of the given spine type.
+
+        See Also
+        --------
+        :meth:`harm`
+        :meth:`functions`
+        :meth:`chords`
+        :meth:`cdata`
+        
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('path_to_score_with_other_spine_types.krn')
+            df_of_spines = piece.getSpines('name_of_spine_type')
         """
         if spineType.startswith('**'):
             spineType = spineType[2:]
         if hasattr(self, 'foundSpines') and spineType in self.foundSpines:
-            return self._analyses[spineType].copy()
+            ret = snapTo(self._analyses[spineType], filler='nan', output='dataframe')
+            ret.dropna(how='all', inplace=True)
+            if len(ret.columns) == len(self.partNames):
+                ret.columns = self.partNames
+            return ret
         print(f'Either this is not a kern file or no {spineType} spines were found.')
 
     def _m21ObjectsNoTies(self):

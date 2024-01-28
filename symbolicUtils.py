@@ -551,22 +551,29 @@ def snapTo(data, snap_to=None, filler='forward', output='array'):
     :return: The passed data in the shape of the `snap_to` dataframe's columns 
         with any filling operations applied.
     """
+    if isinstance(data, list):
+        if len(data) == 1:
+            _data = data[0].copy()
+        else:
+            _data = pd.concat(data, axis=1)
+    else:
+        _data = data.copy()
     if snap_to is not None:
-        data = data.reindex(snap_to.columns)
+        _data = _data.reindex(snap_to.columns)
     if filler != '.':
-        data.replace('.', np.nan, inplace=True)
+        _data.replace('.', np.nan, inplace=True)
     if isinstance(filler, str):
         filler = filler.lower()
         if filler == 'forward':
-            data.ffill(inplace=True)
+            _data.ffill(inplace=True)
         else:
             if filler in ('nan', 'drop'):
-                data.fillna(np.nan, inplace=True)
+                _data.fillna(np.nan, inplace=True)
             else:
-                data.fillna(filler, inplace=True)
+                _data.fillna(filler, inplace=True)
     if filler == 'drop':
-        data.dropna(inplace=True)
+        _data.dropna(inplace=True)
     if output == 'array':
-        return data.values
+        return _data.values
     else:
-        return data
+        return _data
