@@ -182,10 +182,10 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     print(dtw['MA'])
     print(dtw['RA'])
     sys.exit()
-    nmat = midi2nmat(midorig) # Not accurate in polyphonic
+    # nmat = midi2nmat(midorig) # Not accurate in polyphonic
     
-    # piece = Score(midorig)
-    # nmat = piece.nmats()    
+    piece = Score(midorig)
+    nmat = piece.nmats()    
     
     # Assuming align.nmat is a NumPy array
     nmat[:, 5] = nmat[:, 4] + nmat[:, 5]
