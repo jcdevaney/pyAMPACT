@@ -372,7 +372,7 @@ def fill_trans_mat(trans_seed, notes):
 
     return trans
 
-
+import sys
 def orio_simmx(M, D):
     """
     Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity
@@ -387,11 +387,12 @@ def orio_simmx(M, D):
     """
     # Calculate the similarities
     S = np.zeros((M.shape[1], D.shape[1]))
-
+    
     # Square the elements of D and M
     D = D**2
     M = M**2
-
+        
+    
     nDc = np.sqrt(np.sum(D, axis=0))
     # Avoid division by zero
     nDc = nDc + (nDc == 0)
@@ -431,9 +432,8 @@ def simmx(A, B):
 
     return M
 
-import numpy as np
 
-def maptimes(t, intime, outtime):
+def maptimes(t, intime, outtime):    
     """
     Map the times in t according to the mapping that each point
     in intime corresponds to that value in outtime.
@@ -450,13 +450,13 @@ def maptimes(t, intime, outtime):
     t = t.flatten()  # make into a 1D array
     nt = len(t)
     nr = len(intime)
-
+    
     # Decidedly faster than outer-product-array way
     u = t.copy()
     for i in range(nt):
-        # u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)]
-        # u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)]
-        u[i] = outtime[min(np.where(intime > t[i])[0].min(), len(outtime) - 1)] # Not correct
+        # u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)] # Original
+        u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)] # Alternate
+        # u[i] = outtime[min(np.where(intime > t[i])[0].min(), len(outtime) - 1)] # Not correct
 
 
 

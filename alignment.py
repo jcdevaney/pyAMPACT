@@ -82,7 +82,7 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
         filename, midiname, 0.025, width, target_sr, nharm, win_ms)
         
     
-    
+    sys.exit()
     piece = Score(midiname)
     nmat = piece.nmats()
     notes = piece.midiPitches()
@@ -124,11 +124,7 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
     plt.yticks([])
     # plt.show()
 
-
-     
-
     
-    print(spec)
     sys.exit()
        
     
@@ -162,12 +158,12 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     midi_notes = []
 
     # Now done in alignMidiWav
-    y, sr = librosa.load(audiofile)
-    spec = librosa.feature.melspectrogram(y=y, sr=sr)
+    # y, sr = librosa.load(audiofile)
+    # spec = librosa.feature.melspectrogram(y=y, sr=sr)
 
     # Your align_midi_wav function returns values that we will use
     m, p, q, S, D, M, N = align_midi_wav(
-        MF=midorig, WF=audiofile, TH=tres, ST=1, width=width, tsr=targetsr, nhar=nharm, wms=winms)
+        MF=midorig, WF=audiofile, TH=tres, ST=0, width=width, tsr=targetsr, nhar=nharm, wms=winms)
 
     dtw = {
         'M': m,
@@ -178,22 +174,36 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'notemask': M,
         'pianoroll': N
     }
-
-    print(dtw['MA'])
-    print(dtw['RA'])
-    sys.exit()
-    # nmat = midi2nmat(midorig) # Not accurate in polyphonic
+    
     
     piece = Score(midorig)
-    nmat = piece.nmats()    
+    nmat = piece.nmats()
+
+    # Columns 6 and 7 in the MATLAB version of the nmat, produced by the midi2nmat function, have values that
+    # I can't identify source-wise but are reliant on calculating the onset/offset times.
+    # I have this hardcoded to ease with debugging for now.  Trying to use
+        
+
+    # # The original translation from MATLAB.  Col numbers should be adjusted for 0 index    
+    # # Modifying column 7 of align.nmat
+    # align_nmat[:, 6] = align_nmat[:, 5] + align_nmat[:, 6]
     
-    # Assuming align.nmat is a NumPy array
-    nmat[:, 5] = nmat[:, 4] + nmat[:, 5]
-    dtw_ma_array = np.array(dtw['MA'])
-    dtw_ra_array = np.array(dtw['RA'])
-    u = maptimes(nmat[:, 4:5], dtw_ma_array * tres, dtw_ma_array * tres)
-    # u = maptimes(nmat[:, 4:5], dtw['MA'] * tres, dtw['RA'] * tres)
-    print(u)
+    # # Modifying columns 1 and 2 of align.nmat using maptimes
+    # align_nmat[:, :2] = maptimes(align_nmat[:, 5:7], (dtw.MA - 1) * tres, (dtw.RA - 1) * tres)
+
+
+    # My version in progress, updated for readability
+    # Hardcoded
+    onset_col = piece.nmats()['Piano']['ONSET'].values
+    duration_col = piece.nmats()['Piano']['DURATION'].values
+
+    dtw_ma_array = np.array(dtw['MA']) # The -1 gives all negatives of the same values through (-0.25 for example3Note)
+    dtw_ra_array = np.array(dtw['RA']) # Is the -1 required?
+    combined_cols = np.hstack((onset_col.reshape(-1, 1), duration_col.reshape(-1, 1)))
+
+    # This is where it errors, maptimes also throws format errors, See maptimes ~Line 436 in alignmentUtils
+    u = maptimes(combined_cols, dtw_ma_array * tres, dtw_ra_array * tres)
+    # u = maptimes(nmat[:, 4:5], dtw['MA'] * tres, dtw['RA'] * tres)    
     # nmat = np.column_stack((nmat, col1_values, col2_values))
 
     
@@ -201,7 +211,8 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     
 
 
-    # FOR FROM SYMBOLIC...
+    # This was an alternate approach I was exploring drawing directly from symbolic.py...
+    #
     # all_onset_values = []
     # for part_name, part_df in nmat.items():
     #     onset_values = part_df['ONSET'].values
@@ -247,7 +258,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     align['on'] = nmat['ONSET_SEC']
     align['off'] = nmat['OFFSET_SEC']
     align['midiNote'] = nmat['MIDI']
-
+    spec = D # from align_midi_wav
 
     sys.exit()
 
@@ -275,7 +286,8 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         - N: Is Orio-style "peak structure distance".    
     """
     
-    
+    # Is this correct re: alignMidiWav in MATLAB?
+    # Should the pianoRoll be used to construct N
     piece = Score(MF)
     pianoRoll = piece.pianoRoll()      
 
@@ -283,68 +295,56 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     sampled_grid = []
     for row in pianoRoll:
         sampled_grid.append(row)
+    
+    N = np.array(sampled_grid)    
 
     d, sr = librosa.load(WF, sr=None, mono=False)
 
-    # Use sgram bins below 1k
-    targetsr = tsr
-    srgcd = np.gcd(targetsr, sr)
-    # dr = librosa.resample(d, orig_sr=sr, target_sr=targetsr // srgcd)
-
-    
-    # Choose win length as power of 2 closest to 100ms
-    winms = wms
-    fftlen = 2 ** round(np.log2(winms / 1000 * targetsr))
-    # Actually take the spectrogram
-    win = fftlen
-    
-    # d vs dr resample?
-    ovlp = round(win - TH * targetsr)
-    D = np.abs(librosa.core.stft(d, n_fft=fftlen, hop_length=ovlp, win_length=win))
-
-    librosa.display.specshow(librosa.amplitude_to_db(D, ref=np.max), sr=targetsr, hop_length=ovlp, x_axis='time', y_axis='log')
-    plt.colorbar(format='%+2.0f dB')
-    plt.title('Spectrogram')
-    plt.show()
-
-    sys.exit()
-    # # Calculate spectrogram
-    # y, sr = librosa.load(WF)
-    # fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
-    # hop_length = int((TH * tsr * 1000))
-    # D = librosa.feature.melspectrogram(
-    #     y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
+        
+    # Calculate spectrogram
+    # Had other methods to do this, but melspectrogram was most concise.  Does this work?
+    y, sr = librosa.load(WF)
+    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
+    hop_length = int((TH * tsr * 1000))
+    D = librosa.feature.melspectrogram(
+        y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
     
 
-    N = np.array(sampled_grid)    
+    
+    # First mask declaration here follows the MATLAB params, but not sure
+    # these are necessary at this point.
+    # mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
+    #                   base_note=0, tuning_factor=1, obs=20)     
+    mask = piece.mask()
 
-    mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
-                      base_note=0, tuning_factor=1, obs=20)    
-
+    
     M = np.array(mask)
-    M = M.astype(np.int16)
+    # M = M.astype(np.int16)
+    
+    
 
     # Calculate the peak-structure-distance similarity matrix
     if ST == 1:
         S = orio_simmx(M, D)
     else:
-        S = simmx(M, D)
+        S = simmx(M, D) # Throws errors, not currently implemented
     
 
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
-    print(S)
+    
     # Do the DP search
-    p, q, D = dp(1 - S)  # You need to implement dpfast function    
+    p, q, D = dp(1 - S)  # Used dp for the sake of simplicity/not writing Cython methods as required by dpfast. Is this okay?
+    
 
     # Map indices into MIDI file that make it line up with the spectrogram
+    # Not sure if this is working as all other params are questionable!
     m = np.zeros(D.shape[1], dtype=int)
     for i in range(D.shape[1]):
         if np.any(q == i):
             m[i] = p[np.min(np.where(q == i))]
         else:
-            m[i] = 1
-
+            m[i] = 1    
     return m, p, q, S, D, M, N
 
   
