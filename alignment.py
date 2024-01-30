@@ -178,6 +178,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     
     piece = Score(midorig)
     nmat = piece.nmats()
+    print(nmat)
 
     # Columns 6 and 7 in the MATLAB version of the nmat, produced by the midi2nmat function, have values that
     # I can't identify source-wise but are reliant on calculating the onset/offset times.
