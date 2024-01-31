@@ -22,9 +22,11 @@ alignmentUtils
 """
 
 import numpy as np
+import pandas as pd
 from scipy.signal import gaussian
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
+
 
 
 def dp(M):
@@ -372,34 +374,53 @@ def fill_trans_mat(trans_seed, notes):
 
     return trans
 
-import sys
+
 def orio_simmx(M, D):
     """
-    Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity
-    matrix.  M is the binary mask (where each column corresponds
-    to a row in the output matrix S); D is the regular spectrogram,  
-    where columns of S correspond to columns of D (spectrogram time
-    slices).
-    Each value is the proportion of energy going through the 
-    mask to the total energy of the column of D, thus lies 
-    between 0 (no match) and 1 (mask completely covers energy in D
-    column).
+    Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity matrix.
+
+    Parameters:
+    - M: Binary mask where each column corresponds to a row in the output matrix S.
+    - D: Regular spectrogram, where columns of S correspond to columns of D.
+
+    Returns:
+    - S: Similarity matrix.
     """
+    # Convert to NumPy arrays if input is DataFrame
+    M = M.values if isinstance(M, pd.DataFrame) else M
+    D = D.values if isinstance(D, pd.DataFrame) else D
+
+    # Ensure compatibility for matrix multiplication
+    
+    # if M.shape[1] != D.shape[0]:
+    #     M = M.T  # Transpose M if the number of columns in M does not match the number of rows in D
+
+    
     # Calculate the similarities
     S = np.zeros((M.shape[1], D.shape[1]))
-    
-    # Square the elements of D and M
+
+    print("Shape of M:", M.shape)
+    print("Shape of D:", D.shape)
+
+
+    # This way is slow
+    # for r in range(M.shape[1]):
+    #     for c in range(D.shape[1]):
+    #         nDc = np.linalg.norm(D[:, c])
+    #         nDc = nDc + (nDc == 0)
+    #         S[r, c] = np.linalg.norm(D[:, c] * M[:, r]) / nDc
+
+    # Doing it one row at a time is faster
     D = D**2
     M = M**2
-        
-    
+
     nDc = np.sqrt(np.sum(D, axis=0))
-    # Avoid division by zero
+    # avoid div 0's
     nDc = nDc + (nDc == 0)
 
     # Evaluate one row at a time
     for r in range(M.shape[1]):
-        S[r, :] = np.sqrt(np.dot(M[:, r], D)) / nDc
+        S[r, :] = np.sqrt(M[:, r] @ D) / nDc
 
     return S
 
@@ -413,6 +434,8 @@ def simmx(A, B):
 
     :return: The similarity matrix between A and B.
     """
+    A = A.values if isinstance(A, pd.DataFrame) else A
+    B = B.values if isinstance(B, pd.DataFrame) else B
     if B is None:
         B = A
 
@@ -454,8 +477,8 @@ def maptimes(t, intime, outtime):
     # Decidedly faster than outer-product-array way
     u = t.copy()
     for i in range(nt):
-        # u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)] # Original
-        u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)] # Alternate
+        u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)] # Original
+        # u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)] # Alternate
         # u[i] = outtime[min(np.where(intime > t[i])[0].min(), len(outtime) - 1)] # Not correct
 
 

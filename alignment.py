@@ -34,6 +34,8 @@ import sys
 import os
 sys.path.append(os.pardir)
 
+from scipy.signal import spectrogram
+
 from f0EstWeightedSum import f0_est_weighted_sum
 from f0EstWeightedSumSpec import f0_est_weighted_sum_spec
 
@@ -154,8 +156,6 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         - spec: spectrogram    
     """
     
-    # midorig is the path string, not the file
-    midi_notes = []
 
     # Now done in alignMidiWav
     # y, sr = librosa.load(audiofile)
@@ -163,7 +163,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
 
     # Your align_midi_wav function returns values that we will use
     m, p, q, S, D, M, N = align_midi_wav(
-        MF=midorig, WF=audiofile, TH=tres, ST=0, width=width, tsr=targetsr, nhar=nharm, wms=winms)
+        MF=midorig, WF=audiofile, TH=tres, ST=1, width=width, tsr=targetsr, nhar=nharm, wms=winms)
 
     dtw = {
         'M': m,
@@ -175,35 +175,38 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'pianoroll': N
     }
     
+    spec = dtw['D']
+
     
     piece = Score(midorig)
-    nmat = piece.nmats()
-    print(nmat)
+    nmat = piece.nmats()    
+    
+
 
     # Columns 6 and 7 in the MATLAB version of the nmat, produced by the midi2nmat function, have values that
     # I can't identify source-wise but are reliant on calculating the onset/offset times.
     # I have this hardcoded to ease with debugging for now.  Trying to use
         
 
-    # # The original translation from MATLAB.  Col numbers should be adjusted for 0 index    
-    # # Modifying column 7 of align.nmat
+    # The original translation from MATLAB.  Col numbers should be adjusted for 0 index    
+    # Modifying column 7 of align.nmat
     # align_nmat[:, 6] = align_nmat[:, 5] + align_nmat[:, 6]
     
-    # # Modifying columns 1 and 2 of align.nmat using maptimes
+    # Modifying columns 1 and 2 of align.nmat using maptimes
     # align_nmat[:, :2] = maptimes(align_nmat[:, 5:7], (dtw.MA - 1) * tres, (dtw.RA - 1) * tres)
 
 
-    # My version in progress, updated for readability
-    # Hardcoded
-    onset_col = piece.nmats()['Piano']['ONSET'].values
-    duration_col = piece.nmats()['Piano']['DURATION'].values
+    # # My version in progress, updated for readability
+    # # Hardcoded
+    # onset_col = piece.nmats()['Piano']['ONSET'].values
+    # duration_col = piece.nmats()['Piano']['DURATION'].values
 
-    dtw_ma_array = np.array(dtw['MA']) # The -1 gives all negatives of the same values through (-0.25 for example3Note)
-    dtw_ra_array = np.array(dtw['RA']) # Is the -1 required?
-    combined_cols = np.hstack((onset_col.reshape(-1, 1), duration_col.reshape(-1, 1)))
+    # dtw_ma_array = np.array(dtw['MA']) # The -1 gives all negatives of the same values through (-0.25 for example3Note)
+    # dtw_ra_array = np.array(dtw['RA']) # Is the -1 required?
+    # combined_cols = np.hstack((onset_col.reshape(-1, 1), duration_col.reshape(-1, 1)))
 
     # This is where it errors, maptimes also throws format errors, See maptimes ~Line 436 in alignmentUtils
-    u = maptimes(combined_cols, dtw_ma_array * tres, dtw_ra_array * tres)
+    # u = maptimes(combined_cols, dtw_ma_array * tres, dtw_ra_array * tres)
     # u = maptimes(nmat[:, 4:5], dtw['MA'] * tres, dtw['RA'] * tres)    
     # nmat = np.column_stack((nmat, col1_values, col2_values))
 
@@ -214,22 +217,23 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
 
     # This was an alternate approach I was exploring drawing directly from symbolic.py...
     #
-    # all_onset_values = []
-    # for part_name, part_df in nmat.items():
-    #     onset_values = part_df['ONSET'].values
-    #     all_onset_values.extend(onset_values)
-    # print(all_onset_values)
+    all_onset_values = []
+    for part_name, part_df in nmat.items():
+        onset_values = part_df['ONSET'].values
+        all_onset_values.extend(onset_values)
+    print(all_onset_values)
 
-    # all_duration_values = []
-    # for part_name, part_df in nmat.items():
-    #     duration_values = part_df['DURATION'].values
-    #     all_duration_values.extend(duration_values)
-    # print(all_duration_values)
+    all_duration_values = []
+    for part_name, part_df in nmat.items():
+        duration_values = part_df['DURATION'].values
+        all_duration_values.extend(duration_values)
+    print(all_duration_values)
 
+    
     # selected_columns_values = {}
     # for part_name, part_df in nmat.items():
     #     selected_columns_values[part_name] = part_df.iloc[:,1:3].values        
-    # # print(selected_columns_values)
+    # print(selected_columns_values)
 
     # all_float_pairs = []
     # for part_name, values_array in selected_columns_values.items():
@@ -242,7 +246,8 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     # # THE MAPTIMES FUNCTION NEEDS TO TAKE IN THE FLOAT PAIRS AND RETURN THE ONSET AND OFFSET TIMES!
     # u = maptimes(all_float_pairs)
     
-    sys.exit()
+
+    
     align = {
         'nmat': nmat.copy(),  # Create an empty 2D array with 7 columns for nmat
         'on': np.empty(0),         # Create an empty 1D array
@@ -303,23 +308,43 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
         
     # Calculate spectrogram
-    # Had other methods to do this, but melspectrogram was most concise.  Does this work?
     y, sr = librosa.load(WF)
-    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
-    hop_length = int((TH * tsr * 1000))
-    D = librosa.feature.melspectrogram(
-        y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
+    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2))) # Good, 512
     
+    ovlp = round(fft_len - TH*tsr);    
+    
+
+    # Generate a sample signal (replace this with your own signal)
+    
+    # srgcd = math.gcd(tsr, sr)
+    # dr = librosa.resample(y,tsr/srgcd,sr/srgcd)
+    # dr = resample(y,tsr/srgcd,sr/srgcd);
+    
+    
+    # Compute spectrogram
+    f, t, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
+    # Access the magnitude spectrogram (D)
+    D = np.abs(Sxx)
+    
+    # Plot spectrogram
+    # plt.figure()
+    # plt.pcolormesh(t, f, 10 * np.log10(D), shading='auto', vmax=np.max(10 * np.log10(D)))  # Use vmax to set the color scale
+    # plt.ylabel('Frequency (Hz)')
+    # plt.xlabel('Time (s)')
+    # plt.title('Spectrogram')
+    # plt.ylim(0, 2000)  # Set the y-axis limit to 0-2000 Hz
+    # plt.colorbar(label='Power/Frequency (dB/Hz)')
+    # plt.show()
+        
 
     
     # First mask declaration here follows the MATLAB params, but not sure
     # these are necessary at this point.
     # mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
     #                   base_note=0, tuning_factor=1, obs=20)     
-    mask = piece.mask()
-
-    
-    M = np.array(mask)
+    M = piece.mask(sample_rate=tsr)
+    # Save M to a CSV file
+    # np.savetxt('./output_files/output.csv', M, delimiter=',')
     # M = M.astype(np.int16)
     
     
@@ -330,7 +355,8 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     else:
         S = simmx(M, D) # Throws errors, not currently implemented
     
-
+    
+        
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
     
