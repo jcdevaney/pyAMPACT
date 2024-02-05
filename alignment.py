@@ -176,10 +176,11 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
     }
     
     spec = dtw['D']
-
+    print(dtw)
     
     piece = Score(midorig)
-    nmat = piece.nmats()    
+    nmat = piece.nmats() 
+    print(nmat)   
     
 
 
@@ -229,7 +230,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         all_duration_values.extend(duration_values)
     print(all_duration_values)
 
-    
+
     # selected_columns_values = {}
     # for part_name, part_df in nmat.items():
     #     selected_columns_values[part_name] = part_df.iloc[:,1:3].values        
@@ -255,7 +256,7 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'midiNote': np.empty(0)    # Create an empty 1D array
     }
     
-    
+    print('Ends at alignment line 258')
     sys.exit()
     
     
@@ -313,7 +314,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     
     ovlp = round(fft_len - TH*tsr);    
     
-
+    y = librosa.resample(y, orig_sr=sr, target_sr=tsr)
     # Generate a sample signal (replace this with your own signal)
     
     # srgcd = math.gcd(tsr, sr)
@@ -327,14 +328,13 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     D = np.abs(Sxx)
     
     # Plot spectrogram
-    # plt.figure()
-    # plt.pcolormesh(t, f, 10 * np.log10(D), shading='auto', vmax=np.max(10 * np.log10(D)))  # Use vmax to set the color scale
-    # plt.ylabel('Frequency (Hz)')
-    # plt.xlabel('Time (s)')
-    # plt.title('Spectrogram')
-    # plt.ylim(0, 2000)  # Set the y-axis limit to 0-2000 Hz
-    # plt.colorbar(label='Power/Frequency (dB/Hz)')
-    # plt.show()
+    plt.figure()
+    plt.pcolormesh(t, f, 10 * np.log10(D), shading='auto', vmax=np.max(10 * np.log10(D)))  # Use vmax to set the color scale
+    plt.ylabel('Frequency (Hz)')
+    plt.xlabel('Time (s)')
+    plt.title('Spectrogram')    
+    plt.colorbar(label='Power/Frequency (dB/Hz)')
+    plt.show()
         
 
     
