@@ -1003,8 +1003,8 @@ class Score:
                 durBeat = dur.iloc[:, i].dropna()
                 part = pd.Series(partName, midi.index, dtype='string')
                 xmlID = ids.iloc[:, i].dropna()
-                onsetSec = pd.Series(dtype='float64')
-                offsetSec = pd.Series(dtype='float64')
+                onsetSec = onsetBeat.copy()
+                offsetSec = onsetBeat + durBeat
                 df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
                 df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
                 df.MEASURE.ffill(inplace=True)
