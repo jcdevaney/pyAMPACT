@@ -1407,7 +1407,13 @@ class Score:
     def sampled(self, bpm=60, obs=20):
         """
         Sample the score according to the given beats per minute (bpm) and the 
-        desired observations per second (obs).
+        desired observations per second (obs). This method is primarily used as an
+        intermediate step in the construction of a mask. It builds on the pianoRoll
+        by sampling the time axis (columns) at the desired rate. The result is a
+        DataFrame where each row corresponds to a MIDI pitch (0 to 127), and each
+        column corresponds to a timepoint in the sampled score. The difference
+        between this and the pianoRoll is that the columns are sampled at a regular
+        time intervals, rather than at each new event as they are in the pianoRoll.
 
         :param bpm: Integer, default 60. The beats per minute to use for sampling.
         :param obs: Integer, default 20. The desired observations per second.
