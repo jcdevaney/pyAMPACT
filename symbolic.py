@@ -202,7 +202,7 @@ class Score:
                 if len(df.columns > 1):  # swap elements in cols at this offset until all of them fill the space left before the next note in each col
                     for jj, ndx in enumerate(df.index):
                         # calculate dur inside the loop to avoid having to swap its elements like we do for df
-                        dur = df.applymap(lambda cell: round(float(cell.quarterLength), 5), na_action='ignore')
+                        dur = df.map(lambda cell: round(float(cell.quarterLength), 5), na_action='ignore')
                         for thisCol in range(len(df.columns) - 1):
                             if isinstance(df.iat[jj, thisCol], float):  # ignore NaNs
                                 continue
@@ -521,7 +521,7 @@ class Score:
                 self._analyses['xmlIDs'] = df
                 return df
         # either not xml/mei, or an idString wasn't found
-        df = self._parts(multi_index=True).applymap(lambda obj: f'{obj.id}', na_action='ignore')
+        df = self._parts(multi_index=True).map(lambda obj: f'{obj.id}', na_action='ignore')
         self._analyses['xmlIDs'] = df
         return df
 
@@ -547,7 +547,7 @@ class Score:
             piece.lyrics()
         """
         if 'lyrics' not in self._analyses:
-            self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
+            self._analyses['lyrics'] = self._parts().map(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
         return self._analyses['lyrics'].copy()
 
     def _m21Clefs(self):
@@ -599,7 +599,7 @@ class Score:
         :return: A pandas DataFrame of the clefs in the score in kern format.
         """
         if '_clefs' not in self._analyses:
-            self._analyses['_clefs'] = self._m21Clefs().applymap(kernClefHelper, na_action='ignore')
+            self._analyses['_clefs'] = self._m21Clefs().map(kernClefHelper, na_action='ignore')
         return self._analyses['_clefs']
 
     def dynamics(self):
@@ -643,7 +643,7 @@ class Score:
             if self.fileExtension != 'krn':
                 priority = pd.DataFrame()
             else:
-                priority = self._parts().applymap(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
+                priority = self._parts().map(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
                 priority = pd.DataFrame({'Priority': priority.values, 'Offset': priority.index})
             self._analyses['_priority'] = priority
         return self._analyses['_priority']
@@ -1029,7 +1029,10 @@ class Score:
             if len(ret.columns) == len(self.partNames):
                 ret.columns = self.partNames
             return ret
-        print(f'Either this is not a kern file or no {spineType} spines were found.')
+        if self.fileExtension != 'krn':
+            print(f'\t***This is not a kern file so there are no spines to import.***')
+        else:
+            print(f'\t***No {spineType} spines were found.***')
 
     def _m21ObjectsNoTies(self):
         """
@@ -1040,7 +1043,7 @@ class Score:
         :return: A list of music21 objects with ties removed.
         """
         if '_m21ObjectsNoTies' not in self._analyses:
-            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(removeTied).dropna(how='all')
+            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).map(removeTied).dropna(how='all')
         return self._analyses['_m21ObjectsNoTies']
 
     def _measures(self, compact=False):
@@ -1057,7 +1060,8 @@ class Score:
             partCols = self._parts(compact=compact).columns
             partMeasures = []
             for i, part in enumerate(self._flatParts):
-                ser = [pd.Series({m.offset: m.measureNumber for m in part.makeMeasures()}, dtype='Int16')]
+                meas = {m.offset: m.measureNumber for m in part.makeMeasures() if isinstance(m, m21.stream.Measure)}
+                ser = [pd.Series(meas, dtype='Int16')]
                 voiceCount = len([col for col in partCols if col.startswith(self.partNames[i])])
                 partMeasures.extend(ser * voiceCount)
             df = pd.concat(partMeasures, axis=1)
@@ -1077,9 +1081,9 @@ class Score:
             barline types.
         """
         if "_barlines" not in self._analyses:
-            partBarlines = [pd.Series({m.offset: m.measureNumber for m in part.getElementsByClass(['Barline'])})
+            partBarlines = [pd.Series({bar.offset: bar.type for bar in part.getElementsByClass(['Barline'])})
                                             for i, part in enumerate(self._flatParts)]
-            df = pd.concat(partBarlines, axis=1)
+            df = pd.concat(partBarlines, axis=1, sort=True)
             df.columns = self.partNames
             self._analyses["_barlines"] = df
         return self._analyses["_barlines"]
@@ -1100,7 +1104,7 @@ class Score:
                 kSigs.append(pd.Series({ky.offset: ky for ky in part.getElementsByClass(['KeySignature'])}, name=self.partNames[i]))          
             df = pd.concat(kSigs, axis=1).sort_index(kind='mergesort')
             if kern:
-                df = '*k[' + df.applymap(lambda ky: ''.join([_note.name for _note in ky.alteredPitches]).lower(), na_action='ignore') + ']'
+                df = '*k[' + df.map(lambda ky: ''.join([_note.name for _note in ky.alteredPitches]).lower(), na_action='ignore') + ']'
             self._analyses[('_keySignatures', kern)] = df
         return self._analyses[('_keySignatures', kern)]
 
@@ -1154,7 +1158,7 @@ class Score:
             key = ('durations', multi_index)
             if key not in self._analyses:
                 m21objs = self._m21ObjectsNoTies()
-                res = m21objs.applymap(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
+                res = m21objs.map(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
                 if not multi_index and isinstance(res.index, pd.MultiIndex):
                     res = res.droplevel(1)
                 self._analyses[key] = res
@@ -1206,7 +1210,7 @@ class Score:
         """
         key = ('midiPitches', multi_index)
         if key not in self._analyses:
-            midiPitches = self._m21ObjectsNoTies().applymap(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
+            midiPitches = self._m21ObjectsNoTies().map(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
             if not multi_index and isinstance(midiPitches.index, pd.MultiIndex):
                 midiPitches = midiPitches.droplevel(1)
             self._analyses[key] = midiPitches
@@ -1242,7 +1246,7 @@ class Score:
             piece.notes()
         """
         if 'notes' not in self._analyses:
-            df = self._m21ObjectsNoTies().applymap(noteRestHelper, na_action='ignore')
+            df = self._m21ObjectsNoTies().map(noteRestHelper, na_action='ignore')
             self._analyses['notes'] = df
         ret = self._analyses['notes'].copy()
         if combine_rests:
@@ -1277,7 +1281,7 @@ class Score:
             piece.kernNotes()
         """
         if 'kernNotes' not in self._analyses:
-            self._analyses['kernNotes'] = self._parts(True, True).applymap(kernNRCHelper, na_action='ignore')
+            self._analyses['kernNotes'] = self._parts(True, True).map(kernNRCHelper, na_action='ignore')
         return self._analyses['kernNotes']
 
     def nmats(self, json_path=None, include_cdata=False):
@@ -1339,7 +1343,7 @@ class Score:
                 offsetSec = onsetBeat + durBeat
                 df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
                 df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
-                df.MEASURE.ffill(inplace=True)
+                df['MEASURE'] = df['MEASURE'].ffill()
                 df.dropna(how='all', inplace=True, subset=df.columns[1:5])
                 df = df.set_index('XML_ID')
                 if json_path is not None:   # add json data if a json_path is provided
@@ -1400,7 +1404,7 @@ class Score:
                 for pitch in mp.loc[offset]:
                     if pitch >= 0:
                         pianoRoll.at[pitch, offset] = 1
-            pianoRoll.fillna(0, inplace=True)
+            pianoRoll = pianoRoll.infer_objects(copy=False).fillna(0)
             self._analyses['pianoRoll'] = pianoRoll
         return self._analyses['pianoRoll']
 
@@ -1491,7 +1495,7 @@ class Score:
             width_semitone_factor = 2 ** ((width / 2) / 12)
             sampled = self.sampled(bpm, obs)
             num_rows = int(2 ** round(math.log(winms / 1000 * sample_rate) / math.log(2) - 1)) + 1
-            mask = pd.DataFrame(index=range(num_rows), columns=sampled.columns).fillna(0)
+            mask = pd.DataFrame(index=range(num_rows), columns=sampled.columns).infer_objects(copy=False).fillna(0)
             fftlen = 2**round(math.log(winms / 1000 * sample_rate) / math.log(2))
 
             for row in range(base_note, sampled.shape[0]):
@@ -1719,7 +1723,7 @@ class Score:
         """
         key = ('toKern', data)
         if key not in self._analyses:
-            me = self._measures().applymap(lambda cell: f'={cell}-' if cell == 0 else f'={cell}', na_action='ignore')
+            me = self._measures().map(lambda cell: f'={cell}-' if cell == 0 else f'={cell}', na_action='ignore')
             events = self.kernNotes()
             isMI = isinstance(events.index, pd.MultiIndex)
             includeLyrics, includeDynamics = False, False
