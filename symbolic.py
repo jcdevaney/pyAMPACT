@@ -1363,7 +1363,16 @@ class Score:
 
     def pianoRoll(self):
         """
-        Construct a MIDI piano roll. This representation of a score ... #TODO: finish
+        Construct a MIDI piano roll. This representation of a score plots midi pitches
+        on the y-axis (rows) and time on the x-axis (columns). Midi pitches are given
+        as integers from 0 to 127 inclusive, and time is given in quarter notes counting
+        up from the beginning of the piece. At any given time in the piece (column), all
+        the sounding pitches are shown as 1s in the corresponding rows. There is no
+        midi representation of rests so these are not shown in the pianoRoll. Similarly,
+        in this representation you can't tell if a single voice is sounding a given note,
+        of if multiple voices are sounding the same note. The end result looks like a
+        player piano roll but 1s are used instead of holes. This method is primarily
+        used as an intermediate step in the construction of a mask.
 
         Note: There are 128 possible MIDI pitches.
 
