@@ -1446,7 +1446,20 @@ class Score:
     def mask(self, winms=100, sample_rate=2000, num_harmonics=1, width=0,
                     bpm=60, aFreq=440, base_note=0, tuning_factor=1, obs=20):
         """
-        Construct a mask from the sampled piano roll using width and harmonics.
+        Construct a mask from the sampled piano roll using width and harmonics. This
+        builds on the intermediate representations of the pianoRoll and sampled
+        methods. The sampled method already put the x-axis (columns) in regular
+        time intervals. The mask keeps these columns and then alters the y-axis (rows)
+        into frequency bins. The number of bins is determined by the winms and sample_rate
+        values, and is equal to some power of 2 plus 1. The frequency bins serve to "blur"
+        the sampled pitch data that we expect from the score. This allows us to detect
+        real performed sounds in audio recordings that are likely slightly above or below
+        the precise notated pitches. The mask is what allows pyAMPACT to connect
+        symbolic events in a score to observed sounds in an audio recording. Increasing
+        the `num_harmonics` will also include that many harmonics of a notated score
+        pitch in the mask. Note that the first harmonic is the fundamental frequency
+        which is why the `num_harmonics` parameter defaults to 1. The `width` parameter
+        controls how broad or "blurry" the mask is compared to the notated score.
 
         :param winms: Integer, default 100. The window size in milliseconds.
         :param sample_rate: Integer, default 2000. The sample rate in Hz.
