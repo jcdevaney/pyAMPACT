@@ -649,45 +649,377 @@ class Score:
         return self._analyses['_priority']
 
     def harmKeys(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harmKeys'], snap_to, filler, output)
-    harmKeys.__doc__ = reused_docstring
-
-    def harm(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harm'], snap_to, filler, output)
-    harm.__doc__ = reused_docstring
-
-    def functions(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['function'], snap_to, filler, output)
-    functions.__doc__ = reused_docstring
-
-    def chords(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['chord'], snap_to, filler, output)
-    chords.__doc__ = reused_docstring
-
-    def cdata(self, snap_to=None, filler='forward', output='dataframe'):
-        return snapTo(self._analyses['cdata'], snap_to, filler, output)
-    cdata.__doc__ = reused_docstring
-
-    def getSpines(self, spineType):
         """
-        Return a pandas DataFrame of a given spine type.
+        Get the key signature portion of the **harm spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .harm, .functions, .chords, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
 
-        :param spineType: A string representing the spine type to return.
-        :return: A pandas DataFrame of the given spine type.
-
-        See Also
-        --------
-        :meth:`harm`
-        :meth:`functions`
-        :meth:`chords`
-        :meth:`cdata`
-        
         Example
         -------
         .. code-block:: python
 
-            piece = Score('path_to_score_with_other_spine_types.krn')
-            df_of_spines = piece.getSpines('name_of_spine_type')
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.harmKeys()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            harmKeys = piece.harmKeys(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, harmKeys))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`getSpines`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['harmKeys'], snap_to, filler, output)
+
+    def harm(self, snap_to=None, filler='forward', output='array'):
+        """
+        Get the harmonic analysis portion of the **harm spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. The prevailing
+        key signature information is not included here from the harm spine, but that key
+        information is available in the .harmKeys method. This is similar to the
+        .harmKeys, .functions, .chords, and .cdata methods. The default is for the
+        results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            harm = piece.harm(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, harm))
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            harm = piece.harm(snap_to=pianoRoll)
+            piece.harm()
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harmKeys`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['harm'], snap_to, filler, output)
+
+    def functions(self, snap_to=None, filler='forward', output='array'):
+        """
+        Get the harmonic function labels from a **function spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .harm, .harmKeys, .chords, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.functions()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            functions = piece.functions(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, functions))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`harm`
+        :meth:`harmKeys`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['function'], snap_to, filler, output)
+
+    def chords(self, snap_to=None, filler='forward', output='array'):
+        """
+        Get the chord labels from the **chord spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .functions, .harm, .harmKeys, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.chords()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            chords = piece.chords(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, chords))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['chord'], snap_to, filler, output)
+
+    def cdata(self, snap_to=None, filler='forward', output='dataframe'):
+        """
+        Get the cdata records from **cdata spines in a kern file if there
+        are any and return it as a pandas DataFrame. This is
+        similar to the .harm, .functions, .chords, and .harmKeys methods, with the
+        exception that this method defaults to returning a dataframe since there are
+        often more than one cdata spine in a kern score. If want to get the results
+        of a different spine type (i.e. not one of the ones listed above), see
+        :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.cdata()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            cdata = piece.cdata(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, cdata))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        :meth:`getSpines`
+        """
+        if snap_to is not None:
+            output = 'dataframe'
+        return snapTo(self._analyses['cdata'], snap_to, filler, output)
+
+    def getSpines(self, spineType):
+        """
+        Return a pandas DataFrame of a less common spine type. This method is a
+        window into the vast ecosystem of Humdrum tools making them accessible to
+        pyAMPACT.
+
+        :param spineType: A string representing the spine type to return. You can
+            pass the spine type with or without the "**" prefix.
+        :return: A pandas DataFrame of the given spine type.
+
+        Similar to the .harm, .harmKeys, .functions, .chords, and .cdata methods, this
+        method returns the contents of a specific spine type from a kern file. This is
+        a generic method that can be used to get the contents of any spine type other
+        than: **kern, **dynam, **text, **cdata, **chord, **harm, or **function. Many
+        of the other spine types that you may be interested provide partwise data.
+        For example, the results of Humlib's Renaissance dissonance analysis are given
+        as one "**cdata-rdiss" spine per part. Note that a **cdata-rdiss spine is not
+        the same as a **cdata spine. This is why we return a DataFrame rather than
+        an array or series. If there is just one spine of the spine type you request,
+        the data will still be given as a 1-column dataframe. When you import a kern
+        file, it automatically gets scanned for other spine types and if any are found
+        that are accessible with this method, a list of them will be printed to the
+        console.
+        
+        This example takes a score with **cdata-rdiss spines (Renaissance dissonance
+        analysis), and makes a DataFrame of just the **cdata-rdiss spines. The full
+        score with color-coded dissonance labels can be seen on the Verovio Humdrum
+        Viewer `here <https://verovio.humdrum.org/?k=ey&filter=dissonant%20--color&file=jrp:Tin2004>`_.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://github.com/jcdevaney/pyAMPACT/blob/master/test_files/O_virgo_miserere_mei.krn')
+            rdiss = piece.getSpines('cdata-rdiss')
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`dynamics`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        :meth:`lyrics`
         """
         if spineType.startswith('**'):
             spineType = spineType[2:]
@@ -1031,7 +1363,7 @@ class Score:
 
     def pianoRoll(self):
         """
-        Construct a MIDI piano roll.
+        Construct a MIDI piano roll. This representation of a score ... #TODO: finish
 
         Note: There are 128 possible MIDI pitches.
 

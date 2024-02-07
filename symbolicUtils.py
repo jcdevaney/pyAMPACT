@@ -133,6 +133,7 @@ imported_scores = {}
 tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
 
+# TODO: this meiDeclaration is problematic for VHV.
 meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
 <!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
 <?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
@@ -140,49 +141,6 @@ meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
 # <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
 # <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
 
-reused_docstring =  """
-The methods .harmKeys, .harm, .functions, .chords, and .cdata all work in 
-the following way. They get the desired analysis from the relevant spine if 
-this piece is a kern file and has that spine. The default is for the results 
-to be returned as a 1-d array, but you can set `output='series'` for a pandas 
-series instead. If you want to align these results so that they match the 
-columnar (time) axis of the pianoRoll, sampled, or mask results, you can pass 
-the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-The `sampled` and `mask` dfs often have more observations than the spine 
-contents, so you may want to fill in these new empty slots somehow. The kern 
-format uses '.' as a filler token so you can pass this as the `filler` 
-parameter to fill all the new empty slots with this as well. If you choose 
-some other value, say `filler='_'`, then in addition to filling in the empty 
-slots with underscores, this will also replace the kern '.' observations with 
-'_'. If you want to fill them in with NaN's as pandas usually does, you can 
-pass `filler='nan'` as a convenience. If you want to "forward fill" these 
-results, you can pass `filler='forward'` (default). This will propagate the 
-last non-period ('.') observation until a new one is found. Finally, you can 
-pass filler='drop' to drop all empty observations (both NaNs and humdrum
-periods).
-
-:param snap_to: A pandas DataFrame to align the results to. Default is None.
-:param filler: A string representing the filler token. Default is 'forward'.
-:param output: A string representing the output format. Default is 'array'.
-:return: A numpy array or pandas Series representing the harmonic keys
-    analysis.
-
-See Also
---------
-:meth:`cdata`
-:meth:`chords`
-:meth:`functions`
-:meth:`harm`
-:meth:`harmKeys`
-
-Example
--------
-.. code-block:: python
-
-    piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
-    piece.harm()
-"""
 
 def addMEINote(note, parent, syl=None):
     note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
