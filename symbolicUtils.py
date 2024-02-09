@@ -31,6 +31,7 @@ import json
 import numpy as np
 import pandas as pd
 import re
+import requests
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
@@ -251,13 +252,13 @@ def combineUnisons(col):
 
 def fromJSON(json_path):
     """
-    Load a JSON file into a pandas DataFrame.
+    Load a JSON or dez file/url into a pandas DataFrame.
 
     The outermost keys of the JSON object are interpreted as the index values of 
     the DataFrame and should be in seconds with decimal places allowed. The 
     second-level keys become the columns of the DataFrame.
 
-    :param json_path: Path to a JSON file.
+    :param json_path: Path to a JSON or dez file.
     :return: A pandas DataFrame representing the JSON data.
 
     See Also
@@ -272,10 +273,22 @@ def fromJSON(json_path):
         piece = Score('./test_files/CloseToYou.mei.xml')
         piece.fromJSON(json_path='./test_files/CloseToYou.json')
     """
-    with open(json_path) as json_data:
-        data = json.load(json_data)
-    df = pd.DataFrame(data).T
-    df.index = df.index.astype(str)
+    if json_path.startswith('https://') or json_path.startswith('http://'):
+        if json_path.startswith('https://github.com/'):
+            json_path = 'https://raw.githubusercontent.com/' + json_path[19:].replace('/blob/', '/', 1)
+        response = requests.get(json_path)
+        data = json.loads(response.text)
+    else:
+        with open(json_path) as json_data:
+            data = json.load(json_data)
+
+    if (isinstance(json_path, str) and json_path.lower().endswith('.dez')) or json_path.name.lower().endswith('.dez'):
+        df = pd.DataFrame.from_records(data['labels'])
+        if 'start' in df.columns:
+            df['start'] = df['start'].fillna(0.0)
+    else:   # .json file
+        df = pd.DataFrame(data).T
+        df.index = df.index.astype(str)
     return df
 
 def _id_gen(start=1):

@@ -17,9 +17,9 @@ import math
 import music21 as m21
 m21.environment.set('autoDownload', 'allow')
 import os
-import requests
 from symbolicUtils import *
 import tempfile
+pyAMPACT_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class Score:
@@ -49,7 +49,7 @@ class Score:
     def __init__(self, score_path):
         self._analyses = {}
         if score_path.startswith('https://github.com/'):
-            score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/')
+            score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/', 1)
         self.path = score_path
         self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
         self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
@@ -721,17 +721,9 @@ class Score:
         information is available in the .harmKeys method. This is similar to the
         .harmKeys, .functions, .chords, and .cdata methods. The default is for the
         results to be returned as a 1-d array, but you can set `output='series'`
-        for a pandas series instead. If want to get the results of a different spine
+        for a pandas series instead which is helpful if you're going to concatenate
+        the results to a dataframe. If want to get the results of a different spine
         type (i.e. not one of the ones listed above), see :meth:`getSpines`.
-
-        Example
-        -------
-        .. code-block:: python
-
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
-            pianoRoll = piece.pianoRoll()
-            harm = piece.harm(snap_to=pianoRoll)
-            combined = pd.concat((pianoRoll, harm))
 
         If you want to align these results so that they match the columnar (time) axis
         of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
@@ -748,8 +740,8 @@ class Score:
 
             piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
             pianoRoll = piece.pianoRoll()
-            harm = piece.harm(snap_to=pianoRoll)
-            piece.harm()
+            harm = piece.harm(snap_to=pianoRoll, output='series')
+            combined = pd.concat((pianoRoll, harm))
         
         The `sampled` and `mask` dfs often have more observations than the spine 
         contents, so you may want to fill in these new empty slots somehow. The kern 
@@ -777,8 +769,6 @@ class Score:
         :meth:`functions`
         :meth:`harmKeys`
         """
-        if snap_to is not None:
-            output = 'series'
         return snapTo(self._analyses['harm'], snap_to, filler, output)
 
     def functions(self, snap_to=None, filler='forward', output='array'):
@@ -1033,6 +1023,108 @@ class Score:
             print(f'\t***This is not a kern file so there are no spines to import.***')
         else:
             print(f'\t***No {spineType} spines were found.***')
+
+    def dez(self, path=''):
+        """
+        Get the labels data from a .dez file/url and return it as a dataframe. Calls
+        fromJSON to do this. The "meta" portion of the dez file is ignored. If no
+        path is provided, the last dez table imported with this method is returned.
+
+        :param path: A string representing the path to the .dez file.
+        :return: A pandas DataFrame representing the labels in the .dez file.
+        """ 
+        if 'dez' not in self._analyses:
+            if not path:
+                print('No path was provided and no prior analysis was found. Please provide a path to a .dez file.')
+                return
+            elif not path.endswith('.dez'):
+                print('The file provided is not a .dez file.')
+                return
+            elif not path.startswith('http') and not os.path.exists(path):
+                print('The file provided does not exist.')
+                return
+            else:
+                self._analyses['dez'] = {path: fromJSON(path)}
+        else:
+            if not path:   # return the last dez table
+                return next(reversed(self._analyses['dez'].values()))
+            else:
+                if path not in self._analyses['dez']:
+                    self._analyses['dez'][path] = fromJSON(path)
+        return self._analyses['dez'][path]
+
+    def form(self, snap_to=None, filler='forward', output='array', dez_path=''):
+        """
+        Get the "Structure" labels from a .dez file/url and return it as an array or a
+        time-aligned pandas Series. The default is for the results to be returned as a 1-d
+        array, but you can set `output='series'` for a pandas series instead. If you want to align
+        these results so that they match the columnar (time) axis of the pianoRoll, sampled, or
+        mask results, you can pass the pianoRoll or mask that you want to align to as the `snap_to`
+        parameter. Doing that makes it easier to combine these results with any of the pianoRoll,
+        sampled, or mask tables to have both in a single table which can make data analysis easier.
+        This example shows how to get the form analysis from a .dez file.
+
+        Example
+        -------
+        .. code-block:: python
+
+            # NB: pyAMPACT_dir is a real variable you can use in symbolic.py
+            piece = Score(pyAMPACT_dir + '/test_files/K279-1.krn')
+            form = piece.form(dez_path=pyAMPACT_dir + 'test_files/K279-1_harmony_texture.dez')
+        """
+        if not dez_path and 'dez' not in self._analyses:
+            print('No .dez file was found.')
+        else:
+            dez = self.dez(dez_path)
+            df = dez.set_index('start').rename_axis(None)
+            df = df.loc[(df['type'] == 'Structure'), 'tag']
+            if df.empty:
+                print('No "Structure" analysis was found in the .dez file.')
+            else:
+                return snapTo(df, snap_to, filler, output)
+
+    def romanNumerals(self, snap_to=None, filler='forward', output='array', dez_path=''):
+        """
+        Get the roman numeral labels from a .dez file/url or **harm spine and return it as an array
+        or a time-aligned pandas Series. The default is for the results to be returned as a 1-d
+        array, but you can set `output='series'` for a pandas series instead. If you want to align
+        these results so that they match the columnar (time) axis of the pianoRoll, sampled, or mask
+        results, you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
+        Doing that makes it easier to combine these results with any of the pianoRoll, sampled, or mask
+        tables to have both in a single table which can make data analysis easier. This example shows
+        how to get the roman numeral analysis from a kern score that has a **harm spine.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            romanNumerals = piece.romanNumerals(snap_to=pianoRoll)
+
+        The next example shows how to get the roman numeral analysis from a .dez file.
+
+        Example
+        -------
+        .. code-block:: python
+
+            # NB: pyAMPACT_dir is a real variable you can use in symbolic.py
+            piece = Score(pyAMPACT_dir + '/test_files/K279-1.krn')
+            romanNumerals = piece.romanNumerals(dez_path=pyAMPACT_dir + 'test_files/K279-1_harmony_texture.dez')
+        """
+        if dez_path or 'dez' in self._analyses:
+            dez = self.dez(dez_path)
+            if dez is not None:
+                df = dez.set_index('start').rename_axis(None)
+                df = df.loc[(df['type'] == 'Harmony'), 'tag']
+                if df.empty:
+                    print('No "Harmony" analysis was found in the .dez file.')
+                    return
+                return snapTo(df, snap_to, filler, output)
+        if 'harm' in self._analyses:
+            return self.harm(snap_to=snap_to, filler=filler, output=output)
+        # add m21 approach to getting roman numerals here
+        print('No .dez file or **harm spine was found.')
 
     def _m21ObjectsNoTies(self):
         """
