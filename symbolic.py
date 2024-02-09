@@ -19,7 +19,6 @@ m21.environment.set('autoDownload', 'allow')
 import os
 from symbolicUtils import *
 import tempfile
-pyAMPACT_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class Score:
@@ -1068,9 +1067,8 @@ class Score:
         -------
         .. code-block:: python
 
-            # NB: pyAMPACT_dir is a real variable you can use in symbolic.py
-            piece = Score(pyAMPACT_dir + '/test_files/K279-1.krn')
-            form = piece.form(dez_path=pyAMPACT_dir + 'test_files/K279-1_harmony_texture.dez')
+            piece = Score('test_files/K279-1.krn')
+            form = piece.form(dez_path='test_files/K279-1_harmony_texture.dez')
         """
         if not dez_path and 'dez' not in self._analyses:
             print('No .dez file was found.')
@@ -1108,9 +1106,8 @@ class Score:
         -------
         .. code-block:: python
 
-            # NB: pyAMPACT_dir is a real variable you can use in symbolic.py
-            piece = Score(pyAMPACT_dir + '/test_files/K279-1.krn')
-            romanNumerals = piece.romanNumerals(dez_path=pyAMPACT_dir + 'test_files/K279-1_harmony_texture.dez')
+            piece = Score('test_files/K279-1.krn')
+            romanNumerals = piece.romanNumerals(dez_path='test_files/K279-1_harmony_texture.dez')
         """
         if dez_path or 'dez' in self._analyses:
             dez = self.dez(dez_path)
