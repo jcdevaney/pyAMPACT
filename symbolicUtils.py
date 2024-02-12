@@ -31,6 +31,7 @@ import json
 import numpy as np
 import pandas as pd
 import re
+import requests
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
@@ -133,6 +134,7 @@ imported_scores = {}
 tinyNotation_pattern = re.compile("^[-0-9a-zA-Zn _/'#:~.{}=]+$")
 volpiano_pattern = re.compile(r'^\d--[a-zA-Z0-9\-\)\?]*$')
 
+# TODO: this meiDeclaration is problematic for VHV.
 meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
 <!-- <?xml-model href="../../Documents/music-encoding/dist/schemata/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>-->
 <?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
@@ -140,49 +142,6 @@ meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
 # <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
 # <?xml-model href="https://music-encoding.org/schema/5.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
 
-reused_docstring =  """
-The methods .harmKeys, .harm, .functions, .chords, and .cdata all work in 
-the following way. They get the desired analysis from the relevant spine if 
-this piece is a kern file and has that spine. The default is for the results 
-to be returned as a 1-d array, but you can set `output='series'` for a pandas 
-series instead. If you want to align these results so that they match the 
-columnar (time) axis of the pianoRoll, sampled, or mask results, you can pass 
-the pianoRoll or mask that you want to align to as the `snap_to` parameter.
-
-The `sampled` and `mask` dfs often have more observations than the spine 
-contents, so you may want to fill in these new empty slots somehow. The kern 
-format uses '.' as a filler token so you can pass this as the `filler` 
-parameter to fill all the new empty slots with this as well. If you choose 
-some other value, say `filler='_'`, then in addition to filling in the empty 
-slots with underscores, this will also replace the kern '.' observations with 
-'_'. If you want to fill them in with NaN's as pandas usually does, you can 
-pass `filler='nan'` as a convenience. If you want to "forward fill" these 
-results, you can pass `filler='forward'` (default). This will propagate the 
-last non-period ('.') observation until a new one is found. Finally, you can 
-pass filler='drop' to drop all empty observations (both NaNs and humdrum
-periods).
-
-:param snap_to: A pandas DataFrame to align the results to. Default is None.
-:param filler: A string representing the filler token. Default is 'forward'.
-:param output: A string representing the output format. Default is 'array'.
-:return: A numpy array or pandas Series representing the harmonic keys
-    analysis.
-
-See Also
---------
-:meth:`cdata`
-:meth:`chords`
-:meth:`functions`
-:meth:`harm`
-:meth:`harmKeys`
-
-Example
--------
-.. code-block:: python
-
-    piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
-    piece.harm()
-"""
 
 def addMEINote(note, parent, syl=None):
     note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
@@ -293,13 +252,13 @@ def combineUnisons(col):
 
 def fromJSON(json_path):
     """
-    Load a JSON file into a pandas DataFrame.
+    Load a JSON or dez file/url into a pandas DataFrame.
 
     The outermost keys of the JSON object are interpreted as the index values of 
     the DataFrame and should be in seconds with decimal places allowed. The 
     second-level keys become the columns of the DataFrame.
 
-    :param json_path: Path to a JSON file.
+    :param json_path: Path to a JSON or dez file.
     :return: A pandas DataFrame representing the JSON data.
 
     See Also
@@ -314,10 +273,22 @@ def fromJSON(json_path):
         piece = Score('./test_files/CloseToYou.mei.xml')
         piece.fromJSON(json_path='./test_files/CloseToYou.json')
     """
-    with open(json_path) as json_data:
-        data = json.load(json_data)
-    df = pd.DataFrame(data).T
-    df.index = df.index.astype(str)
+    if json_path.startswith('https://') or json_path.startswith('http://'):
+        if json_path.startswith('https://github.com/'):
+            json_path = 'https://raw.githubusercontent.com/' + json_path[19:].replace('/blob/', '/', 1)
+        response = requests.get(json_path)
+        data = json.loads(response.text)
+    else:
+        with open(json_path) as json_data:
+            data = json.load(json_data)
+
+    if (isinstance(json_path, str) and json_path.lower().endswith('.dez')) or json_path.name.lower().endswith('.dez'):
+        df = pd.DataFrame.from_records(data['labels'])
+        if 'start' in df.columns:
+            df['start'] = df['start'].fillna(0.0)
+    else:   # .json file
+        df = pd.DataFrame(data).T
+        df.index = df.index.astype(str)
     return df
 
 def _id_gen(start=1):
@@ -551,22 +522,29 @@ def snapTo(data, snap_to=None, filler='forward', output='array'):
     :return: The passed data in the shape of the `snap_to` dataframe's columns 
         with any filling operations applied.
     """
+    if isinstance(data, list):
+        if len(data) == 1:
+            _data = data[0].copy()
+        else:
+            _data = pd.concat(data, axis=1)
+    else:
+        _data = data.copy()
     if snap_to is not None:
-        data = data.reindex(snap_to.columns)
+        _data = _data.reindex(snap_to.columns)
     if filler != '.':
-        data.replace('.', np.nan, inplace=True)
+        _data.replace('.', np.nan, inplace=True)
     if isinstance(filler, str):
         filler = filler.lower()
         if filler == 'forward':
-            data.ffill(inplace=True)
+            _data.ffill(inplace=True)
         else:
             if filler in ('nan', 'drop'):
-                data.fillna(np.nan, inplace=True)
+                _data.fillna(np.nan, inplace=True)
             else:
-                data.fillna(filler, inplace=True)
+                _data.fillna(filler, inplace=True)
     if filler == 'drop':
-        data.dropna(inplace=True)
+        _data.dropna(inplace=True)
     if output == 'array':
-        return data.values
+        return _data.values
     else:
-        return data
+        return _data

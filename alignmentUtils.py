@@ -23,6 +23,9 @@ alignmentUtils
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import librosa
+
 from scipy.signal import gaussian
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
@@ -377,14 +380,14 @@ def fill_trans_mat(trans_seed, notes):
 
 def orio_simmx(M, D):
     """
-    Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity matrix.
+    Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity matrix
 
     Parameters:
-    - M: Binary mask where each column corresponds to a row in the output matrix S.
-    - D: Regular spectrogram, where columns of S correspond to columns of D.
+    - M: Binary mask where each column corresponds to a row in the output matrix S
+    - D: Regular spectrogram, where columns of S correspond to columns of D
 
     Returns:
-    - S: Similarity matrix.
+    - S: Similarity matrix
     """
     # Convert to NumPy arrays if input is DataFrame
     M = M.values if isinstance(M, pd.DataFrame) else M
@@ -399,8 +402,6 @@ def orio_simmx(M, D):
     # Calculate the similarities
     S = np.zeros((M.shape[1], D.shape[1]))
 
-    print("Shape of M:", M.shape)
-    print("Shape of D:", D.shape)
 
 
     # This way is slow
@@ -469,20 +470,195 @@ def maptimes(t, intime, outtime):
     Returns:
     - u: 2D numpy array, mapped times
     """
-
-    t = t.flatten()  # make into a 1D array
+    
+    tr, tc = t.shape
+    t = t.flatten()    
     nt = len(t)
     nr = len(intime)
     
     # Decidedly faster than outer-product-array way
-    u = t.copy()
+    u = t.flatten()
     for i in range(nt):
-        u[i] = outtime[min(np.where(intime > t[i])[0], len(outtime) - 1)] # Original
-        # u[i] = outtime[min(np.where(intime > t[i])[0].all(), len(outtime) - 1)] # Alternate
-        # u[i] = outtime[min(np.where(intime > t[i])[0].min(), len(outtime) - 1)] # Not correct
-
-
-
-    u = u.reshape((nr, -1))
+        idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+        u[i] = outtime[idx]        
+    
+    u = np.reshape(u, (tr, tc))
     return u
 
+
+def calculate_f0_est(filename, hop_length, win_ms, tsr):    
+            
+    y, sr = librosa.load(filename, sr=None)
+
+    # Compute STFT
+    stft = librosa.stft(y, n_fft=win_ms, hop_length=hop_length)
+
+    # Compute magnitude and phase of STFT
+    magnitude = np.abs(stft)
+    phase = np.angle(stft)
+
+    # Compute instantaneous frequency
+    # Instantaneous frequency = Δ(phase) / Δ(time)
+    # Compute phase difference between consecutive frames
+    delta_phase = np.diff(phase, axis=1)
+    # Compute time difference between consecutive frames
+    delta_time = hop_length / tsr
+    # Compute instantaneous frequency
+    instantaneous_freq = np.diff(phase, axis=1) / delta_time
+
+    # Estimate f0 by finding the dominant frequency bin at each time frame
+    f0 = np.argmax(magnitude, axis=0) * tsr / win_ms
+
+    # Estimate power at each time frame (sum of magnitude squared)
+    power = np.sum(magnitude**2, axis=0)
+
+    # Now you have f0 and power estimates for each time frame
+    # Time axis
+    time = np.arange(len(instantaneous_freq[0])) * hop_length / sr
+    new_time_value = time[-1] + hop_length / sr
+    time = np.append(time, new_time_value)
+    
+    # # Plot Instantaneous Frequency
+    # plt.figure(figsize=(10, 6))
+    # plt.subplot(3, 1, 1)
+    # plt.imshow(instantaneous_freq, aspect='auto', origin='lower', cmap='viridis')
+    # plt.colorbar(label='Instantaneous Frequency (Hz)')
+    # plt.title('Instantaneous Frequency')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Frequency Bin')
+
+    # # Plot f0 Estimate
+    # plt.subplot(3, 1, 2)
+    # plt.plot(time, f0)
+    # plt.title('Fundamental Frequency (f0) Estimate')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Frequency (Hz)')
+
+    # # Plot Power Estimate
+    # plt.subplot(3, 1, 3)
+    # plt.plot(time, power)
+    # plt.title('Power Estimate')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Power')
+    # plt.tight_layout()
+    # plt.show()
+
+    return f0, power
+
+
+def f0_est_weighted_sum(x, f, f0i, fMax, fThresh):
+    # Set default values if not provided
+    if fMax is None:
+        fMax = 5000
+    if fThresh is None:
+        fThresh = 2 * np.median(np.diff(f[:, 0]))
+
+    x2 = np.abs(x) ** 2
+    wNum = np.zeros_like(x2)
+    wDen = np.zeros_like(x2)
+    strips = {}
+
+    maxI = int(np.max(fMax / f0i))
+    for i in range(1, maxI + 1):
+        strip = (np.abs(f - f0i * i) < fThresh) * x2        
+        strips[i] = strip
+        np.add(wNum, (1 / i) * strip)
+        np.add(wDen, strip)
+
+    
+    np.multiply(wNum, (f < fMax))
+    np.multiply(wDen, (f < fMax))
+
+    
+    f0 = np.sum(wNum * f, axis=0) / np.sum(wDen, axis=0)
+    pow = np.sum(wDen, axis=0)
+    
+
+    return f0, pow, strips
+
+
+def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True):
+    # Use f0_est_weighted_sum on one note using spectrogram or IF features
+    
+    win_s = 0.064
+    nIter = 10
+    
+    win = int(win_s * tsr)
+    hop = int(win / 8)
+    
+    inds = np.arange(round(noteStart_s * tsr / hop), round(noteEnd_s * tsr / hop) + 1)
+    
+    x = np.abs(D[:, inds]) ** (1/6)
+    f = (np.arange(win // 2 + 1) * tsr) / win
+    
+    if useIf:
+        xf = F[:, inds]
+    else:
+        xf = np.tile(f[:, np.newaxis], (1, x.shape[1]))
+    
+    f0 = f0_est_weighted_sum(x, xf, f0i)
+    
+    for _ in range(nIter):
+        f0 = f0_est_weighted_sum(x, xf, f0)
+    
+    _, p, partials = f0_est_weighted_sum(x**6, xf, f0, 22050)
+    
+    M = partials[0]
+    
+    for i in range(1, len(partials)):
+        M += partials[i]
+    
+    # Calculate time values
+    t = np.arange(len(inds)) * hop / tsr
+    
+    return f0, p, t, M, xf
+
+
+# ifgram v2 - not used
+def ifgram_v2(X, N=256, W=None, H=None, SR=1):
+    if W is None:
+        W = N
+    if H is None:
+        H = W / 2
+
+    s = len(X)
+    X = X.reshape((1, -1))  # Ensure X is a 1-D row vector
+
+    win = 0.5 * (1 - np.cos(np.arange(W) / W * 2 * np.pi))
+    dwin = -np.pi / (W / SR) * np.sin(np.arange(W) / W * 2 * np.pi)
+
+    norm = 2 / np.sum(win)
+
+    nhops = 1 + int(np.floor((s - W) / H))
+
+    F = np.zeros((1 + N // 2, nhops))
+    D = np.zeros((1 + N // 2, nhops), dtype=complex)
+
+    nmw1 = int(np.floor((N - W) / 2))
+    nmw2 = N - W - nmw1
+
+    ww = 2 * np.pi * np.arange(N) * SR / N
+
+    for h in range(nhops):
+        u = X[0, np.round((h - 1) * H + np.arange(W)).astype(int)]  # Fix here
+        wu = win * u
+        du = dwin * u
+
+        if N > W:
+            wu = np.concatenate((np.zeros(nmw1), wu, np.zeros(nmw2)))
+            du = np.concatenate((np.zeros(nmw1), du, np.zeros(nmw2)))
+        elif N < W:
+            wu = wu[-nmw1:N - nmw1]
+            du = du[-nmw1:N - nmw1]
+
+        t1 = np.fft.fftshift(np.fft.fft(du))
+        t2 = np.fft.fftshift(np.fft.fft(wu))
+        D[:, h] = t2[:1 + N // 2] * norm
+
+        t = t1 + 1j * (ww * t2)
+        a, b = np.real(t2), np.imag(t2)
+        da, db = np.real(t), np.imag(t)
+        instf = (1 / (2 * np.pi)) * (a * db - b * da) / ((a * a + b * b) + (np.abs(t2) == 0))
+        F[:, h] = instf[:1 + N // 2]
+
+    return F, D

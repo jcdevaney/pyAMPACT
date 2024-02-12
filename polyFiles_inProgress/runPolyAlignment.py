@@ -98,7 +98,7 @@ def runPolyAlignment(audiofile, midifile, meansCovarsMat='polySingingMeansCovars
     
     plt.title('Estimated Pitch (Hz)')
     plt.yticks([])
-    plt.show()
+    # plt.show()
 
     sys.exit()
 
@@ -198,7 +198,7 @@ def runPolyAlignment(audiofile, midifile, meansCovarsMat='polySingingMeansCovars
                 desired_part = nmat[part_name]
                 pitches_i[j, 0] = desired_part['MIDI'].iloc[0] + tuning
                 pitches_i[j, 1] = 0
-                try:                    
+                try:
                     pitches_i[j, 2] = desired_part.iloc[idxCell + 1, 4] + tuning
                 except IndexError:
                     pass

@@ -95,7 +95,7 @@ def calculate_vibrato(note_vals, sr):
     L = len(note_vals)  # Length of signal
     Y = np.fft.fft(note_vals) / L  # Run FFT on normalized note vals
     w = np.arange(0, L) * sr / L  # Set FFT frequency grid
-    print(Y)
+    # print(Y)
     
     vibrato_depth_tmp, noteVibratoPos = max(abs(Y)), np.argmax(abs(Y))  # Find the max value and its position
     vibrato_depth = vibrato_depth_tmp * 2  # Multiply the max by 2 to find depth (above and below zero)

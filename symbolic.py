@@ -17,7 +17,6 @@ import math
 import music21 as m21
 m21.environment.set('autoDownload', 'allow')
 import os
-import requests
 from symbolicUtils import *
 import tempfile
 
@@ -49,7 +48,7 @@ class Score:
     def __init__(self, score_path):
         self._analyses = {}
         if score_path.startswith('https://github.com/'):
-            score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/')
+            score_path = 'https://raw.githubusercontent.com/' + score_path[19:].replace('/blob/', '/', 1)
         self.path = score_path
         self.fileName = score_path.rsplit('.', 1)[0].rsplit('/')[-1]
         self.fileExtension = score_path.rsplit('.', 1)[1] if '.' in score_path else ''
@@ -72,6 +71,13 @@ class Score:
             self._import_function_harm_spines()
         self.public = '\n'.join([f'{prop.ljust(15)}{type(getattr(self, prop))}' for prop in dir(self) if not prop.startswith('_')])
         self._partList()
+        # Extract chord symbols
+        # chord_symbols = []
+        # for flat in self._flatParts:
+        #     for el in flat.getElementsByClass(m21.harmony.ChordSymbol):
+        #         if el.classes[0] == 'ChordSymbol':
+        #             import pdb; pdb.set_trace()
+        #             chord_symbols.append(el.figure)
     
     def _assignM21Attributes(self, path=''):
         """
@@ -195,7 +201,7 @@ class Score:
                 if len(df.columns > 1):  # swap elements in cols at this offset until all of them fill the space left before the next note in each col
                     for jj, ndx in enumerate(df.index):
                         # calculate dur inside the loop to avoid having to swap its elements like we do for df
-                        dur = df.applymap(lambda cell: round(float(cell.quarterLength), 5), na_action='ignore')
+                        dur = df.map(lambda cell: round(float(cell.quarterLength), 5), na_action='ignore')
                         for thisCol in range(len(df.columns) - 1):
                             if isinstance(df.iat[jj, thisCol], float):  # ignore NaNs
                                 continue
@@ -330,59 +336,73 @@ class Score:
         if self.fileExtension == 'krn' or path:
             humFile = m21.humdrum.spineParser.HumdrumFile(path or self.path)
             humFile.parseFilename()
+            foundSpines = set()
             for spine in humFile.spineCollection:
-                if spine.spineType in ('harm', 'function', 'chord', 'cdata'):
-                    start = False
-                    vals, valPositions = [], []
-                    if spine.spineType == 'harm':
-                        keyVals, keyPositions = [], []
-                    for i, event in enumerate(spine.eventList):
-                        contents = event.contents
-                        if contents.endswith(':') and contents.startswith('*'):
-                            start = True
-                            # there usually won't be any m21 objects at the same position as the key events,
-                            # so use the position from the next item in eventList if there is a next item.
-                            if spine.spineType == 'harm' and i + 1 < len(spine.eventList):
-                                keyVals.append(contents[1:-1])     # [1:-1] to remove the * and : characters
-                                keyPositions.append(spine.eventList[i+1].position)
-                            continue
-                        elif not start or '!' in contents or '=' in  contents or '*' in contents:
-                            continue
-                        else:
-                            if spine.spineType == 'function':
-                                func = function_pattern.sub('', contents)
-                                if len(func):
-                                    vals.append(func)
-                                else:
-                                    continue
-                            else:
-                                vals.append(contents)
+                if spine.spineType in ('kern', 'text', 'dynam'):
+                    continue
+                foundSpines.add(spine.spineType)
+                start = False
+                vals, valPositions = [], []
+                if spine.spineType == 'harm':
+                    keyVals, keyPositions = [], []
+                for i, event in enumerate(spine.eventList):
+                    contents = event.contents
+                    if contents.endswith(':') and contents.startswith('*'):
+                        start = True
+                        # there usually won't be any m21 objects at the same position as the key events,
+                        # so use the position from the next item in eventList if there is a next item.
+                        if spine.spineType == 'harm' and i + 1 < len(spine.eventList):
+                            keyVals.append(contents[1:-1])     # [1:-1] to remove the * and : characters
+                            keyPositions.append(spine.eventList[i+1].position)
+                        continue
+                    elif not start and spine.spineType not in ('function', 'harm') and not contents.startswith('*'):
+                        start = True
+                        if not contents.startswith('!') and not contents.startswith('='):
+                            vals.append(contents)
                             valPositions.append(event.position)
+                    elif not start or '!' in contents or '=' in  contents or '*' in contents:
+                        continue
+                    else:
+                        if spine.spineType == 'function':
+                            functionLabel = function_pattern.sub('', contents)
+                            if len(functionLabel):
+                                vals.append(functionLabel)
+                            else:
+                                continue
+                        else:
+                            vals.append(contents)
+                        valPositions.append(event.position)
 
-                    df1 = self._priority()
-                    name = spine.spineType.title()
-                    if name == 'Cdata':
-                        df2 = pd.DataFrame([ast.literal_eval(val) for val in vals], index=valPositions)
-                    else:
-                        df2 = pd.DataFrame({name: vals}, index=valPositions)
-                    joined = df1.join(df2, on='Priority')
-                    if name != 'Cdata':   # get all the columns from the third to the end. Usually just 1 col except for cdata
-                        res = joined.iloc[:, 2].copy()
-                    else:
-                        res = joined.iloc[:, 2:].copy()
-                    res.index = joined['Offset']
-                    res.index.name = ''
-                    self._analyses[spine.spineType] = res
-                    if spine.spineType == 'harm' and len(keyVals):
-                        keyName = 'harmKeys'
-                        # key records are usually not found at a kern line with notes so take the next valid one
-                        keyPositions = [df1.iat[np.where(df1.Priority >= kp)[0][0], 0] for kp in keyPositions]
-                        df3 = pd.DataFrame({keyName: keyVals}, index=keyPositions)
-                        joined = df1.join(df3, on='Priority')
-                        ser = joined.iloc[:, 2].copy()
-                        ser.index = joined['Offset']
-                        ser.index.name = ''
-                        self._analyses[keyName] = ser
+                df1 = self._priority()
+                name = spine.spineType.title()
+                if name == 'Cdata':
+                    df2 = pd.DataFrame([ast.literal_eval(val) for val in vals], index=valPositions)
+                else:
+                    df2 = pd.DataFrame({name: vals}, index=valPositions)
+                joined = df1.join(df2, on='Priority')
+                if name != 'Cdata':   # get all the columns from the third to the end. Usually just 1 col except for cdata
+                    res = joined.iloc[:, 2].copy()
+                else:
+                    res = joined.iloc[:, 2:].copy()
+                res.index = joined['Offset']
+                res.index.name = ''
+                if spine.spineType not in self._analyses:
+                    self._analyses[spine.spineType] = [res]
+                else:
+                    self._analyses[spine.spineType].append(res)
+                if spine.spineType == 'harm' and len(keyVals):
+                    keyName = 'harmKeys'
+                    # key records are usually not found at a kern line with notes so take the next valid one
+                    keyPositions = [df1.iat[np.where(df1.Priority >= kp)[0][0], 0] for kp in keyPositions]
+                    df3 = pd.DataFrame({keyName: keyVals}, index=keyPositions)
+                    joined = df1.join(df3, on='Priority')
+                    ser = joined.iloc[:, 2].copy()
+                    ser.index = joined['Offset']
+                    ser.index.name = ''
+                    self._analyses[keyName] = ser
+            if len(foundSpines):
+                print('\n\tDetected and imported these spine types:\n\t\t', *foundSpines, '\n')
+                self.foundSpines = foundSpines
 
         for spine in ('function', 'harm', 'harmKeys', 'chord'):
             if spine not in self._analyses:
@@ -500,7 +520,7 @@ class Score:
                 self._analyses['xmlIDs'] = df
                 return df
         # either not xml/mei, or an idString wasn't found
-        df = self._parts(multi_index=True).applymap(lambda obj: f'{obj.id}', na_action='ignore')
+        df = self._parts(multi_index=True).map(lambda obj: f'{obj.id}', na_action='ignore')
         self._analyses['xmlIDs'] = df
         return df
 
@@ -526,7 +546,7 @@ class Score:
             piece.lyrics()
         """
         if 'lyrics' not in self._analyses:
-            self._analyses['lyrics'] = self._parts().applymap(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
+            self._analyses['lyrics'] = self._parts().map(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
         return self._analyses['lyrics'].copy()
 
     def _m21Clefs(self):
@@ -578,7 +598,7 @@ class Score:
         :return: A pandas DataFrame of the clefs in the score in kern format.
         """
         if '_clefs' not in self._analyses:
-            self._analyses['_clefs'] = self._m21Clefs().applymap(kernClefHelper, na_action='ignore')
+            self._analyses['_clefs'] = self._m21Clefs().map(kernClefHelper, na_action='ignore')
         return self._analyses['_clefs']
 
     def dynamics(self):
@@ -622,30 +642,486 @@ class Score:
             if self.fileExtension != 'krn':
                 priority = pd.DataFrame()
             else:
-                priority = self._parts().applymap(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
+                priority = self._parts().map(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
                 priority = pd.DataFrame({'Priority': priority.values, 'Offset': priority.index})
             self._analyses['_priority'] = priority
         return self._analyses['_priority']
 
     def harmKeys(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harmKeys'].copy(), snap_to, filler, output)
-    harmKeys.__doc__ = reused_docstring
+        """
+        Get the key signature portion of the **harm spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .harm, .functions, .chords, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.harmKeys()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            harmKeys = piece.harmKeys(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, harmKeys))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`getSpines`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['harmKeys'], snap_to, filler, output)
 
     def harm(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['harm'].copy(), snap_to, filler, output)
-    harm.__doc__ = reused_docstring
+        """
+        Get the harmonic analysis portion of the **harm spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. The prevailing
+        key signature information is not included here from the harm spine, but that key
+        information is available in the .harmKeys method. This is similar to the
+        .harmKeys, .functions, .chords, and .cdata methods. The default is for the
+        results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead which is helpful if you're going to concatenate
+        the results to a dataframe. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            harm = piece.harm(snap_to=pianoRoll, output='series')
+            combined = pd.concat((pianoRoll, harm))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harmKeys`
+        """
+        return snapTo(self._analyses['harm'], snap_to, filler, output)
 
     def functions(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['function'].copy(), snap_to, filler, output)
-    functions.__doc__ = reused_docstring
+        """
+        Get the harmonic function labels from a **function spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .harm, .harmKeys, .chords, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.functions()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            functions = piece.functions(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, functions))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`harm`
+        :meth:`harmKeys`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['function'], snap_to, filler, output)
 
     def chords(self, snap_to=None, filler='forward', output='array'):
-        return snapTo(self._analyses['chord'].copy(), snap_to, filler, output)
-    chords.__doc__ = reused_docstring
+        """
+        Get the chord labels from the **chord spine in a kern file if there
+        is one and return it as an array or a time-aligned pandas Series. This is
+        similar to the .functions, .harm, .harmKeys, and .cdata methods. The default
+        is for the results to be returned as a 1-d array, but you can set `output='series'`
+        for a pandas series instead. If want to get the results of a different spine
+        type (i.e. not one of the ones listed above), see :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.chords()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            chords = piece.chords(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, chords))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        """
+        if snap_to is not None:
+            output = 'series'
+        return snapTo(self._analyses['chord'], snap_to, filler, output)
 
     def cdata(self, snap_to=None, filler='forward', output='dataframe'):
-        return snapTo(self._analyses['cdata'].copy(), snap_to, filler, output)
-    cdata.__doc__ = reused_docstring
+        """
+        Get the cdata records from **cdata spines in a kern file if there
+        are any and return it as a pandas DataFrame. This is
+        similar to the .harm, .functions, .chords, and .harmKeys methods, with the
+        exception that this method defaults to returning a dataframe since there are
+        often more than one cdata spine in a kern score. If want to get the results
+        of a different spine type (i.e. not one of the ones listed above), see
+        :meth:`getSpines`.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece.cdata()
+
+        If you want to align these results so that they match the columnar (time) axis
+        of the pianoRoll, sampled, or mask results, you can pass the pianoRoll or mask
+        that you want to align to as the `snap_to` parameter. Doing that makes it easier
+        to combine these results with any of the pianoRoll, sampled, or mask tables to
+        have both in a single table which can make data analysis easier. Passing a `snap_to`
+        argument will automatically cause the return value to be a pandas series since
+        that's facilitates combining the two. Here's how you would use the `snap_to`
+        parameter and then combine the results with the pianoRoll to create a single table.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            cdata = piece.cdata(snap_to=pianoRoll)
+            combined = pd.concat((pianoRoll, cdata))
+        
+        The `sampled` and `mask` dfs often have more observations than the spine 
+        contents, so you may want to fill in these new empty slots somehow. The kern 
+        format uses '.' as a filler token so you can pass this as the `filler` 
+        parameter to fill all the new empty slots with this as well. If you choose 
+        some other value, say `filler='_'`, then in addition to filling in the empty 
+        slots with underscores, this will also replace the kern '.' observations with 
+        '_'. If you want to fill them in with NaN's as pandas usually does, you can 
+        pass `filler='nan'` as a convenience. If you want to "forward fill" these 
+        results, you can pass `filler='forward'` (default). This will propagate the 
+        last non-period ('.') observation until a new one is found. Finally, you can 
+        pass filler='drop' to drop all empty observations (both NaNs and humdrum
+        periods).
+
+        :param snap_to: A pandas DataFrame to align the results to. Default is None.
+        :param filler: A string representing the filler token. Default is 'forward'.
+        :param output: A string representing the output format. Default is 'array'.
+        :return: A numpy array or pandas Series representing the harmonic keys
+            analysis.
+
+        See Also
+        --------
+        :meth:`chords`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        :meth:`getSpines`
+        """
+        if snap_to is not None:
+            output = 'dataframe'
+        return snapTo(self._analyses['cdata'], snap_to, filler, output)
+
+    def getSpines(self, spineType):
+        """
+        Return a pandas DataFrame of a less common spine type. This method is a
+        window into the vast ecosystem of Humdrum tools making them accessible to
+        pyAMPACT.
+
+        :param spineType: A string representing the spine type to return. You can
+            pass the spine type with or without the "**" prefix.
+        :return: A pandas DataFrame of the given spine type.
+
+        Similar to the .harm, .harmKeys, .functions, .chords, and .cdata methods, this
+        method returns the contents of a specific spine type from a kern file. This is
+        a generic method that can be used to get the contents of any spine type other
+        than: **kern, **dynam, **text, **cdata, **chord, **harm, or **function. Many
+        of the other spine types that you may be interested provide partwise data.
+        For example, the results of Humlib's Renaissance dissonance analysis are given
+        as one "**cdata-rdiss" spine per part. Note that a **cdata-rdiss spine is not
+        the same as a **cdata spine. This is why we return a DataFrame rather than
+        an array or series. If there is just one spine of the spine type you request,
+        the data will still be given as a 1-column dataframe. When you import a kern
+        file, it automatically gets scanned for other spine types and if any are found
+        that are accessible with this method, a list of them will be printed to the
+        console.
+        
+        This example takes a score with **cdata-rdiss spines (Renaissance dissonance
+        analysis), and makes a DataFrame of just the **cdata-rdiss spines. The full
+        score with color-coded dissonance labels can be seen on the Verovio Humdrum
+        Viewer `here <https://verovio.humdrum.org/?k=ey&filter=dissonant%20--color&file=jrp:Tin2004>`_.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://github.com/jcdevaney/pyAMPACT/blob/master/test_files/O_virgo_miserere_mei.krn')
+            rdiss = piece.getSpines('cdata-rdiss')
+
+        See Also
+        --------
+        :meth:`cdata`
+        :meth:`chords`
+        :meth:`dynamics`
+        :meth:`functions`
+        :meth:`harm`
+        :meth:`harmKeys`
+        :meth:`lyrics`
+        """
+        if spineType.startswith('**'):
+            spineType = spineType[2:]
+        if hasattr(self, 'foundSpines') and spineType in self.foundSpines:
+            ret = snapTo(self._analyses[spineType], filler='nan', output='dataframe')
+            ret.dropna(how='all', inplace=True)
+            if len(ret.columns) == len(self.partNames):
+                ret.columns = self.partNames
+            return ret
+        if self.fileExtension != 'krn':
+            print(f'\t***This is not a kern file so there are no spines to import.***')
+        else:
+            print(f'\t***No {spineType} spines were found.***')
+
+    def dez(self, path=''):
+        """
+        Get the labels data from a .dez file/url and return it as a dataframe. Calls
+        fromJSON to do this. The "meta" portion of the dez file is ignored. If no
+        path is provided, the last dez table imported with this method is returned.
+
+        :param path: A string representing the path to the .dez file.
+        :return: A pandas DataFrame representing the labels in the .dez file.
+        """ 
+        if 'dez' not in self._analyses:
+            if not path:
+                print('No path was provided and no prior analysis was found. Please provide a path to a .dez file.')
+                return
+            elif not path.endswith('.dez'):
+                print('The file provided is not a .dez file.')
+                return
+            elif not path.startswith('http') and not os.path.exists(path):
+                print('The file provided does not exist.')
+                return
+            else:
+                self._analyses['dez'] = {path: fromJSON(path)}
+        else:
+            if not path:   # return the last dez table
+                return next(reversed(self._analyses['dez'].values()))
+            else:
+                if path not in self._analyses['dez']:
+                    self._analyses['dez'][path] = fromJSON(path)
+        return self._analyses['dez'][path]
+
+    def form(self, snap_to=None, filler='forward', output='array', dez_path=''):
+        """
+        Get the "Structure" labels from a .dez file/url and return it as an array or a
+        time-aligned pandas Series. The default is for the results to be returned as a 1-d
+        array, but you can set `output='series'` for a pandas series instead. If you want to align
+        these results so that they match the columnar (time) axis of the pianoRoll, sampled, or
+        mask results, you can pass the pianoRoll or mask that you want to align to as the `snap_to`
+        parameter. Doing that makes it easier to combine these results with any of the pianoRoll,
+        sampled, or mask tables to have both in a single table which can make data analysis easier.
+        This example shows how to get the form analysis from a .dez file.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('test_files/K279-1.krn')
+            form = piece.form(dez_path='test_files/K279-1_harmony_texture.dez')
+        """
+        if not dez_path and 'dez' not in self._analyses:
+            print('No .dez file was found.')
+        else:
+            dez = self.dez(dez_path)
+            df = dez.set_index('start').rename_axis(None)
+            df = df.loc[(df['type'] == 'Structure'), 'tag']
+            if df.empty:
+                print('No "Structure" analysis was found in the .dez file.')
+            else:
+                return snapTo(df, snap_to, filler, output)
+
+    def romanNumerals(self, snap_to=None, filler='forward', output='array', dez_path=''):
+        """
+        Get the roman numeral labels from a .dez file/url or **harm spine and return it as an array
+        or a time-aligned pandas Series. The default is for the results to be returned as a 1-d
+        array, but you can set `output='series'` for a pandas series instead. If you want to align
+        these results so that they match the columnar (time) axis of the pianoRoll, sampled, or mask
+        results, you can pass the pianoRoll or mask that you want to align to as the `snap_to` parameter.
+        Doing that makes it easier to combine these results with any of the pianoRoll, sampled, or mask
+        tables to have both in a single table which can make data analysis easier. This example shows
+        how to get the roman numeral analysis from a kern score that has a **harm spine.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            pianoRoll = piece.pianoRoll()
+            romanNumerals = piece.romanNumerals(snap_to=pianoRoll)
+
+        The next example shows how to get the roman numeral analysis from a .dez file.
+
+        Example
+        -------
+        .. code-block:: python
+
+            piece = Score('test_files/K279-1.krn')
+            romanNumerals = piece.romanNumerals(dez_path='test_files/K279-1_harmony_texture.dez')
+        """
+        if dez_path or 'dez' in self._analyses:
+            dez = self.dez(dez_path)
+            if dez is not None:
+                df = dez.set_index('start').rename_axis(None)
+                df = df.loc[(df['type'] == 'Harmony'), 'tag']
+                if df.empty:
+                    print('No "Harmony" analysis was found in the .dez file.')
+                    return
+                return snapTo(df, snap_to, filler, output)
+        if 'harm' in self._analyses:
+            return self.harm(snap_to=snap_to, filler=filler, output=output)
+        # add m21 approach to getting roman numerals here
+        print('No .dez file or **harm spine was found.')
 
     def _m21ObjectsNoTies(self):
         """
@@ -656,7 +1132,7 @@ class Score:
         :return: A list of music21 objects with ties removed.
         """
         if '_m21ObjectsNoTies' not in self._analyses:
-            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).applymap(removeTied).dropna(how='all')
+            self._analyses['_m21ObjectsNoTies'] = self._parts(multi_index=True).map(removeTied).dropna(how='all')
         return self._analyses['_m21ObjectsNoTies']
 
     def _measures(self, compact=False):
@@ -673,7 +1149,8 @@ class Score:
             partCols = self._parts(compact=compact).columns
             partMeasures = []
             for i, part in enumerate(self._flatParts):
-                ser = [pd.Series({m.offset: m.measureNumber for m in part.makeMeasures()}, dtype='Int16')]
+                meas = {m.offset: m.measureNumber for m in part.makeMeasures() if isinstance(m, m21.stream.Measure)}
+                ser = [pd.Series(meas, dtype='Int16')]
                 voiceCount = len([col for col in partCols if col.startswith(self.partNames[i])])
                 partMeasures.extend(ser * voiceCount)
             df = pd.concat(partMeasures, axis=1)
@@ -693,9 +1170,9 @@ class Score:
             barline types.
         """
         if "_barlines" not in self._analyses:
-            partBarlines = [pd.Series({m.offset: m.measureNumber for m in part.getElementsByClass(['Barline'])})
+            partBarlines = [pd.Series({bar.offset: bar.type for bar in part.getElementsByClass(['Barline'])})
                                             for i, part in enumerate(self._flatParts)]
-            df = pd.concat(partBarlines, axis=1)
+            df = pd.concat(partBarlines, axis=1, sort=True)
             df.columns = self.partNames
             self._analyses["_barlines"] = df
         return self._analyses["_barlines"]
@@ -716,7 +1193,7 @@ class Score:
                 kSigs.append(pd.Series({ky.offset: ky for ky in part.getElementsByClass(['KeySignature'])}, name=self.partNames[i]))          
             df = pd.concat(kSigs, axis=1).sort_index(kind='mergesort')
             if kern:
-                df = '*k[' + df.applymap(lambda ky: ''.join([_note.name for _note in ky.alteredPitches]).lower(), na_action='ignore') + ']'
+                df = '*k[' + df.map(lambda ky: ''.join([_note.name for _note in ky.alteredPitches]).lower(), na_action='ignore') + ']'
             self._analyses[('_keySignatures', kern)] = df
         return self._analyses[('_keySignatures', kern)]
 
@@ -770,7 +1247,7 @@ class Score:
             key = ('durations', multi_index)
             if key not in self._analyses:
                 m21objs = self._m21ObjectsNoTies()
-                res = m21objs.applymap(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
+                res = m21objs.map(lambda nrc: nrc.quarterLength, na_action='ignore').astype(float).round(5)
                 if not multi_index and isinstance(res.index, pd.MultiIndex):
                     res = res.droplevel(1)
                 self._analyses[key] = res
@@ -822,7 +1299,7 @@ class Score:
         """
         key = ('midiPitches', multi_index)
         if key not in self._analyses:
-            midiPitches = self._m21ObjectsNoTies().applymap(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
+            midiPitches = self._m21ObjectsNoTies().map(lambda nr: -1 if nr.isRest else nr.pitch.midi, na_action='ignore')
             if not multi_index and isinstance(midiPitches.index, pd.MultiIndex):
                 midiPitches = midiPitches.droplevel(1)
             self._analyses[key] = midiPitches
@@ -858,7 +1335,7 @@ class Score:
             piece.notes()
         """
         if 'notes' not in self._analyses:
-            df = self._m21ObjectsNoTies().applymap(noteRestHelper, na_action='ignore')
+            df = self._m21ObjectsNoTies().map(noteRestHelper, na_action='ignore')
             self._analyses['notes'] = df
         ret = self._analyses['notes'].copy()
         if combine_rests:
@@ -893,7 +1370,7 @@ class Score:
             piece.kernNotes()
         """
         if 'kernNotes' not in self._analyses:
-            self._analyses['kernNotes'] = self._parts(True, True).applymap(kernNRCHelper, na_action='ignore')
+            self._analyses['kernNotes'] = self._parts(True, True).map(kernNRCHelper, na_action='ignore')
         return self._analyses['kernNotes']
 
     def nmats(self, json_path=None, include_cdata=False):
@@ -951,11 +1428,11 @@ class Score:
                 durBeat = dur.iloc[:, i].dropna()
                 part = pd.Series(partName, midi.index, dtype='string')
                 xmlID = ids.iloc[:, i].dropna()
-                onsetSec = pd.Series(dtype='float64')
-                offsetSec = pd.Series(dtype='float64')
+                onsetSec = onsetBeat.copy()
+                offsetSec = onsetBeat + durBeat
                 df = pd.concat([meas, onsetBeat, durBeat, part, midi, onsetSec, offsetSec, xmlID], axis=1, sort=True)
                 df.columns = ['MEASURE', 'ONSET', 'DURATION', 'PART', 'MIDI', 'ONSET_SEC', 'OFFSET_SEC', 'XML_ID']
-                df.MEASURE.ffill(inplace=True)
+                df['MEASURE'] = df['MEASURE'].ffill()
                 df.dropna(how='all', inplace=True, subset=df.columns[1:5])
                 df = df.set_index('XML_ID')
                 if json_path is not None:   # add json data if a json_path is provided
@@ -979,7 +1456,16 @@ class Score:
 
     def pianoRoll(self):
         """
-        Construct a MIDI piano roll.
+        Construct a MIDI piano roll. This representation of a score plots midi pitches
+        on the y-axis (rows) and time on the x-axis (columns). Midi pitches are given
+        as integers from 0 to 127 inclusive, and time is given in quarter notes counting
+        up from the beginning of the piece. At any given time in the piece (column), all
+        the sounding pitches are shown as 1s in the corresponding rows. There is no
+        midi representation of rests so these are not shown in the pianoRoll. Similarly,
+        in this representation you can't tell if a single voice is sounding a given note,
+        of if multiple voices are sounding the same note. The end result looks like a
+        player piano roll but 1s are used instead of holes. This method is primarily
+        used as an intermediate step in the construction of a mask.
 
         Note: There are 128 possible MIDI pitches.
 
@@ -1007,14 +1493,20 @@ class Score:
                 for pitch in mp.loc[offset]:
                     if pitch >= 0:
                         pianoRoll.at[pitch, offset] = 1
-            pianoRoll.fillna(0, inplace=True)
+            pianoRoll = pianoRoll.infer_objects(copy=False).fillna(0)
             self._analyses['pianoRoll'] = pianoRoll
         return self._analyses['pianoRoll']
 
     def sampled(self, bpm=60, obs=20):
         """
         Sample the score according to the given beats per minute (bpm) and the 
-        desired observations per second (obs).
+        desired observations per second (obs). This method is primarily used as an
+        intermediate step in the construction of a mask. It builds on the pianoRoll
+        by sampling the time axis (columns) at the desired rate. The result is a
+        DataFrame where each row corresponds to a MIDI pitch (0 to 127), and each
+        column corresponds to a timepoint in the sampled score. The difference
+        between this and the pianoRoll is that the columns are sampled at a regular
+        time intervals, rather than at each new event as they are in the pianoRoll.
 
         :param bpm: Integer, default 60. The beats per minute to use for sampling.
         :param obs: Integer, default 20. The desired observations per second.
@@ -1047,7 +1539,20 @@ class Score:
     def mask(self, winms=100, sample_rate=2000, num_harmonics=1, width=0,
                     bpm=60, aFreq=440, base_note=0, tuning_factor=1, obs=20):
         """
-        Construct a mask from the sampled piano roll using width and harmonics.
+        Construct a mask from the sampled piano roll using width and harmonics. This
+        builds on the intermediate representations of the pianoRoll and sampled
+        methods. The sampled method already put the x-axis (columns) in regular
+        time intervals. The mask keeps these columns and then alters the y-axis (rows)
+        into frequency bins. The number of bins is determined by the winms and sample_rate
+        values, and is equal to some power of 2 plus 1. The frequency bins serve to "blur"
+        the sampled pitch data that we expect from the score. This allows us to detect
+        real performed sounds in audio recordings that are likely slightly above or below
+        the precise notated pitches. The mask is what allows pyAMPACT to connect
+        symbolic events in a score to observed sounds in an audio recording. Increasing
+        the `num_harmonics` will also include that many harmonics of a notated score
+        pitch in the mask. Note that the first harmonic is the fundamental frequency
+        which is why the `num_harmonics` parameter defaults to 1. The `width` parameter
+        controls how broad or "blurry" the mask is compared to the notated score.
 
         :param winms: Integer, default 100. The window size in milliseconds.
         :param sample_rate: Integer, default 2000. The sample rate in Hz.
@@ -1079,7 +1584,7 @@ class Score:
             width_semitone_factor = 2 ** ((width / 2) / 12)
             sampled = self.sampled(bpm, obs)
             num_rows = int(2 ** round(math.log(winms / 1000 * sample_rate) / math.log(2) - 1)) + 1
-            mask = pd.DataFrame(index=range(num_rows), columns=sampled.columns).fillna(0)
+            mask = pd.DataFrame(index=range(num_rows), columns=sampled.columns).infer_objects(copy=False).fillna(0)
             fftlen = 2**round(math.log(winms / 1000 * sample_rate) / math.log(2))
 
             for row in range(base_note, sampled.shape[0]):
@@ -1307,7 +1812,7 @@ class Score:
         """
         key = ('toKern', data)
         if key not in self._analyses:
-            me = self._measures().applymap(lambda cell: f'={cell}-' if cell == 0 else f'={cell}', na_action='ignore')
+            me = self._measures().map(lambda cell: f'={cell}-' if cell == 0 else f'={cell}', na_action='ignore')
             events = self.kernNotes()
             isMI = isinstance(events.index, pd.MultiIndex)
             includeLyrics, includeDynamics = False, False
