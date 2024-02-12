@@ -6,14 +6,12 @@ alignment
 .. autosummary::
     :toctree: generated/
 
-    run_alignment
-    get_vals
+    run_alignment    
     runDTWAlignment
     align_midi_wav
     alignment_visualiser
     ifgram
-    get_ons_offs
-    midi2nmat
+    get_ons_offs    
     find_mids
     find_peaks
     find_steady
@@ -27,18 +25,24 @@ import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 import mido
+import pandas as pd
+import matplotlib.pyplot as plt
 
 import sys
 import os
 sys.path.append(os.pardir)
 
-from pytimbre.yin import yin
+from scipy.signal import spectrogram
+
+from performance import estimate_perceptual_parameters
 from symbolic import Score
-from alignmentUtils import orio_simmx, simmx, dp
+from alignmentUtils import orio_simmx, simmx, dp, maptimes
+
+
 
 
     
-def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, covars, learn_params, width, target_sr, nharm, win_ms):
+def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
@@ -46,154 +50,79 @@ def run_alignment(filename, midiname, num_notes, state_ord2, note_num, means, co
     of the specified audio file.
 
     :param filename: Name of the audio file.
-    :param midiname: Name of the MIDI file.
-    :param num_notes: Number of notes in the MIDI file to be aligned.
-    :param state_ord2: Vector of state sequence.
-    :param note_num: Vector of note numbers corresponding to state sequence.
+    :param midiname: Name of the MIDI file.    
     :param means: Mean values for each state.
     :param covars: Covariance values for each state.
-    :param learn_params: Flag as to whether to learn means and covars in the HMM.
     :param width: Width parameter (you need to specify this value).
-    :param target_sr: Target sample rate (you need to specify this value).
-    :param win_ms: Window size in milliseconds (you need to specify this value).
+    :param target_sr: Target sample rate (you need to specify this value).    
     :param nharm: Number of harmonics (you need to specify this value).
+    :param win_ms: Window size in milliseconds (you need to specify this value).
 
-    :returns: 
-        - allstate: Ending times for each state.
-        - selectstate: Ending times for each state.
-        - spec: Spectrogram of the audio file.
-        - yinres: Structure of results of running the YIN algorithm on the audio signal indicated by the input variable filename.
+    # :returns: 
+    #     - align:
+    #     - dtw:
+    #     - res.on list of DTW predicted onset times in seconds
+    #     - res.off list of DTW predicted offset times in seconds        
+    #     - spec: Spectrogram of the audio file.        
     """
-
-    if learn_params is None:
-        learn_params = 0
-
-    # Refine state_ord2 to correspond to the number of states specified in num_notes
-    note_num = np.array(note_num)    
     
-    num_states = max(np.where(note_num <= num_notes)[0])    
-          
-    note_num = note_num[:num_states]
     
 
-    # Read audio file and perform DTW alignment and YIN analysis
-    hop = 32
+    # Read audio file and perform DTW alignment and YIN analysis    
     audiofile, sr = librosa.load(filename, sr=4000)
 
     # Normalize audio file
     audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2)) * 0.6
 
-    align, yinres, spec, dtw = get_vals(
-        filename, midiname, audiofile, sr, hop, width, target_sr, nharm, win_ms)
-        
-    
-    audiofile = None  # Clear the audiofile variable
-    
-    # # selectstate construction
-    lengthOfNotes = note_num + 1
-    
-    selectstate = np.empty((3, len(lengthOfNotes)))            
-    interleaved = [val for pair in zip(align['on'], align['off']) for val in pair]    
-    
-    selectstate[0, :] = state_ord2[:len(lengthOfNotes)]
-    selectstate[1, :] = interleaved[:-1][:selectstate[1, :].shape[0]]
-    selectstate[2, :] = note_num
-    
-    return selectstate, spec, yinres, align
-
-
-
-def get_vals(filename, midi_file, audiofile, sr, hop, width, target_sr, nharm, win_ms):
-    """    
-    Gets values for DTW alignment and YIN analysis of specified audio 
-    signal and MIDI file
-        
-    :param filename: Name of the audio file.
-    :param midiname: Name of the MIDI file.
-    :param audiofile: Name of teh audio file.
-    :param sr: Sample rate.
-    :param hop: Hop size.        
-        
-    :returns:
-        - res.on list of DTW predicted onset times in seconds
-        - res.off list of DTW predicted offset times in seconds
-        - yinres.ap aperiodicty estimates for each frame
-        - yinres.pwr power estimates for each frame        
-    """
-
     # Run DTW alignment
-    res, spec, dtw = runDTWAlignment(
-        filename, midi_file, 0.025, width, target_sr, nharm, win_ms)
-    
-    # Normalize audiofile
-    audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2))    
-    
-    piece = Score(midi_file)
-    notes = piece.midiPitches()
-
-   # Get a list of column names
-    column_names = notes.columns.tolist()    
-    reference_column = column_names[0]
-
-    # Number of notes to align
-    pitch_list = [];    
-    for note in notes[reference_column].values: # Hardcoded. Fix this?
-        if note != -1: # Exclude rests
-            pitch_list.append(note)
-    # Define parameters for YIN analysis    
+    align, spec, dtw = runDTWAlignment(
+        filename, midiname, 0.025, width, target_sr, nharm, win_ms)
         
-
-    P = {
-        'thresh': 1,  # originally 0.01 in MATLAB, no difference?
-        'sr': sr,
-        'hop': hop,
-        # Broadened range from 2 (added 2)
-        'maxf0': np.max(librosa.midi_to_hz(np.array(pitch_list) + 4)),
-        'minf0': np.min(librosa.midi_to_hz(np.array(pitch_list) - 1)),
-    }        
-
-    f0, t, ap = yin(x=audiofile, Fs=P['sr'], N=win_ms, H=P['hop'], F_max=P['maxf0'], F_min=P['minf0'], threshold=P['thresh'])
-
-    yinres = {
-        'f0': f0, 
-        'time': t,  
-        'ap': ap  
-    }    
-
-    return res, yinres, spec, dtw
+               
+    return align, dtw, spec
 
 
 
-def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):    
+
+def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
     Returns a matrix with the aligned onset and offset times (with corresponding MIDI
     note numbers) and a spectrogram of the audio.
 
-    :param sig: Audio file.
-    :param sr: Sample rate
-    :param midorig: MIDI file.
+    :param audiofile: Audio file.
+    :param midifile: MIDI file.
     :param tres: Time resolution for MIDI to spectrum information conversion.
-    :param plot: Boolean, whether to plot the spectrogram.
+    :param width: Width parameter (you need to specify this value).    
+    :param target_sr: Target sample rate (you need to specify this value).    
+    :param nharm: Number of harmonics (you need to specify this value).
+    :param win_ms: Window size in milliseconds (you need to specify this value).
+    
 
     :returns:
         - align: dynamic time warping MIDI-audio alignment structure
             - align.on: onset times
             - align.off: offset times
             - align.midiNote: MIDI note numbers
-        - spec: spectrogram    
+        - spec: spectrogram
+        - dtw: dict of dynamic time warping returns
+            - M: map s.t. M(:,m).            
+            - MA/RA [p,q]: path from DP
+            - S: similarity matrix
+            - D: spectrogram 
+            - notemask: midi-note-derived mask
+            - pianoroll: midi-note-derived pianoroll 
     """
     
-    # midorig is the path string, not the file
-    midi_notes = []
 
     # Now done in alignMidiWav
-    y, sr = librosa.load(audiofile)
-    spec = librosa.feature.melspectrogram(y=y, sr=sr)
+    # y, sr = librosa.load(audiofile)
+    # spec = librosa.feature.melspectrogram(y=y, sr=sr)
 
+    # Your align_midi_wav function returns values that we will use
     m, p, q, S, D, M, N = align_midi_wav(
-        MF=midorig, WF=audiofile, TH=tres, ST=0, width=width, tsr=targetsr, nhar=nharm, wms=winms)
+        MF=midifile, WF=audiofile, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
 
     dtw = {
         'M': m,
@@ -205,16 +134,47 @@ def runDTWAlignment(audiofile, midorig, tres, width, targetsr, nharm, winms):
         'pianoroll': N
     }
     
-    nmat = midi2nmat(midorig)
+    spec = dtw['D']
     
-    # Assuming you want data for the first instrument
+    
+    piece = Score(midifile)
+
+    # Returns a dict, not df
+    nmat = piece.nmats() 
+      
+    
     align = {
-        'nmat': nmat,
-        'on': nmat[:,2],
-        'off': nmat[:,3],
-        'midiNote': midi_notes
-    }    
+        'nmat': nmat.copy(),  # Create an empty 2D array with 7 columns for nmat
+        'on': np.empty(0),         # Create an empty 1D array
+        'off': np.empty(0),        # Create an empty 1D array
+        'midiNote': np.empty(0)    # Create an empty 1D array
+    }
     
+    # loop through voices
+    for key, df in nmat.items():        
+        onset_sec = df['ONSET_SEC']
+        offset_sec = df['OFFSET_SEC']
+        midi_notes = df['MIDI']          
+       
+    
+    # Convert Series to NumPy arrays and reshape
+    onset_sec_array = onset_sec.values.reshape(-1, 1)
+    offset_sec_array = offset_sec.values.reshape(-1, 1)
+    
+    combined_slice = np.hstack((onset_sec_array, offset_sec_array))    
+
+    
+    dtw['MA'] = np.array(dtw['MA']) * tres
+    dtw['RA'] = np.array(dtw['RA']) * tres  
+    
+    x = maptimes(combined_slice, dtw['MA'], dtw['RA'])
+
+    # # Assign 'on', 'off', and 'midiNote' values from nmat
+    align['on'] = x[:,0]
+    align['off'] = x[:,1]
+    align['midiNote'] = midi_notes
+    spec = D # from align_midi_wav
+
 
     return align, spec, dtw
 
@@ -239,7 +199,9 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         - M: Is the midi-note-derived mask.
         - N: Is Orio-style "peak structure distance".    
     """
-
+    
+    # Is this correct re: alignMidiWav in MATLAB?
+    # Should the pianoRoll be used to construct N
     piece = Score(MF)
     pianoRoll = piece.pianoRoll()      
 
@@ -247,49 +209,81 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     sampled_grid = []
     for row in pianoRoll:
         sampled_grid.append(row)
-
-    # Calculate spectrogram
-    y, sr = librosa.load(WF)
-    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))
-    hop_length = int((TH * tsr * 1000))
-    D = librosa.feature.melspectrogram(
-        y=y, sr=tsr, n_fft=fft_len, hop_length=hop_length, window='hamming')
     
-
     N = np.array(sampled_grid)    
 
-    mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
-                      base_note=0, tuning_factor=1, obs=20)    
+    d, sr = librosa.load(WF, sr=None, mono=False)
 
-    M = np.array(mask)
-    M = M.astype(np.int16)
+        
+    # Calculate spectrogram
+    y, sr = librosa.load(WF)
+    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2))) # Good, 512
+    
+    ovlp = round(fft_len - TH*tsr);    
+    
+    y = librosa.resample(y, orig_sr=sr, target_sr=tsr)
+    # Generate a sample signal (replace this with your own signal)
+    
+    # srgcd = math.gcd(tsr, sr)
+    # dr = librosa.resample(y,tsr/srgcd,sr/srgcd)
+    # dr = resample(y,tsr/srgcd,sr/srgcd);
+    
+    
+    # Compute spectrogram
+    f, t, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
+    # Access the magnitude spectrogram (D)
+    D = np.abs(Sxx)
+    
+    # Plot spectrogram
+    plt.figure()
+    plt.pcolormesh(t, f, 10 * np.log10(D), shading='auto', vmax=np.max(10 * np.log10(D)))  # Use vmax to set the color scale
+    plt.ylabel('Frequency (Hz)')
+    plt.xlabel('Time (s)')
+    plt.title('Spectrogram')    
+    plt.colorbar(label='Power/Frequency (dB/Hz)')
+    # plt.show()
+        
+
+    
+    # First mask declaration here follows the MATLAB params, but not sure
+    # these are necessary at this point.
+    # mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
+    #                   base_note=0, tuning_factor=1, obs=20)     
+    M = piece.mask(sample_rate=tsr)
+    # Save M to a CSV file
+    # np.savetxt('./output_files/output.csv', M, delimiter=',')
+    # M = M.astype(np.int16)
+    
+    
 
     # Calculate the peak-structure-distance similarity matrix
     if ST == 1:
         S = orio_simmx(M, D)
     else:
-        S = simmx(M, D)
+        S = simmx(M, D) # Throws errors, not currently implemented
     
-
+    
+        
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
-
+    
     # Do the DP search
-    p, q, D = dp(1 - S)  # You need to implement dpfast function    
+    p, q, D = dp(1 - S)  # Used dp for the sake of simplicity/not writing Cython methods as required by dpfast. Is this okay?
+    
 
     # Map indices into MIDI file that make it line up with the spectrogram
+    # Not sure if this is working as all other params are questionable!
     m = np.zeros(D.shape[1], dtype=int)
     for i in range(D.shape[1]):
         if np.any(q == i):
             m[i] = p[np.min(np.where(q == i))]
         else:
-            m[i] = 1
-
+            m[i] = 1    
     return m, p, q, S, D, M, N
 
   
 
-def alignment_visualiser(trace, mid, spec, fig=1):    
+def alignment_visualiser(mid, spec, fig=1):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
     resulting from the HMM aligner on the output of YIN.  Trace(1,:)
@@ -297,18 +291,12 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     frames for which that state is occupied.  Highlight is a list of 
     notes for which the steady state will be highlighted.
     
-    
-    :param trace: 3-D matrix of a list of states (trace(1,:)), the times
-        they end at (trace(2,:)), and the state indices (trace(3,:))
     :param mid: Midi file.
     :param spec: Spectrogram of audio file (from align_midi_wav). 
     
     :return: Visualized spectrogram            
 
     """
-
-    if fig is None:
-        fig = 1
 
     # hop size between frames
     stft_hop = 0.023  # Adjusted from 0.025
@@ -328,7 +316,7 @@ def alignment_visualiser(trace, mid, spec, fig=1):
     plt.colorbar()
     
     
-    plt.show() # Uncomment to show
+    # plt.show()
 
 
 
@@ -336,11 +324,15 @@ def ifgram(audiofile, tsr, win_ms):
     # win_samps = int(tsr / win_ms) # low-res
     win_samps = 2048 # Placeholder for now, default
     y, sr = librosa.load(audiofile)
-
+    
+    
     freqs, times, mags = librosa.reassigned_spectrogram(y=y, sr=tsr,
-                                                         n_fft=win_samps)
-    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+                                                      n_fft=win_samps)
+  
         
+    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+    sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
+
 
     fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
     img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
@@ -349,10 +341,11 @@ def ifgram(audiofile, tsr, win_ms):
     ax[1].scatter(times, freqs, c=mags_db, cmap="magma", alpha=0.1, s=5)
     ax[1].set_title("Reassigned spectrogram")
     fig.colorbar(img, ax=ax, format="%+2.f dB")
-
-    plt.show()
-
+                  
     
+    # plt.show()
+    
+    return freqs, times, sig_pwr
 
 def get_ons_offs(onsoffs):
     """
@@ -379,73 +372,6 @@ def get_ons_offs(onsoffs):
         res['offs'].append(onsoffs[1, stopping[i]])
     
     return res
-
-
-
-def midi2nmat(filename):
-    """
-    Read midi file FILENAME into Matlab variable NMAT (Beta)
-    Based on Ken Schutte's m-files (readmidi, midiInfo, getTempoChanges)
-    This beta might replace the mex-files used in the previous version of the toolbox as 
-    newer versions of Matlab (7.4+) and various OS's need new compilations 
-    of the mex files. Using the C sources and the compiled mex files provides
-    faster reading of midi files but because the compatibility is limited, this 
-    simple workaround is offered. This beta version is very primitive,
-    though. - Tuomas Eerola
-
-    KNOWN PROBLEMS: - Tempo changes are handled in a simple way
-                    - Extra messages are not retained  
-                    - Channels may not be handled correctly    
-
-    For more information on Ken Schutte's functions, see 
-    http://www.kenschutte.com/software
-
-    CREATED ON 31.12.2007 BY TE (MATLAB 7.4 MacOSX 10.4)
-    """
-    mid = mido.MidiFile(filename)
-    nmat = []
-
-    # Convert ticks per beat to seconds per tick
-    ticks_per_beat = mid.ticks_per_beat
-    seconds_per_tick = 60 / (50000000 / ticks_per_beat)
-    
-    current_tempo = 500000  # Default tempo
-
-    for track in mid.tracks:
-        cum_time = 0
-        start_time = 0
-
-        for msg in track:                        
-            cum_time += msg.time
-
-            if msg.type == 'set_tempo':
-                tempo = msg.tempo
-                current_tempo = tempo
-
-            if msg.type == 'note_on' and msg.velocity > 0:                                
-                note = msg.note
-                velocity = msg.velocity
-                start_time = cum_time * seconds_per_tick                
-                nmat.append([note, velocity, start_time, 0, 0, 0])
-
-            if msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-                for event in reversed(nmat):
-                    if event[2] is not None and event[2] <= cum_time * seconds_per_tick:
-                        end_time = cum_time * seconds_per_tick
-                        duration = end_time - event[2]
-                        event[3] = end_time
-                        event[4] = duration
-                        event[5] = 1  # Mark the note as processed
-                        break
-
-            if msg.type == 'end_of_track':
-                if len(nmat) > 0:
-                    last_event = nmat[-1]
-                    last_event[5] = 1  # Mark the note as processed
-
-    # Filter out unprocessed notes
-    nmat = [event for event in nmat if event[5] == 1]    
-    return np.array(nmat)
     
 
 

@@ -5,6 +5,8 @@ import pandas as pd
 # import functions
 from symbolic import Score
 from alignment import run_alignment, alignment_visualiser, ifgram, freq_and_mag_matrices, find_peaks, find_mids
+from alignmentUtils import calculate_f0_est
+
 from performance import estimate_perceptual_parameters, get_cent_vals
 
 import sys
@@ -30,28 +32,14 @@ cdata_file (path)
 audio_file = './test_files/example3note.wav'
 midi_file = './test_files/monophonic3notes.mid'
 
+# # Poly
+# audio_file = './test_files/polyExample.wav'
+# midi_file = './test_files/polyExample.mid'
+
 piece = Score(midi_file)
 notes = piece.midiPitches()
-
-# Number of notes to align
-num_notes = 0
-
-# Get a list of column names
-column_names = notes.columns.tolist()
-
-# Use the first column name as the reference_column, build a for loop to pull all references for polyphonic
-# Can be done later...
-reference_column = column_names[0]
-
-for note in notes[reference_column].values: # Hardcoded. Fix this?
-    if note != -1: # Exclude rests
-        num_notes += 1        
-
-
-# Hardcoded values for the three note example.
-
-state_ord = np.array([1, 3, 2, 3, 2, 3]) # Placeholder, gets selectState in runAlignment
-note_num = [1,1,2,2,3,3]
+nmat = piece.nmats()
+  
 
 
 # Load singing means and covariances
@@ -59,62 +47,71 @@ means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
 covars = pd.read_csv('./test_files/SingingCovars.csv', sep=' ').values
 
 
-# Specify HMM parameters
-learn_params = 0
-
 # Run the alignment
 width = 3
 target_sr = 4000
 n_harm = 3
 win_ms = 100
+hop_length = 32
 
-# all_state removed
-select_state, spec, yin_res, align = run_alignment(
-    audio_file, midi_file, num_notes, state_ord, note_num, means, covars, learn_params, width, target_sr, n_harm, win_ms)
+
+res, dtw, spec = run_alignment(
+    audio_file, midi_file, means, covars, width, target_sr, n_harm, win_ms, hop_length)
 
 
 # Visualize the alignment
-alignment_visualiser(select_state, midi_file, spec, 1)
+alignment_visualiser(midi_file, spec, 1)
 
-# Is 2048 okay?
-ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
-
-
-# Build JSON
-nmat = piece.nmats()
-
-instrumentList = list(nmat.keys())
-
-xmlIds = nmat[instrumentList[0]].index
-# xmlIds = nmat['Piano'].index
-
-measures = nmat[instrumentList[0]]['MEASURE'].values,
-onsets = nmat[instrumentList[0]]['ONSET'].values,
-durations = nmat[instrumentList[0]]['DURATION'].values,
-parts = nmat[instrumentList[0]]
-midis = nmat[instrumentList[0]]['MIDI'].values,
-onset_secs = nmat[instrumentList[0]]['ONSET_SEC'].values,
-offset_secs = nmat[instrumentList[0]]['OFFSET_SEC'].values
-
-
-# Add -1 to signify ending
-measures = np.append(measures, -1)
-onsets = np.append(onsets, -1)
-durations = np.append(durations, -1)
-midis = np.append(midis, -1) 
-onset_secs = np.append(onset_secs, -1)
-offset_secs = np.append(offset_secs, -1)
-
-f0_values = yin_res['f0']
-pwr_values = yin_res['ap']
-
+# Data from IF gram/Reassigned Spec
+i_freqs, times, sig_pwr = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
 
 # Construct frequency and magnitude matrices
 freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
-res = estimate_perceptual_parameters(f0_values, pwr_vals=pwr_values,F=freq_mat,M=mag_mat,SR=target_sr,hop=32,gt_flag=True, X=audio_file)
+
+
+# loop through voices
+midi_columns = []
+ons = []
+offs = []
+for key, df in nmat.items():        
+    onset_sec = df['ONSET_SEC']
+    offset_sec = df['OFFSET_SEC']
+    midi_notes = df['MIDI'] 
+    ons.append(onset_sec)
+    offs.append(offset_sec)
+    midi_columns.append(midi_notes)
+
+
+# Instead passing in ifgram values in advance and doing the math on the spec
+f0_values, pwr = calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
+
+perceptual_params = estimate_perceptual_parameters(f0_values, F=freq_mat, pwr_vals=pwr, M=mag_mat, SR=target_sr, hop=hop_length, gt_flag=True, X=audio_file)
+
+
+# Old way
+# for key, df in nmat.items():               
+#     measures = df['MEASURE'].values
+#     onsets = df['ONSET'].values
+#     durations = df['DURATION'].values
+#     parts = key
+#     midis = df['MIDI'].values
+#     onset_secs = df['ONSET_SEC'].values
+#     offset_secs = df['OFFSET_SEC'].values            
+    
+# # Add -1 to signify ending
+# measures = np.append(measures, -1)
+# onsets = np.append(onsets, -1)
+# durations = np.append(durations, -1)
+# midis = np.append(midis, -1) 
+# onset_secs = np.append(onset_secs, -1)
+# offset_secs = np.append(offset_secs, -1)
+
+
+
+
 
 # Get onset and offset times
-times = align # From run_alignment
+times = res # From run_alignment
 
 combined_times = np.column_stack((np.repeat(times['on'], 1), np.repeat(times['off'], 1)))
 combined_times = np.append(combined_times, -1)
@@ -122,48 +119,67 @@ combined_times = np.append(combined_times, -1)
 # Initialize the audio_params
 audio_params = {}
 
+note = 0
 # Iterate over the indices of XML_IDs
-for i in range(len(xmlIds)):
-    start_idx = int(i * len(f0_values) / len(xmlIds))
-    end_idx = int((i + 1) * len(f0_values) / len(xmlIds))
+for key, df in nmat.items():
+    measures = df['MEASURE'].values
+    onsets = df['ONSET'].values
+    durations = df['DURATION'].values
+    parts = key
+    midis = df['MIDI'].values
+    onset_secs = df['ONSET_SEC'].values
+    offset_secs = df['OFFSET_SEC'].values 
+    
+    # Add -1 to signify ending
+    measures = np.append(measures, -1)
+    onsets = np.append(onsets, -1)
+    durations = np.append(durations, -1)
+    midis = np.append(midis, -1) 
+    onset_secs = np.append(onset_secs, -1)
+    offset_secs = np.append(offset_secs, -1)
 
-    # Extract values for the current time interval
-    f0_chunk = f0_values[start_idx:end_idx]    
-    pwr_chunk = res['pwr_vals'][start_idx:end_idx]
-    slope_chunk = res['spec_slope'][start_idx:end_idx]
-    flux_chunk = res['spec_flux'][start_idx:end_idx]
-    flat_chunk = res['spec_flat'][start_idx:end_idx]    
+    for i in df.index:            
+        note += 1
+        start_idx = int(note * len(f0_values) / len(df))
+        end_idx = int((note + 1) * len(f0_values) / len(df))
 
-    # Create a dictionary for the current time interval
-    audio_params[xmlIds[i]] = {
-        "startTime": combined_times[i], # i is on
-        "endTime": combined_times[i+1], # every other i is off                
-        "f0Vals": f0_chunk,
-        "ppitch1": res['ppitch'][0],
-        "ppitch2": res['ppitch'][1],
-        "jitter": res['jitter'],
-        "vibratoDepth": res['vibrato_depth'],
-        "vibratoRate": res['vibrato_rate'],
-        "pwrVals": pwr_chunk,
-        "avgPwr": sum(res['pwr_vals']) / len(res['pwr_vals']),
-        "shimmer": res['shimmer'],
-        # "specCent": res['spec_centroid']
-        # "specCentMean": 1370.1594532691213,
-        "specSlope": slope_chunk,
-        "meanSpecSlope": res['mean_spec_slope'],
-        "spec_flux": flux_chunk,
-        "mean_spec_flux": res['mean_spec_flux'],
-        "spec_flat": flat_chunk,
-        "mean_spec_flat": res['mean_spec_flat'],
-        "MEASURE": measures[i],
-        "ONSET": onsets[i],
-        "DURATION": durations[i],
-        "PART":"Piano",
-        "MIDI": midis[i],
-        "ONSET_SEC": onset_secs[i],
-        "OFFSET_SEC": offset_secs[i]
-        # Add other parameters and their corresponding chunks here
-    }
+        # Extract values for the current time interval
+        f0_chunk = f0_values[start_idx:end_idx]    
+        pwr_chunk = perceptual_params['pwr_vals'][start_idx:end_idx]
+        slope_chunk = perceptual_params['spec_slope'][start_idx:end_idx]
+        flux_chunk = perceptual_params['spec_flux'][start_idx:end_idx]
+        flat_chunk = perceptual_params['spec_flat'][start_idx:end_idx]    
+
+        # Create a dictionary for the current time interval
+        audio_params[i] = {
+            "startTime": combined_times[note], # i is on
+            "endTime": combined_times[note+1], # every other i is off                
+            "f0Vals": f0_chunk,
+            "ppitch1": perceptual_params['ppitch'][0],
+            "ppitch2": perceptual_params['ppitch'][1],
+            "jitter": perceptual_params['jitter'],
+            "vibratoDepth": perceptual_params['vibrato_depth'],
+            "vibratoRate": perceptual_params['vibrato_rate'],
+            "pwrVals": pwr_chunk,
+            "avgPwr": sum(perceptual_params['pwr_vals']) / len(perceptual_params['pwr_vals']),
+            "shimmer": perceptual_params['shimmer'],
+            # "specCent": perceptual_params['spec_centroid'] # can get this via librosa
+            # "specCentMean": 1370.1594532691213,
+            "specSlope": slope_chunk,
+            "meanSpecSlope": perceptual_params['mean_spec_slope'],
+            "spec_flux": flux_chunk,
+            "mean_spec_flux": perceptual_params['mean_spec_flux'],
+            "spec_flat": flat_chunk,
+            "mean_spec_flat": perceptual_params['mean_spec_flat'],
+            "MEASURE": measures[note],
+            "ONSET": onsets[note],
+            "DURATION": durations[note],
+            "PART":"Piano",
+            "MIDI": midis[note],
+            "ONSET_SEC": onset_secs[note],
+            "OFFSET_SEC": offset_secs[note]
+            # Add other parameters and their corresponding chunks here
+        }
 
 
 # Create DataFrames from the dictionary
