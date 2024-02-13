@@ -27,15 +27,18 @@ cdata_file (path)
 """
 
 
-# Specify audio and MIDI file NAMES
+# # Specify audio and MIDI file NAMES
 # audio_file = './test_files/avemaria_full.wav'
 # midi_file = './test_files/avemaria_full.mid'
 # audio_file = './test_files/example3note.wav'
 # midi_file = './test_files/monophonic3notes.mid'
 
 # # Poly
-audio_file = './test_files/polyExample.wav'
-midi_file = './test_files/polyExample.mid'
+# audio_file = './test_files/polyExample.wav'
+# midi_file = './test_files/polyExample.mid'
+
+audio_file = './test_files/TAVERNaudio/B063_00_01.wav'
+midi_file = './test_files/TAVERNaudio/B063_00_01.krn'
 
 
 piece = Score(midi_file)

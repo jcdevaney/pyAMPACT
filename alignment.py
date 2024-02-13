@@ -307,15 +307,15 @@ def alignment_visualiser(mid, spec, fig=1):
     
     # Plot spectrogram
 
-    fig = plt.figure(fig)
+    # fig = plt.figure(fig)
     # plt.imshow(20 * np.log10(spec), aspect='auto', origin='lower', cmap='gray')
-    plt.title('Spectrogram with Aligned MIDI Notes Overlaid')    
-    plt.xlabel('Time (.05s)')
-    plt.ylabel('Midinote')    
-    plt.clim([plt.gci().get_clim()[0], plt.gci().get_clim()[1] - 50])
-    plt.colorbar()
+    # plt.title('Spectrogram with Aligned MIDI Notes Overlaid')    
+    # plt.xlabel('Time (.05s)')
+    # plt.ylabel('Midinote')    
+    # plt.clim([plt.gci().get_clim()[0], plt.gci().get_clim()[1] - 50])
+    # plt.colorbar()
     
-    # plt.show()
+    # # plt.show()
     
 
 
