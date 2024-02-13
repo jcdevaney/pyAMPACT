@@ -26,7 +26,6 @@ import librosa
 import librosa.display
 import mido
 import pandas as pd
-import matplotlib.pyplot as plt
 
 import sys
 import os
@@ -241,7 +240,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     plt.xlabel('Time (s)')
     plt.title('Spectrogram')    
     plt.colorbar(label='Power/Frequency (dB/Hz)')
-    # plt.show()
+    plt.show()
         
 
     
@@ -307,17 +306,17 @@ def alignment_visualiser(mid, spec, fig=1):
     
     
     # Plot spectrogram
+
     fig = plt.figure(fig)
-    plt.imshow(20 * np.log10(spec), aspect='auto', origin='lower', cmap='gray')
-    plt.title('Spectrogram with Aligned MIDI Notes Overlaid')
+    # plt.imshow(20 * np.log10(spec), aspect='auto', origin='lower', cmap='gray')
+    plt.title('Spectrogram with Aligned MIDI Notes Overlaid')    
     plt.xlabel('Time (.05s)')
-    plt.ylabel('Midinote')
+    plt.ylabel('Midinote')    
     plt.clim([plt.gci().get_clim()[0], plt.gci().get_clim()[1] - 50])
     plt.colorbar()
     
-    
     # plt.show()
-
+    
 
 
 def ifgram(audiofile, tsr, win_ms):
@@ -343,7 +342,7 @@ def ifgram(audiofile, tsr, win_ms):
     fig.colorbar(img, ax=ax, format="%+2.f dB")
                   
     
-    # plt.show()
+    plt.show()
     
     return freqs, times, sig_pwr
 
