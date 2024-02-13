@@ -9,6 +9,7 @@ from alignmentUtils import calculate_f0_est
 
 from performance import estimate_perceptual_parameters, get_cent_vals
 
+import os
 import sys
 
 """
@@ -29,12 +30,13 @@ cdata_file (path)
 # Specify audio and MIDI file NAMES
 # audio_file = './test_files/avemaria_full.wav'
 # midi_file = './test_files/avemaria_full.mid'
-audio_file = './test_files/example3note.wav'
-midi_file = './test_files/monophonic3notes.mid'
+# audio_file = './test_files/example3note.wav'
+# midi_file = './test_files/monophonic3notes.mid'
 
 # # Poly
-# audio_file = './test_files/polyExample.wav'
-# midi_file = './test_files/polyExample.mid'
+audio_file = './test_files/polyExample.wav'
+midi_file = './test_files/polyExample.mid'
+
 
 piece = Score(midi_file)
 notes = piece.midiPitches()
@@ -120,9 +122,14 @@ combined_times = np.append(combined_times, -1)
 audio_params = {}
 
 note = 0
+prev_key = None
 # Iterate over the indices of XML_IDs
 for key, df in nmat.items():
-    measures = df['MEASURE'].values
+    if key != prev_key:        
+        # Update the previous key to the current key
+        note = 0
+        prev_key = key
+    measures = df['MEASURE'].values    
     onsets = df['ONSET'].values
     durations = df['DURATION'].values
     parts = key
@@ -138,8 +145,8 @@ for key, df in nmat.items():
     onset_secs = np.append(onset_secs, -1)
     offset_secs = np.append(offset_secs, -1)
 
-    for i in df.index:            
-        note += 1
+    for i in df.index:              
+        note += 1          
         start_idx = int(note * len(f0_values) / len(df))
         end_idx = int((note + 1) * len(f0_values) / len(df))
 
@@ -151,7 +158,7 @@ for key, df in nmat.items():
         flat_chunk = perceptual_params['spec_flat'][start_idx:end_idx]    
 
         # Create a dictionary for the current time interval
-        audio_params[i] = {
+        audio_params[i] = {            
             "startTime": combined_times[note], # i is on
             "endTime": combined_times[note+1], # every other i is off                
             "f0Vals": f0_chunk,
@@ -185,7 +192,12 @@ for key, df in nmat.items():
 # Create DataFrames from the dictionary
 audio_df = pd.DataFrame([audio_params])
 
-audio_df.to_json("./output_files/cdata_from_alignment_script.json", orient="records", indent=4)
+audio_file_name = os.path.splitext(os.path.basename(audio_file))[0]
+
+output_file = f"./output_files/alignment_cdata_{audio_file_name}.json"
+
+
+audio_df.to_json(output_file, orient="records", indent=4)
 
 
 # Everything beyond here is not yet live...
