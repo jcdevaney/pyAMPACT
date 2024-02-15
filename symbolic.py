@@ -1115,13 +1115,19 @@ class Score:
                 df = dez.set_index('start').rename_axis(None)
                 df = df.loc[(df['type'] == 'Harmony'), 'tag']
                 if df.empty:
-                    print('No "Harmony" analysis was found in the .dez file.')
-                    return
-                return snapTo(df, snap_to, filler, output)
-        if 'harm' in self._analyses:
+                    print('No "Harmony" analysis was found in the .dez file, checking for a **harm spine.')
+                else:
+                    return snapTo(df, snap_to, filler, output)
+        if 'harm' in self._analyses and len(self._analyses['harm']):
             return self.harm(snap_to=snap_to, filler=filler, output=output)
-        # add m21 approach to getting roman numerals here
-        print('No .dez file or **harm spine was found.')
+        print('Neither a dez nor a **harm spine was found so using music21 to get roman numerals...')
+        key = self.score.analyze('key')
+        chords = self.score.chordify().recurse().getElementsByClass('Chord')
+        offsets = [ch.offset for ch in chords]
+        figures = [m21.roman.romanNumeralFromChord(ch, key).figure for ch in chords]
+        ser = pd.Series(figures, index=offsets, name='Roman Numerals')
+        ser = ser[ser != ser.shift()]   # remove consecutive duplicates
+        return snapTo(ser, snap_to, filler, output)
 
     def _m21ObjectsNoTies(self):
         """
