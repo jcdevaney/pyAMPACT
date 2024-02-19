@@ -250,6 +250,14 @@ def combineUnisons(col):
     col = col.dropna()
     return col[(col == 'r') | (col != col.shift(1))]
 
+def githubURLtoRaw(string):
+    """
+    Convert a GitHub URL to a raw URL and return it. Otherwise return the string.
+    """
+    if string.startswith('https://github.com/'):
+        return 'https://raw.githubusercontent.com/' + string[19:].replace('/blob/', '/', 1)
+    return string
+
 def fromJSON(json_path):
     """
     Load a JSON or dez file/url into a pandas DataFrame.
@@ -274,8 +282,7 @@ def fromJSON(json_path):
         piece.fromJSON(json_path='./test_files/CloseToYou.json')
     """
     if json_path.startswith('https://') or json_path.startswith('http://'):
-        if json_path.startswith('https://github.com/'):
-            json_path = 'https://raw.githubusercontent.com/' + json_path[19:].replace('/blob/', '/', 1)
+        json_path = githubURLtoRaw(json_path)
         response = requests.get(json_path)
         data = json.loads(response.text)
     else:

@@ -34,8 +34,11 @@ cdata_file (path)
 audio_file = './test_files/polyExample.wav'
 midi_file = './test_files/polyExample.mid'
 
-# audio_file = './test_files/TAVERNaudio/B063_00_01.wav'
-# midi_file = './test_files/TAVERNaudio/B063_00_01.krn'
+# audio_file = './test_files/TAVERNaudio/B063_00_04.wav'
+# midi_file = './test_files/TAVERNaudio/B063_00_04.krn'
+
+# audio_file = './rihanna-files/rihanna-vocal tracks/Close to You vocals.wav'
+# midi_file = './rihanna-files/Close to You.mei'
 
 
 piece = Score(midi_file)
