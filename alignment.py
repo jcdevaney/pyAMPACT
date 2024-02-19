@@ -136,7 +136,7 @@ def runDTWAlignment(audiofile, piece, tres, width, target_sr, nharm, win_ms):
     spec = dtw['D']
 
     unfiltered_nmat = piece.nmats() 
-    print(unfiltered_nmat)
+    
     
     nmat = {}
     # Iterate through each key-value pair (dataframe) in the nmat dictionary
@@ -264,7 +264,7 @@ def align_midi_wav(piece, WF, TH, ST, width, tsr, nhar, wms):
     # these are necessary at this point.
     # mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
     #                   base_note=0, tuning_factor=1, obs=20)            
-    M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width)        
+    M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width, winms=wms)        
     # Save M to a CSV file
     # np.savetxt('./output_files/output.csv', M, delimiter=',')
     # M = M.astype(np.int16)
@@ -275,7 +275,7 @@ def align_midi_wav(piece, WF, TH, ST, width, tsr, nhar, wms):
     print('M/D shapes, line 277 alignment.py')
     print(M.shape)
     print(D.shape)    
-    if ST == 1:
+    if ST == 0:
         S = orio_simmx(M, D)
     else:
         S = simmx(M, D) # This works, but using orio_simmx

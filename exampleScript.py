@@ -55,12 +55,12 @@ n_harm = 3
 win_ms = 100
 hop_length = 32
 
-print(nmat)
+# print(nmat)
 res, dtw, spec, newNmat = run_alignment(
     audio_file, piece, means, covars, width, target_sr, n_harm, win_ms, hop_length)
 
 nmat = newNmat
-print(nmat)
+# print(nmat)
 
 # Visualize the alignment
 alignment_visualiser(spec, 1)
