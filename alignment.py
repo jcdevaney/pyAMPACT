@@ -40,15 +40,16 @@ from alignmentUtils import orio_simmx, simmx, dp, maptimes
 
 
     
-def run_alignment(filename, piece, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
+def run_alignment(y, original_sr, piece, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
     This function returns the results of both the state spaces as well as the YIN analysis
     of the specified audio file.
 
-    :param filename: Name of the audio file.
-    :param midiname: Name of the MIDI file.    
+    :param y: Audio time series
+    :param original_sr: original sample rate of audio
+    :param piece: Score instance of symbolic data
     :param means: Mean values for each state.
     :param covars: Covariance values for each state.
     :param width: Width parameter (you need to specify this value).
@@ -64,17 +65,16 @@ def run_alignment(filename, piece, means, covars, width=3, target_sr=4000, nharm
     #     - spec: Spectrogram of the audio file.        
     """
     
-    
 
     # Read audio file and perform DTW alignment and YIN analysis    
-    audiofile, sr = librosa.load(filename, sr=4000)
+    # audiofile, sr = librosa.load(y, sr=4000)
 
     # Normalize audio file
-    audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2)) * 0.6
+    y = y / np.sqrt(np.mean(y ** 2)) * 0.6
 
     # Run DTW alignment
     align, spec, dtw, newNmat = runDTWAlignment(
-        filename, piece, 0.050, width, target_sr, nharm, win_ms)
+        y, original_sr, piece, 0.050, width, target_sr, nharm, win_ms)
         
                
     return align, dtw, spec, newNmat
@@ -82,15 +82,16 @@ def run_alignment(filename, piece, means, covars, width=3, target_sr=4000, nharm
 
 
 
-def runDTWAlignment(audiofile, piece, tres, width, target_sr, nharm, win_ms):    
+def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
     Returns a matrix with the aligned onset and offset times (with corresponding MIDI
     note numbers) and a spectrogram of the audio.
 
-    :param audiofile: Audio file.
-    :param midifile: MIDI file.
+    :param y: Audio time series of audio.
+    :param original_sr: original sample rate of audio
+    :param piece: Score instance of symbolic data
     :param tres: Time resolution for MIDI to spectrum information conversion.
     :param width: Width parameter (you need to specify this value).    
     :param target_sr: Target sample rate (you need to specify this value).    
@@ -113,16 +114,10 @@ def runDTWAlignment(audiofile, piece, tres, width, target_sr, nharm, win_ms):
             - pianoroll: midi-note-derived pianoroll 
     """
     
-
-    # Now done in alignMidiWav
-    # y, sr = librosa.load(audiofile)
-    # spec = librosa.feature.melspectrogram(y=y, sr=sr)
-
-    # Your align_midi_wav function returns values that we will use
     
     m, p, q, S, D, M, N = align_midi_wav(
-        piece, WF=audiofile, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
-
+        piece, WF=y, sr=original_sr, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
+    
     dtw = {
         'M': m,
         'MA': p,
@@ -197,14 +192,14 @@ def runDTWAlignment(audiofile, piece, tres, width, target_sr, nharm, win_ms):
 
 
 
-def align_midi_wav(piece, WF, TH, ST, width, tsr, nhar, wms):    
+def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms):    
     """
     Align a midi file to a wav file using the "peak structure
     distance" of Orio et al. that use the MIDI notes to build 
     a mask that is compared against harmonics in the audio.
         
-    :param MF: is the name of the MIDI file, 
-    :param WF: is the name of the wav file.
+    :param MF: Score instance of symbolic data
+    :param WF: Audio time series of file
     :param TH: is the time step resolution (default 0.050).
     :param ST: is the similarity type: 0 (default) is triangle inequality;
 
@@ -225,18 +220,16 @@ def align_midi_wav(piece, WF, TH, ST, width, tsr, nhar, wms):
     for row in pianoRoll:
         sampled_grid.append(row)
     
-    N = np.array(sampled_grid)    
-
-    # d, sr = librosa.load(WF, sr=None, mono=False)
+    N = np.array(sampled_grid)        
 
         
     # Calculate spectrogram
-    y, sr = librosa.load(WF)
+    
     fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2))) # Good, 512
     
     ovlp = round(fft_len - TH*tsr);    
     
-    y = librosa.resample(y, orig_sr=sr, target_sr=tsr)
+    y = librosa.resample(WF, orig_sr=sr, target_sr=tsr)
     # Generate a sample signal (replace this with your own signal)
     
     # srgcd = math.gcd(tsr, sr)
