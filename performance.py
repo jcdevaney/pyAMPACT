@@ -27,7 +27,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     """
 
     # Perceived pitch
-    res_ppitch = perceived_pitch(f0_vals, SR / hop, 1)    
+    res_ppitch = perceived_pitch(f0_vals, SR)    
     # Jitter
     tmp_jitter = np.abs(np.diff(f0_vals))
     res_jitter = np.mean(tmp_jitter)
@@ -35,7 +35,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     # Vibrato rate and depth
     mean_f0_vals = np.mean(f0_vals)
     detrended_f0_vals = f0_vals - mean_f0_vals
-    res_vibrato_depth, res_vibrato_rate = calculate_vibrato(detrended_f0_vals, SR / hop)
+    # res_vibrato_depth, res_vibrato_rate = calculate_vibrato(detrended_f0_vals, SR / hop)
 
     
     # Shimmer
@@ -74,8 +74,8 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     res = {
         "ppitch": res_ppitch,
         "jitter": res_jitter,
-        "vibrato_depth": res_vibrato_depth,
-        "vibrato_rate": res_vibrato_rate,
+        # "vibrato_depth": res_vibrato_depth,
+        # "vibrato_rate": res_vibrato_rate,
         "shimmer": res_shimmer,
         "pwr_vals": res_pwr_vals,
         "f0_vals": res_f0_vals,        
@@ -91,11 +91,10 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, F, M, SR, hop, gt_flag, X=
     return res
 
 
-def calculate_vibrato(note_vals, sr):
+def calculate_vibrato(note_vals, sr):    
     L = len(note_vals)  # Length of signal
     Y = np.fft.fft(note_vals) / L  # Run FFT on normalized note vals
-    w = np.arange(0, L) * sr / L  # Set FFT frequency grid
-    # print(Y)
+    w = np.arange(0, L) * sr / L  # Set FFT frequency grid    
     
     vibrato_depth_tmp, noteVibratoPos = max(abs(Y)), np.argmax(abs(Y))  # Find the max value and its position
     vibrato_depth = vibrato_depth_tmp * 2  # Multiply the max by 2 to find depth (above and below zero)
@@ -119,32 +118,30 @@ def perceived_pitch(f0s, sr, gamma=100000):
         gives more weight to slowly changing portions.
 
     :returns:
-        - res.ons: List of onset times
-        - res.offs: List of offset times
+        - pp1: perceived pitch using the entire vector of f0 estimates
+        - pp2: perceived pitch using the central 80% of f0 estimates
     """
 
-    # Remove NaN values from f0s
+    # Remove all NaNs in the f0 vector
     f0s = f0s[~np.isnan(f0s)]
-    
-    # Create an index to remove outliers by using the central 80% of the sorted vector
+
+    # Create an index into the f0 vector to remove outliers by
+    # only using the central 80% of the sorted vector
     ord = np.argsort(f0s)
-    ind = ord[int(len(ord)*0.1):int(len(ord)*0.9)]
+    ind = ord[int(np.ceil(len(f0s) * 0.1)):int(np.floor(len(f0s) * 0.9))]
 
     # Calculate the rate of change
-    deriv = np.append(np.diff(f0s) * sr, -100)        
-            
+    deriv = np.diff(f0s) * sr
+    deriv = np.append(deriv, -100)  # Append a value to match MATLAB behavior
+
     # Set weights for the quickly changing vs slowly changing portions
-    # WEIGHTS ARE 0., incorrect!!
     weights = np.exp(-gamma * np.abs(deriv))
 
-    # But is this?
-    # weights = np.exp(-gamma / np.abs(deriv))    
-    
-    # Calculate two versions of the perceived pitch
-    pp1 = np.sum(f0s * weights) / np.sum(weights)
-    pp2 = np.sum(f0s[ind] * weights[ind]) / np.sum(weights[ind])
-    
-    return pp1, pp2    
+    # Calculate two versions of the perceived pitch    
+    pp1 = np.dot(f0s, weights) / np.sum(weights)
+    pp2 = np.dot(f0s[ind], weights[ind]) / np.sum(weights[ind])
+
+    return pp1, pp2
 
 
 def get_cent_vals(times, yinres, sr):

@@ -24,7 +24,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-import mido
 import pandas as pd
 
 import sys
@@ -74,11 +73,11 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
     audiofile = audiofile / np.sqrt(np.mean(audiofile ** 2)) * 0.6
 
     # Run DTW alignment
-    align, spec, dtw = runDTWAlignment(
-        filename, midiname, 0.025, width, target_sr, nharm, win_ms)
+    align, spec, dtw, newNmat = runDTWAlignment(
+        filename, midiname, 0.050, width, target_sr, nharm, win_ms)
         
                
-    return align, dtw, spec
+    return align, dtw, spec, newNmat
 
 
 
@@ -120,6 +119,7 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     # spec = librosa.feature.melspectrogram(y=y, sr=sr)
 
     # Your align_midi_wav function returns values that we will use
+    
     m, p, q, S, D, M, N = align_midi_wav(
         MF=midifile, WF=audiofile, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
 
@@ -138,9 +138,16 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     
     piece = Score(midifile)
 
-    # Returns a dict, not df
-    nmat = piece.nmats() 
-      
+    unfiltered_nmat = piece.nmats() 
+    
+    nmat = {}
+    # Iterate through each key-value pair (dataframe) in the nmat dictionary
+    for key, df in unfiltered_nmat.items():
+        # Filter out rows where MIDI column is not equal to -1.0
+        filtered_df = df[df['MIDI'] != -1.0]
+        # Store the filtered dataframe in the filtered_nmat dictionary with the same key
+        nmat[key] = filtered_df
+          
     
     align = {
         'nmat': nmat.copy(),  # Create an empty 2D array with 7 columns for nmat
@@ -149,33 +156,44 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
         'midiNote': np.empty(0)    # Create an empty 1D array
     }
     
-    # loop through voices
-    for key, df in nmat.items():        
-        onset_sec = df['ONSET_SEC']
-        offset_sec = df['OFFSET_SEC']
-        midi_notes = df['MIDI']          
-       
-    
-    # Convert Series to NumPy arrays and reshape
-    onset_sec_array = onset_sec.values.reshape(-1, 1)
-    offset_sec_array = offset_sec.values.reshape(-1, 1)
-    
-    combined_slice = np.hstack((onset_sec_array, offset_sec_array))    
-
-    
+    tres = 0.05
     dtw['MA'] = np.array(dtw['MA']) * tres
-    dtw['RA'] = np.array(dtw['RA']) * tres  
+    dtw['RA'] = np.array(dtw['RA']) * tres
     
-    x = maptimes(combined_slice, dtw['MA'], dtw['RA'])
-
-    # # Assign 'on', 'off', and 'midiNote' values from nmat
-    align['on'] = x[:,0]
-    align['off'] = x[:,1]
-    align['midiNote'] = midi_notes
-    spec = D # from align_midi_wav
 
 
-    return align, spec, dtw
+    # loop through voices
+    onset_sec = []
+    offset_sec = []
+    midi_notes = []
+
+    
+    for key, df in nmat.items():                
+        onset_sec = df['ONSET_SEC'].values
+        offset_sec = df['OFFSET_SEC'].values
+        midi_notes = df['MIDI'].values
+        
+        # combined_slice = np.column_stack((np.concatenate(onset_sec), np.concatenate(offset_sec)))
+        combined_slice = [[on, off] for on, off in zip(onset_sec, offset_sec)]
+        combined_slice = np.array(combined_slice)
+        
+        
+    
+    
+        # Reversed RA and MA
+        x = maptimes(combined_slice, dtw['RA'], dtw['MA'])                
+        # Assign 'on', 'off', and 'midiNote' values from nmat
+        align['on'] = np.append(align['on'], x[:,0])
+        align['off'] = np.append(align['off'], x[:,1])
+        align['midiNote'] = np.append(align['midiNote'], midi_notes)
+        spec = D # from align_midi_wav
+
+        df.loc[:,'ONSET_SEC'] = x[:,0]        
+        df.loc[:,'OFFSET_SEC'] = x[:,1]
+        df.at[df.index[0], 'ONSET_SEC'] = 0 # Set first value to 0 always
+    
+    
+    return align, spec, dtw, nmat
 
 
 
@@ -240,7 +258,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     plt.xlabel('Time (s)')
     plt.title('Spectrogram')    
     plt.colorbar(label='Power/Frequency (dB/Hz)')
-    plt.show()
+    # plt.show()
         
 
     
@@ -265,10 +283,10 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
-    
+   
     # Do the DP search
-    p, q, D = dp(1 - S)  # Used dp for the sake of simplicity/not writing Cython methods as required by dpfast. Is this okay?
-    
+    p, q, D = dp(1 - S) 
+   
 
     # Map indices into MIDI file that make it line up with the spectrogram
     # Not sure if this is working as all other params are questionable!
@@ -326,12 +344,20 @@ def ifgram(audiofile, tsr, win_ms):
     
     
     freqs, times, mags = librosa.reassigned_spectrogram(y=y, sr=tsr,
-                                                      n_fft=win_samps)
+                                                      n_fft=win_samps, reassign_frequencies=False)
   
-        
+    
     mags_db = librosa.amplitude_to_db(mags, ref=np.max)
     sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
 
+    
+    
+    # Find the index of the maximum magnitude frequency bin for each time frame
+    max_mag_index = np.argmax(mags, axis=0)
+    
+    # Extract the corresponding frequencies as f0 values
+    f0_values = freqs[max_mag_index]
+    
 
     fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
     img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
@@ -341,10 +367,9 @@ def ifgram(audiofile, tsr, win_ms):
     ax[1].set_title("Reassigned spectrogram")
     fig.colorbar(img, ax=ax, format="%+2.f dB")
                   
+    # plt.show()
     
-    plt.show()
-    
-    return freqs, times, sig_pwr
+    return freqs, times, mags_db, f0_values, sig_pwr
 
 def get_ons_offs(onsoffs):
     """
