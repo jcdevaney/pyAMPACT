@@ -19,6 +19,7 @@ m21.environment.set('autoDownload', 'allow')
 import os
 from symbolicUtils import *
 import tempfile
+import librosa
 
 
 class Score:
@@ -71,13 +72,6 @@ class Score:
             self._import_function_harm_spines()
         self.public = '\n'.join([f'{prop.ljust(15)}{type(getattr(self, prop))}' for prop in dir(self) if not prop.startswith('_')])
         self._partList()
-        # Extract chord symbols
-        # chord_symbols = []
-        # for flat in self._flatParts:
-        #     for el in flat.getElementsByClass(m21.harmony.ChordSymbol):
-        #         if el.classes[0] == 'ChordSymbol':
-        #             import pdb; pdb.set_trace()
-        #             chord_symbols.append(el.figure)
     
     def _assignM21Attributes(self, path=''):
         """
@@ -1129,6 +1123,33 @@ class Score:
         ser = ser[ser != ser.shift()]   # remove consecutive duplicates
         return snapTo(ser, snap_to, filler, output)
 
+    def tony(self, path=''):
+        """
+        Get the labels data from a .tony file/url and return it as a dataframe. Calls
+        fromJSON to do this. The "meta" portion of the tony file is ignored. If no
+        path is provided, the last tony table imported with this method is returned.
+
+        :param path: A string representing the path to the .tony file.
+        :return: A pandas DataFrame representing the labels in the .tony file.
+        """
+        if 'tony' not in self._analyses:
+            if not path:
+                print('No path was provided and no prior analysis was found. Please provide a path to a .tony file.')
+                return
+            elif not path.endswith('.tony'):
+                print('The file provided is not a .tony file.')
+                return
+            elif not path.startswith('http') and not os.path.exists(path):
+                print('The file provided does not exist.')
+                return
+            else:
+                self._analyses['tony'] = {path: fromJSON(path)}
+        else:
+            if not path:   # return the last tony table
+                return next(reversed(self._analyses['tony'].values()))
+
+        return next(reversed(self._analyses['tony'].values()))
+
     def _m21ObjectsNoTies(self):
         """
         Remove tied notes in a given voice. Only the first note in a tied group 
@@ -1424,7 +1445,15 @@ class Score:
             mp = self.midiPitches(multi_index=True)
             ms = self._measures()
             ids = self.xmlIDs()
-            data = fromJSON(json_path) if json_path else pd.DataFrame()
+            if json_path:
+                if json_path.lower().endswith('.json'):
+                    data = fromJSON(json_path) if json_path else pd.DataFrame()
+                elif json_path.lower().endswith('.csv'):
+                    data = pd.read_csv(githubURLtoRaw(json_path), header=None)
+                    col_names = ('ONSET_SEC', 'MIDI', 'DURATION')
+                    data.columns = col_names[:len(data.columns)]   # sometimes these files only have two columns instead of three
+                    data['MIDI'] = data['MIDI'].map(librosa.hz_to_midi, na_action='ignore').round().astype('Int16')
+
             if isinstance(ids.index, pd.MultiIndex):
                 ms.index = pd.MultiIndex.from_product((ms.index, (0,)))
             for i, partName in enumerate(self._parts().columns):
@@ -1446,14 +1475,23 @@ class Score:
                         data = data.iloc[:len(df.index), :]
                         print('\n\n*** Warning ***\n\nThe json data has more observations than there are notes in this part so the data was truncated.\n')
                     elif len(data.index) < len(df.index):
+                        df = df.iloc[:len(data.index), :]
                         print('\n\n*** Warning ***\n\nThere are more events than there are json records in this part.\n')
-                    df.iloc[:len(data.index), 5] = data.index
-                    if len(data.index) > 1:
-                        df.iloc[:len(data.index) - 1, 6] = data.index[1:]
-                    data.index = df.index[:len(data.index)]
-                    df = pd.concat((df, data), axis=1)
-                    included[partName] = df
-                    df = df.iloc[:, :7].copy()
+                    data.index = df.index
+                    if json_path.lower().endswith('.json'):
+                        df.iloc[:len(data.index), 5] = data.index
+                        if len(data.index) > 1:
+                            df.iloc[:len(data.index) - 1, 6] = data.index[1:]
+                        data.index = df.index[:len(data.index)]
+                        df = pd.concat((df, data), axis=1)
+                        included[partName] = df
+                        df = df.iloc[:, :7].copy()
+
+                    elif json_path.lower().endswith('.csv'):
+                        df[['ONSET_SEC', 'MIDI']] = data[['ONSET_SEC', 'MIDI']]
+                        df.OFFSET_SEC = df.ONSET_SEC + data['DURATION']
+                        included[partName] = df
+
                 nmats[partName] = df
             self._analyses[('nmats', json_path, False)] = nmats
             if json_path:
