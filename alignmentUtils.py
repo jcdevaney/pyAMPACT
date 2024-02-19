@@ -30,9 +30,13 @@ from scipy.signal import gaussian
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 
+from scipy.optimize import linear_sum_assignment
 
 
 def dp(M):
+    # neg_M = -M  # Convert to minimization problem
+    # row_ind, col_ind = linear_sum_assignment(neg_M)
+    # return row_ind.tolist(), col_ind.tolist(), M[row_ind, col_ind]
 
 
     """
@@ -471,49 +475,55 @@ def maptimes(t, intime, outtime):
     - u: 2D numpy array, mapped times
     """
 
-    # tr, tc = t.shape
-    # t = t.flatten()    
-    # nt = len(t)
-    # nr = len(intime)
-    
-    # # Decidedly faster than outer-product-array way
-    # u = t.flatten()
-    # for i in range(nt):
-    #     idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
-    #     u[i] = outtime[idx]        
-    
-    # u = np.reshape(u, (tr, tc))
-    # return u
-    
-    # This is the new way        
     tr, tc = t.shape
-    t = t.reshape(1, -1)  # make into a row
+    t = t.flatten()    
     nt = len(t)
     nr = len(intime)
     
     # Decidedly faster than outer-product-array way
     u = t.flatten()
     for i in range(nt):
-        # Find the index in intime where the value is greater than t[i]
-        idx = np.argmax(intime > t[0, i])
-        
-        # Ensure that idx is within the bounds of outtime
-        idx = min(idx, len(outtime) - 1)        
+        idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
         u[i] = outtime[idx]        
     
-    u = np.reshape(u, (tr, tc))  
+    u = np.reshape(u, (tr, tc))
+    return u
+    
+    # # This is the new way                
+    # tr, tc = t.shape
+    # t = t.reshape(1, -1)  # make into a row
+    # nt = len(t)
+    # nr = len(intime)
+    
+    # # Decidedly faster than outer-product-array way
+    # u = t.flatten()
+    # for i in range(nt):
+    #     # Find the index in intime where the value is greater than t[i]
+    #     idx = np.argmax(intime > t[0, i])
+        
+    #     # Ensure that idx is within the bounds of outtime
+    #     idx = min(idx, len(outtime) - 1)        
+    #     u[i] = outtime[idx]        
+    
+    # u = np.reshape(u, (tr, tc))  
     
         
-    return u
+    # return u
 
     
 
 def calculate_f0_est(filename, hop_length, win_ms, tsr):    
             
-    y, sr = librosa.load(filename, sr=None)
+    y, sr = librosa.load(filename, sr=tsr)
+
+    # Calculate the maximum absolute amplitude
+    max_amplitude = np.max(np.abs(y))
+
+    # Normalize the audio signal
+    normalized_y = y / max_amplitude
 
     # Compute STFT
-    stft = librosa.stft(y, n_fft=win_ms, hop_length=hop_length)
+    stft = librosa.stft(normalized_y, n_fft=win_ms, hop_length=hop_length)
 
     # Compute magnitude and phase of STFT
     magnitude = np.abs(stft)

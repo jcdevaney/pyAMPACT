@@ -4,6 +4,9 @@ sandbox.py
 extra_scripts.py
 debug-notes.txt
 .DS_Store
+polyFiles/
+rihanna-files/
+rihannaScript.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

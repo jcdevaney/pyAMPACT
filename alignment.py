@@ -156,7 +156,7 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
         'midiNote': np.empty(0)    # Create an empty 1D array
     }
     
-    tres = 0.05
+    tres = 0.025
     dtw['MA'] = np.array(dtw['MA']) * tres
     dtw['RA'] = np.array(dtw['RA']) * tres
     
@@ -181,7 +181,9 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     
     
         # Reversed RA and MA
-        x = maptimes(combined_slice, dtw['RA'], dtw['MA'])                
+        x = maptimes(combined_slice, dtw['MA'], dtw['RA'])  
+        print(x)   
+        sys.exit()           
         # Assign 'on', 'off', and 'midiNote' values from nmat
         align['on'] = np.append(align['on'], x[:,0])
         align['off'] = np.append(align['off'], x[:,1])
@@ -246,7 +248,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     # dr = resample(y,tsr/srgcd,sr/srgcd);
     
     
-    # Compute spectrogram
+    # Compute spectrogram    
     f, t, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
     # Access the magnitude spectrogram (D)
     D = np.abs(Sxx)
@@ -265,15 +267,18 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     # First mask declaration here follows the MATLAB params, but not sure
     # these are necessary at this point.
     # mask = piece.mask(wms, tsr, nhar, width, bpm=60, aFreq=440,
-    #                   base_note=0, tuning_factor=1, obs=20)     
-    M = piece.mask(sample_rate=tsr)
+    #                   base_note=0, tuning_factor=1, obs=20)            
+    M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width)        
     # Save M to a CSV file
     # np.savetxt('./output_files/output.csv', M, delimiter=',')
     # M = M.astype(np.int16)
     
     
 
-    # Calculate the peak-structure-distance similarity matrix
+    # Calculate the peak-structure-distance similarity matrix    
+    print(M.shape)
+    print(D.shape)
+    sys.exit()
     if ST == 1:
         S = orio_simmx(M, D)
     else:
@@ -286,12 +291,13 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
    
     # Do the DP search
     p, q, D = dp(1 - S) 
+    
    
 
     # Map indices into MIDI file that make it line up with the spectrogram
     # Not sure if this is working as all other params are questionable!
-    m = np.zeros(D.shape[1], dtype=int)
-    for i in range(D.shape[1]):
+    m = np.zeros(D.shape[0], dtype=int)
+    for i in range(D.shape[0]):
         if np.any(q == i):
             m[i] = p[np.min(np.where(q == i))]
         else:

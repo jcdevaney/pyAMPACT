@@ -72,54 +72,54 @@ def data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop
     sys.exit()
 
 
-    # Get cent values for each note
-    cents = get_cent_vals(times, yin_res, target_sr)  # Original
+    # # Get cent values for each note
+    # cents = get_cent_vals(times, yin_res, target_sr)  # Original
 
-    # Calculate intervals size, perceived pitch, vibrato rate, and vibrato depth
-    # vibrato_depth, vibrato_rate, interval_size, perceived_pitch = get_pitch_vibrato_data(cents, target_sr)
+    # # Calculate intervals size, perceived pitch, vibrato rate, and vibrato depth
+    # # vibrato_depth, vibrato_rate, interval_size, perceived_pitch = get_pitch_vibrato_data(cents, target_sr)
 
-    # Get DCT values for each note
-    mins = []
-    maxes = []
-    x_mids = []
-    y_mids = []
-    smoothed_f0s = []
-    steady = []
-    dct_vals = []
-    approx = []
-
-
-    # CHECK FOR COMPARISON TO MATLAB.  SPECIFICALLY, FOR EXAMPLE:
-    # Line 147 is actually: min_idx[i], max_idx[i] = find_peaks(cents[i], win_ms, int(target_sr/32), 60)
-    for i in range(len(cents)):    
-        # Find peaks and troughs in the F0 trace for each note    
-
-        min_idx, max_idx = find_peaks(cents[i], win_ms, int(target_sr/32), 60)
-        mins.append(min_idx)
-        maxes.append(max_idx)
+    # # Get DCT values for each note
+    # mins = []
+    # maxes = []
+    # x_mids = []
+    # y_mids = []
+    # smoothed_f0s = []
+    # steady = []
+    # dct_vals = []
+    # approx = []
 
 
-        # Find midpoints between mins and maxes
-        x_mid, y_mid = find_mids(cents[i], mins[i], maxes[i], 100, int(target_sr/32))
-        x_mids.append(x_mid)
-        y_mids.append(y_mid)    
+    # # CHECK FOR COMPARISON TO MATLAB.  SPECIFICALLY, FOR EXAMPLE:
+    # # Line 147 is actually: min_idx[i], max_idx[i] = find_peaks(cents[i], win_ms, int(target_sr/32), 60)
+    # for i in range(len(cents)):    
+    #     # Find peaks and troughs in the F0 trace for each note    
 
-        """
-        BUGGED AFTER THIS POINT
+    #     min_idx, max_idx = find_peaks(cents[i], win_ms, int(target_sr/32), 60)
+    #     mins.append(min_idx)
+    #     maxes.append(max_idx)
 
-        # Generate a smoothed trajectory of a note by connecting the midpoints,    
-        smoothed_f0 = smooth_note(cents[i], x_mid, y_mid)
-        smoothed_f0s.append(smoothed_f0)        
 
-        # Find the steady-state portion of a note
-        steady = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)    
-        # steady.append([steady_start, steady_end])
+    #     # Find midpoints between mins and maxes
+    #     x_mid, y_mid = find_mids(cents[i], mins[i], maxes[i], 100, int(target_sr/32))
+    #     x_mids.append(x_mid)
+    #     y_mids.append(y_mid)    
 
-        # # Compute the DCT of a signal and approximate it with the first 3 coefficients
-        # dct_val, approx_val = note_dct(smoothed_f0[steady_start:steady_end], 3, int(target_sr/32))
-        # dct_vals.append(dct_val)
-        # approx.append(approx_val)
+    #     """
+    #     BUGGED AFTER THIS POINT
 
-    # Get loudness values for each note (you will need to implement this function)
-    # loudness_estimates, loudness_structure = getLoudnessEstimates(audio_file, onsets, offsets)
-    """
+    #     # Generate a smoothed trajectory of a note by connecting the midpoints,    
+    #     smoothed_f0 = smooth_note(cents[i], x_mid, y_mid)
+    #     smoothed_f0s.append(smoothed_f0)        
+
+    #     # Find the steady-state portion of a note
+    #     steady = find_steady(cents[i], mins[i], maxes[i], x_mid, y_mid, 1)    
+    #     # steady.append([steady_start, steady_end])
+
+    #     # # Compute the DCT of a signal and approximate it with the first 3 coefficients
+    #     # dct_val, approx_val = note_dct(smoothed_f0[steady_start:steady_end], 3, int(target_sr/32))
+    #     # dct_vals.append(dct_val)
+    #     # approx.append(approx_val)
+
+    # # Get loudness values for each note (you will need to implement this function)
+    # # loudness_estimates, loudness_structure = getLoudnessEstimates(audio_file, onsets, offsets)
+    # """
