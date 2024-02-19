@@ -1,0 +1,55 @@
+{
+    "Piano": {
+        "5758325584": {
+            "MEASURE": 1,
+            "ONSET": 0.0,
+            "DURATION": 3.25,
+            "PART": "Piano",
+            "MIDI": 70,
+            "ONSET_SEC": 0.0,
+            "OFFSET_SEC": 3.25,
+            "ppitch1": 111.7714489027591,
+            "ppitch2": 107.36508615453147,
+            "jitter": 0.0,
+            "avgPwr": -36.86964416503906,
+            "shimmer": 12.882542610168457,
+            "meanSpecSlope": -0.001049700157209111,
+            "mean_spec_flux": 0.6586570143699646,
+            "mean_spec_flat": 0.10689011961221695
+        },
+        "5758331216": {
+            "MEASURE": 1,
+            "ONSET": 3.5,
+            "DURATION": 0.5,
+            "PART": "Piano",
+            "MIDI": 69,
+            "ONSET_SEC": 3.5,
+            "OFFSET_SEC": 4.0,
+            "ppitch1": 98.43231811586693,
+            "ppitch2": 92.89414760948432,
+            "jitter": 0.0,
+            "avgPwr": -47.129634857177734,
+            "shimmer": 7.716668605804443,
+            "meanSpecSlope": 0.0019362438613413863,
+            "mean_spec_flux": 0.02358384057879448,
+            "mean_spec_flat": 0.28834235668182373
+        },
+        "5758333328": {
+            "MEASURE": 2,
+            "ONSET": 4.0,
+            "DURATION": 0.5,
+            "PART": "Piano",
+            "MIDI": 70,
+            "ONSET_SEC": 4.0,
+            "OFFSET_SEC": 4.5,
+            "ppitch1": 9.23122407983411,
+            "ppitch2": 9.43926019250713,
+            "jitter": 0.0,
+            "avgPwr": -41.692684173583984,
+            "shimmer": 13.931000709533691,
+            "meanSpecSlope": 0.0008038653182682165,
+            "mean_spec_flux": 0.06389356404542923,
+            "mean_spec_flat": 0.2856040596961975
+        }
+    }
+}

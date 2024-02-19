@@ -470,21 +470,43 @@ def maptimes(t, intime, outtime):
     Returns:
     - u: 2D numpy array, mapped times
     """
+
+    # tr, tc = t.shape
+    # t = t.flatten()    
+    # nt = len(t)
+    # nr = len(intime)
     
+    # # Decidedly faster than outer-product-array way
+    # u = t.flatten()
+    # for i in range(nt):
+    #     idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+    #     u[i] = outtime[idx]        
+    
+    # u = np.reshape(u, (tr, tc))
+    # return u
+    
+    # This is the new way        
     tr, tc = t.shape
-    t = t.flatten()    
+    t = t.reshape(1, -1)  # make into a row
     nt = len(t)
     nr = len(intime)
     
     # Decidedly faster than outer-product-array way
     u = t.flatten()
     for i in range(nt):
-        idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+        # Find the index in intime where the value is greater than t[i]
+        idx = np.argmax(intime > t[0, i])
+        
+        # Ensure that idx is within the bounds of outtime
+        idx = min(idx, len(outtime) - 1)        
         u[i] = outtime[idx]        
     
-    u = np.reshape(u, (tr, tc))
+    u = np.reshape(u, (tr, tc))  
+    
+        
     return u
 
+    
 
 def calculate_f0_est(filename, hop_length, win_ms, tsr):    
             
@@ -546,12 +568,10 @@ def calculate_f0_est(filename, hop_length, win_ms, tsr):
     return f0, power
 
 
-def f0_est_weighted_sum(x, f, f0i, fMax, fThresh):
-    # Set default values if not provided
-    if fMax is None:
-        fMax = 5000
-    if fThresh is None:
-        fThresh = 2 * np.median(np.diff(f[:, 0]))
+def f0_est_weighted_sum(x, f, f0i):
+    # Set default values if not provided    
+    fMax = 5000    
+    fThresh = 2 * np.median(np.diff(f[:, 0]))
 
     x2 = np.abs(x) ** 2
     wNum = np.zeros_like(x2)
@@ -579,6 +599,8 @@ def f0_est_weighted_sum(x, f, f0i, fMax, fThresh):
 
 def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True):
     # Use f0_est_weighted_sum on one note using spectrogram or IF features
+    print(noteStart_s)
+    print(noteEnd_s)
     
     win_s = 0.064
     nIter = 10
@@ -587,8 +609,8 @@ def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True)
     hop = int(win / 8)
     
     inds = np.arange(round(noteStart_s * tsr / hop), round(noteEnd_s * tsr / hop) + 1)
-    
-    x = np.abs(D[:, inds]) ** (1/6)
+
+    x = np.abs(D[inds]) ** (1/6)
     f = (np.arange(win // 2 + 1) * tsr) / win
     
     if useIf:
@@ -609,8 +631,7 @@ def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True)
         M += partials[i]
     
     # Calculate time values
-    t = np.arange(len(inds)) * hop / tsr
-    
+    t = np.arange(len(inds)) * hop / tsr    
     return f0, p, t, M, xf
 
 
