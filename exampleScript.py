@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+import sys
 
 # import functions
 from symbolic import Score
@@ -25,8 +25,6 @@ cdata_file (path)
 
 
 # # Specify audio and MIDI file NAMES
-# audio_file = './test_files/avemaria_full.wav'
-# midi_file = './test_files/avemaria_full.mid'
 # audio_file = './test_files/example3note.wav'
 # midi_file = './test_files/monophonic3notes.mid'
 
@@ -42,10 +40,8 @@ midi_file = './test_files/polyExample.mid'
 
 
 piece = Score(midi_file)
-notes = piece.midiPitches()
 nmat = piece.nmats()
   
-
 
 # Load singing means and covariances
 means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
@@ -59,16 +55,15 @@ n_harm = 3
 win_ms = 100
 hop_length = 32
 
-
+print(nmat)
 res, dtw, spec, newNmat = run_alignment(
-    audio_file, midi_file, means, covars, width, target_sr, n_harm, win_ms, hop_length)
-
+    audio_file, piece, means, covars, width, target_sr, n_harm, win_ms, hop_length)
 
 nmat = newNmat
-
+print(nmat)
 
 # Visualize the alignment
-alignment_visualiser(midi_file, spec, 1)
+alignment_visualiser(spec, 1)
 
 # Data from IF gram/Reassigned Spec
 freqs, times, mags_db, f0_values, sig_pwr = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
@@ -80,4 +75,6 @@ f0_values, sig_pwr = calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
 f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
+print('End at data_compilation')
+sys.exit()
 data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file)

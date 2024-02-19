@@ -40,7 +40,7 @@ from alignmentUtils import orio_simmx, simmx, dp, maptimes
 
 
     
-def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
+def run_alignment(filename, piece, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
@@ -74,7 +74,7 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
 
     # Run DTW alignment
     align, spec, dtw, newNmat = runDTWAlignment(
-        filename, midiname, 0.050, width, target_sr, nharm, win_ms)
+        filename, piece, 0.050, width, target_sr, nharm, win_ms)
         
                
     return align, dtw, spec, newNmat
@@ -82,7 +82,7 @@ def run_alignment(filename, midiname, means, covars, width=3, target_sr=4000, nh
 
 
 
-def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):    
+def runDTWAlignment(audiofile, piece, tres, width, target_sr, nharm, win_ms):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
@@ -121,7 +121,7 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     # Your align_midi_wav function returns values that we will use
     
     m, p, q, S, D, M, N = align_midi_wav(
-        MF=midifile, WF=audiofile, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
+        piece, WF=audiofile, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
 
     dtw = {
         'M': m,
@@ -134,11 +134,9 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     }
     
     spec = dtw['D']
-    
-    
-    piece = Score(midifile)
 
     unfiltered_nmat = piece.nmats() 
+    print(unfiltered_nmat)
     
     nmat = {}
     # Iterate through each key-value pair (dataframe) in the nmat dictionary
@@ -168,7 +166,7 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     midi_notes = []
 
     
-    for key, df in nmat.items():                
+    for key, df in nmat.items():          
         onset_sec = df['ONSET_SEC'].values
         offset_sec = df['OFFSET_SEC'].values
         midi_notes = df['MIDI'].values
@@ -182,8 +180,8 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
     
         # Reversed RA and MA
         x = maptimes(combined_slice, dtw['MA'], dtw['RA'])  
-        print(x)   
-        sys.exit()           
+        # print('maptimes return, line 183 alignment.py', x)   
+
         # Assign 'on', 'off', and 'midiNote' values from nmat
         align['on'] = np.append(align['on'], x[:,0])
         align['off'] = np.append(align['off'], x[:,1])
@@ -199,7 +197,7 @@ def runDTWAlignment(audiofile, midifile, tres, width, target_sr, nharm, win_ms):
 
 
 
-def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):    
+def align_midi_wav(piece, WF, TH, ST, width, tsr, nhar, wms):    
     """
     Align a midi file to a wav file using the "peak structure
     distance" of Orio et al. that use the MIDI notes to build 
@@ -219,9 +217,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
         - N: Is Orio-style "peak structure distance".    
     """
     
-    # Is this correct re: alignMidiWav in MATLAB?
-    # Should the pianoRoll be used to construct N
-    piece = Score(MF)
+    
     pianoRoll = piece.pianoRoll()      
 
     # Construct N
@@ -231,7 +227,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     
     N = np.array(sampled_grid)    
 
-    d, sr = librosa.load(WF, sr=None, mono=False)
+    # d, sr = librosa.load(WF, sr=None, mono=False)
 
         
     # Calculate spectrogram
@@ -276,13 +272,13 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
     
 
     # Calculate the peak-structure-distance similarity matrix    
+    print('M/D shapes, line 277 alignment.py')
     print(M.shape)
-    print(D.shape)
-    sys.exit()
+    print(D.shape)    
     if ST == 1:
         S = orio_simmx(M, D)
     else:
-        S = simmx(M, D) # Throws errors, not currently implemented
+        S = simmx(M, D) # This works, but using orio_simmx
     
     
         
@@ -306,7 +302,7 @@ def align_midi_wav(MF, WF, TH, ST, width, tsr, nhar, wms):
 
   
 
-def alignment_visualiser(mid, spec, fig=1):    
+def alignment_visualiser(spec, fig=1):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
     resulting from the HMM aligner on the output of YIN.  Trace(1,:)
@@ -323,10 +319,6 @@ def alignment_visualiser(mid, spec, fig=1):
 
     # hop size between frames
     stft_hop = 0.023  # Adjusted from 0.025
-
-    # Read MIDI file    
-    piece = Score(mid)
-    notes = piece.midiPitches()
     
     
     # Plot spectrogram
