@@ -1489,7 +1489,8 @@ class Score:
 
                     elif json_path.lower().endswith('.csv'):
                         df[['ONSET_SEC', 'MIDI']] = data[['ONSET_SEC', 'MIDI']]
-                        df.OFFSET_SEC = df.ONSET_SEC + data['DURATION']
+                        if 'DURATION' in data.columns:
+                            df.OFFSET_SEC = df.ONSET_SEC + data['DURATION']
                         included[partName] = df
 
                 nmats[partName] = df
