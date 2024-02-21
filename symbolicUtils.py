@@ -36,6 +36,27 @@ import xml.etree.ElementTree as ET
 from fractions import Fraction
 
 def _escape_cdata(text):
+    """
+    Escape certain characters in a CDATA string for XML serialization.
+
+    This function checks if the input text is a CDATA string. If it is, the text is
+    returned as is. If it's not, the function escapes the characters "&", "<", and
+    ">" by replacing them with their corresponding XML entities ("&amp;", "&lt;",
+    and "&gt;").
+
+    This function is used to overwrite the default escape function in the xml.etree
+    module. The default escape function does not escape characters in CDATA strings,
+    which can cause XML serialization to fail.
+
+    Parameters:
+    text (str): The input string to be escaped.
+
+    Returns:
+    str: The escaped string, safe for XML serialization.
+
+    Raises:
+    TypeError: If the input is not a string.
+    """
     try:
         if text.startswith(" <![CDATA[") and text.endswith("]]> "):
             return text
@@ -144,6 +165,26 @@ meiDeclaration = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def addMEINote(note, parent, syl=None):
+    """
+    Add a note element to an MEI parent element from a music21 note object.
+
+    This function creates a new 'note' subelement under the given parent
+    element, and sets its attributes based on the properties of the given note.
+    It also handles grace notes, accidentals, lyrics, and dynamics if any of
+    these are found on the note.
+
+    Parameters:
+    note (music21.note.Note): The note to add. The note's properties (octave,
+        step, id, duration, pitch, lyric, expressions) are used to set the
+        attributes of the new MEI element.
+    parent (xml.etree.ElementTree.Element): The parent element to which the new
+        'note' element will be added.
+    syl (str, optional): A syllable to add to the note as a 'syl' element. If
+        not provided, the note's lyric property is used.
+
+    Returns:
+    xml.etree.ElementTree.Element: The new 'note' element.
+    """
     note_el = ET.SubElement(parent, 'note', {'oct': f'{note.octave}',
         'pname': f'{note.step.lower()}', 'xml:id': f'{note.id}', 'dots': f'{note.duration.dots}'})
     if note.duration.isGrace:
@@ -177,8 +218,6 @@ def addMEINote(note, parent, syl=None):
         if 'Dynamic' in exp.classes:
             dyn_el = ET.SubElement(note_el, 'dynam', {'xml:id': next(idGen)})
             dyn_el.text = exp.value
-        # import pdb; pdb.set_trace()
-
 
 def addTieBreakers(partList):
     """
@@ -327,19 +366,36 @@ def _id_gen(start=1):
         start += 1
 idGen = _id_gen()
 
-def indentMEI(elem, indentation='\t', level=0):
-    i = f'\n{level*indentation}'
+def indentMEI(elem, indentation='\t', _level=0):
+    """
+    Indent an MEI (Music Encoding Initiative) XML element and its children.
+
+    This function recursively indents an XML element and its children for
+    pretty printing. The indentation level is increased for each level of
+    depth in the XML tree.
+
+    Parameters:
+    elem (xml.etree.ElementTree.Element): The XML element to indent.
+    indentation (str, optional): The indentation string to use. Default is a
+        tab character. Use a ' ' (space) for maximally compact output.
+    _level (int, optional): The initial indentation level. This parameter is used
+        internally in recursive calls but should not be set by the user.
+
+    Returns:
+    None. The function modifies the XML element in place.
+    """
+    i = f'\n{_level*indentation}'
     if len(elem):
         if not elem.text or not elem.text.strip():
             elem.text = f'{i}{indentation}'
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
         for elem in elem:
-            indentMEI(elem, indentation, level+1)
+            indentMEI(elem, indentation, _level+1)
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
     else:
-        if level and (not elem.tail or not elem.tail.strip()):
+        if _level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
 def _kernChordHelper(_chord):
