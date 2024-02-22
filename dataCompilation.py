@@ -4,8 +4,12 @@ import os
 import json
 import sys
 
-from alignment import find_peaks, find_mids
-from performance import estimate_perceptual_parameters, get_cent_vals
+
+from .performance import estimate_perceptual_parameters, get_cent_vals
+
+__all__ = [
+    "data_compilation"
+]
 
 def data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file):
     # total_rows = sum(len(df) for df in nmat.values())
@@ -20,10 +24,9 @@ def data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop
 
             # Extract values for the current time interval
             f0_chunk = f0_values[start_idx:end_idx]
-            pwr_chunk = sig_pwr[start_idx:end_idx]                
-            freq_mat_chunk = freq_mat[start_idx:end_idx]
+            pwr_chunk = sig_pwr[start_idx:end_idx]                            
             mag_mat_chunk = mag_mat[start_idx:end_idx]        
-            perceptual_params = estimate_perceptual_parameters(f0_vals=f0_chunk, pwr_vals=pwr_chunk, F=freq_mat_chunk, M=mag_mat_chunk, SR=target_sr, hop=hop_length, gt_flag=True, X=audio_file)        
+            perceptual_params = estimate_perceptual_parameters(f0_vals=f0_chunk, pwr_vals=pwr_chunk, M=mag_mat_chunk, SR=target_sr, hop=hop_length, gt_flag=True, X=audio_file)        
 
             pwr_chunk = perceptual_params['pwr_vals'][start_idx:end_idx]
             slope_chunk = perceptual_params['spec_slope'][start_idx:end_idx]
