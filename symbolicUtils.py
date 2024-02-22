@@ -35,6 +35,39 @@ import requests
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
+__all__ = [
+    "_escape_cdata",
+    "addMEINote",
+    "addTieBreakers",
+    "kernClefHelper",
+    "combineRests",
+    "combineUnisons",
+    "fromJSON",
+    "_id_gen",
+    "indentMEI",
+    "_kernChordHelper",
+    "kernFooter",
+    "kernHeader",
+    "_kernNoteHelper",
+    "kernNRCHelper",
+    "noteRestHelper",
+    "remove_namespaces",
+    "removeTied",
+    "snapTo",
+    "_duration2Kern",
+    "duration2MEI",
+    "function_pattern",
+    "imported_scores",
+    "tinyNotation_pattern",
+    "volpiano_pattern",
+    "meiDeclaration",
+    "idGen",
+    "pd",
+    "np"
+    "ET"
+
+]
+
 def _escape_cdata(text):
     """
     Escape certain characters in a CDATA string for XML serialization.

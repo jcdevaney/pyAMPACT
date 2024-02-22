@@ -17,9 +17,53 @@ import math
 import music21 as m21
 m21.environment.set('autoDownload', 'allow')
 import os
-from symbolicUtils import *
+from .symbolicUtils import *
 import tempfile
 import librosa
+
+__all__ = [
+    "Score",
+    "_assignM21Attributes",
+    "_partList",
+    "_parts",
+    "_import_function_harm_spines",
+    "insertScoreDef",
+    "xmlIDs",
+    "lyrics",
+    "_m21Clefs",
+    "_clefs",
+    "dynamics",
+    "_priority",
+    "harmKeys",
+    "harm",
+    "functions",
+    "chords",
+    "cdata",
+    "getSpines",
+    "dez",
+    "form",
+    "romanNumerals",
+    "tony",
+    "_m21ObjectsNoTies",
+    "_measures",
+    "_barlines",
+    "_timeSignatures",
+    "durations",
+    "midiPitches",
+    "notes",
+    "kernNotes",
+    "nmats",
+    "pianoRoll",
+    "sampled",
+    "mask",
+    "jsonCDATA",
+    "insertAudioAnalysis",
+    "show",
+    "toKern",
+    "_meiStack",
+    "toMEI"
+
+]
 
 
 class Score:

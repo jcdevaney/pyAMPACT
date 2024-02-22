@@ -17,7 +17,8 @@ alignmentUtils
     fill_trans_mat
     orio_simmx
     simmx
-
+    maptimes
+    calculate_f0_est
 
 """
 
@@ -32,6 +33,21 @@ from sklearn.mixture import GaussianMixture
 
 from scipy.optimize import linear_sum_assignment
 
+__all__ = [
+    "dp",
+    "fill_priormat_gauss",
+    "gh",
+    "flatTopGaussIdx",
+    "g",
+    "flatTopGaussian",
+    "viterbi_path",
+    "mixgauss_prob",
+    "fill_trans_mat",
+    "orio_simmx",
+    "simmx",
+    "maptimes",
+    "calculate_f0_est"
+]
 
 def dp(M):
     # neg_M = -M  # Convert to minimization problem
@@ -89,23 +105,6 @@ def dp(M):
 
     return p, q, D
 
-
-def db(X, U='voltage', R=1):
-    """
-    Converts the elements of X to decibel units.
-
-    Parameters:
-    - X: Input values (voltage or power measurements)
-    - U: Units ('voltage' or 'power'), default is 'voltage'
-    - R: Reference load in Ohms, default is 1
-
-    Returns:
-    - Result in decibel units
-    """
-    if U.lower() == 'power':
-        return 10 * np.log10(X)
-    else:
-        return 20 * np.log10(X / R)
 
 
 # Gaussian/Viterbi functions
@@ -643,53 +642,3 @@ def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True)
     # Calculate time values
     t = np.arange(len(inds)) * hop / tsr    
     return f0, p, t, M, xf
-
-
-# ifgram v2 - not used
-def ifgram_v2(X, N=256, W=None, H=None, SR=1):
-    if W is None:
-        W = N
-    if H is None:
-        H = W / 2
-
-    s = len(X)
-    X = X.reshape((1, -1))  # Ensure X is a 1-D row vector
-
-    win = 0.5 * (1 - np.cos(np.arange(W) / W * 2 * np.pi))
-    dwin = -np.pi / (W / SR) * np.sin(np.arange(W) / W * 2 * np.pi)
-
-    norm = 2 / np.sum(win)
-
-    nhops = 1 + int(np.floor((s - W) / H))
-
-    F = np.zeros((1 + N // 2, nhops))
-    D = np.zeros((1 + N // 2, nhops), dtype=complex)
-
-    nmw1 = int(np.floor((N - W) / 2))
-    nmw2 = N - W - nmw1
-
-    ww = 2 * np.pi * np.arange(N) * SR / N
-
-    for h in range(nhops):
-        u = X[0, np.round((h - 1) * H + np.arange(W)).astype(int)]  # Fix here
-        wu = win * u
-        du = dwin * u
-
-        if N > W:
-            wu = np.concatenate((np.zeros(nmw1), wu, np.zeros(nmw2)))
-            du = np.concatenate((np.zeros(nmw1), du, np.zeros(nmw2)))
-        elif N < W:
-            wu = wu[-nmw1:N - nmw1]
-            du = du[-nmw1:N - nmw1]
-
-        t1 = np.fft.fftshift(np.fft.fft(du))
-        t2 = np.fft.fftshift(np.fft.fft(wu))
-        D[:, h] = t2[:1 + N // 2] * norm
-
-        t = t1 + 1j * (ww * t2)
-        a, b = np.real(t2), np.imag(t2)
-        da, db = np.real(t), np.imag(t)
-        instf = (1 / (2 * np.pi)) * (a * db - b * da) / ((a * a + b * b) + (np.abs(t2) == 0))
-        F[:, h] = instf[:1 + N // 2]
-
-    return F, D

@@ -4,10 +4,10 @@ import librosa
 import sys
 
 # import functions
-from symbolic import Score
-from alignment import run_alignment, alignment_visualiser, ifgram, freq_and_mag_matrices
-from alignmentUtils import calculate_f0_est
-from dataCompilation import data_compilation
+from pyAMPACT.symbolic import Score
+from pyAMPACT.alignment import run_alignment, alignment_visualiser, ifgram, freq_and_mag_matrices
+from pyAMPACT.alignmentUtils import calculate_f0_est
+from pyAMPACT.dataCompilation import data_compilation
 
 
 """
@@ -69,9 +69,8 @@ nmat = newNmat
 alignment_visualiser(spec, 1)
 
 # Data from IF gram/Reassigned Spec
-freqs, times, mags_db, f0_values, sig_pwr = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
+freqs, times, mags_db, f0_values, sig_pwr, mag_mat = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
 # freqs, times, mags_db = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
-freq_mat, mag_mat = freq_and_mag_matrices(audio_file, target_sr)
 f0_values, sig_pwr = calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
 
 # Prune NaN and zero values from f0_values and sig_pwr
