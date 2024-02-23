@@ -79,4 +79,4 @@ sig_pwr = sig_pwr[sig_pwr != 0]
 
 print('End at data_compilation')
 sys.exit()
-data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file)
+# data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file)
