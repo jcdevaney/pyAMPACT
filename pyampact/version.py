@@ -46,5 +46,5 @@ def show_versions() -> None:
     for dep in core_deps:
         print("{}: {}".format(dep, __get_mod_version(dep)))
     print("")
-    for dep in extra_deps:
-        print("{}: {}".format(dep, __get_mod_version(dep)))
+    # for dep in extra_deps:
+    #     print("{}: {}".format(dep, __get_mod_version(dep)))
