@@ -5,18 +5,19 @@ import json
 import sys
 
 
-from .performance import estimate_perceptual_parameters, get_cent_vals
+from pyampact.performance import estimate_perceptual_parameters, get_cent_vals
 
 __all__ = [
     "data_compilation"
 ]
 
-def data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file):
+def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, audio_file):
+    print(nmat.items())
     # total_rows = sum(len(df) for df in nmat.values())
     # Iterate over the indices of XML_IDs
     for key, df in nmat.items():
-        total_duration = df['OFFSET_SEC'].iloc[-1]  # Assuming your DataFrame is named df        
-        for i, row in df.iterrows():                                     
+        total_duration = df['OFFSET_SEC'].iloc[-1]
+        for i, row in df.iterrows():                        
             start_time = row['ONSET_SEC']
             end_time = row['OFFSET_SEC']            
             start_idx = int(start_time * len(f0_values) / total_duration)

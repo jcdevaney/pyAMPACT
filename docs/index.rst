@@ -23,15 +23,14 @@ Welcome to pyAMPACT's documentation!
 
 .. toctree::
    :maxdepth: 1
-   :caption: Documentation
+   :caption: Contents:
 
    alignment
    alignmentUtils
    performance
    symbolic
    symbolicUtils
-
-
+   
 Indices and tables
 ==================
 

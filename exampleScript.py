@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
 import librosa
-import sys
 
-# import functions
-from pyAMPACT.symbolic import Score
-from pyAMPACT.alignment import run_alignment, alignment_visualiser, ifgram, freq_and_mag_matrices
-from pyAMPACT.alignmentUtils import calculate_f0_est
-from pyAMPACT.dataCompilation import data_compilation
+# This only necessary to use global package
+import pyampact
 
+# Comment out when building package
+# from pyampact.alignment import *
+# from pyampact.alignmentUtils import *
+# from pyampact.dataCompilation import *
+# from pyampact.performance import *
+# from pyampact.symbolic import Score
+# from pyampact.symbolicUtils import *
 
 """
 Params:
@@ -40,7 +43,7 @@ midi_file = './test_files/polyExample.mid'
 # midi_file = './rihanna-files/Close to You.mei'
 
 
-piece = Score(midi_file)
+piece = pyampact.Score(midi_file)
 nmat = piece.nmats()
 
 y, original_sr = librosa.load(audio_file)
@@ -58,25 +61,27 @@ n_harm = 3
 win_ms = 100
 hop_length = 32
 
-# print(nmat)
-res, dtw, spec, newNmat = run_alignment(
+
+res, dtw, spec, newNmat = pyampact.run_alignment(
     y, original_sr, piece, means, covars, width, target_sr, n_harm, win_ms, hop_length)
 
 nmat = newNmat
-# print(nmat)
 
 # Visualize the alignment
-alignment_visualiser(spec, 1)
+pyampact.alignment_visualiser(spec, 1)
 
 # Data from IF gram/Reassigned Spec
-freqs, times, mags_db, f0_values, sig_pwr, mag_mat = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
-# freqs, times, mags_db = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
-f0_values, sig_pwr = calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
+freqs, times, mags, f0_values, mags_mat = pyampact.ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
+mags_db = librosa.amplitude_to_db(mags, ref=np.max)
+
+# freqs 
+# print(times, mags_db = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms))
+f0_values, sig_pwr = pyampact.calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
+sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
 
 # Prune NaN and zero values from f0_values and sig_pwr
 f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
-print('End at data_compilation')
-sys.exit()
-data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file)
+
+pyampact.data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file)

@@ -1,1 +1,5 @@
-.. automodule:: performance
+performance
+===========
+
+.. automodule:: pyampact.performance
+    :members:

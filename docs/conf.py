@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # This song and dance enables builds from outside the docs directory
-srcpath = os.path.abspath(Path(os.path.dirname(__file__)) / "..")
+srcpath = os.path.abspath(Path(os.path.dirname(__file__)) / "../")
 sys.path.insert(0, srcpath)
 
 # sys.path.insert(0, os.path.abspath('../..'))
@@ -25,8 +25,7 @@ release = '0.0.1'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
+    'sphinx.ext.autodoc',    
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',    
 ]

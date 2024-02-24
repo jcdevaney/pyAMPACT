@@ -1,1 +1,5 @@
-.. automodule:: symbolic
+symbolic
+========
+
+.. automodule:: pyampact.symbolic
+    :members:

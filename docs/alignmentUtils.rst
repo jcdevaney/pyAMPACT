@@ -1,1 +1,5 @@
-.. automodule:: alignmentUtils
+alignmentUtils
+==============
+
+.. automodule:: pyampact.alignmentUtils
+    :members:

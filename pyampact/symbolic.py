@@ -21,6 +21,19 @@ from .symbolicUtils import *
 import tempfile
 import librosa
 
+#utils
+import json
+import numpy as np
+import pandas as pd
+import re
+import requests
+import xml.etree.ElementTree as ET
+from fractions import Fraction
+
+# Comment for package build
+from pyampact.symbolicUtils import *
+
+# Uncomment for package build
 __all__ = [
     "Score",
     "_assignM21Attributes",

@@ -28,9 +28,8 @@ sys.path.append(os.pardir)
 
 from scipy.signal import spectrogram
 
-from .performance import estimate_perceptual_parameters
-from .symbolic import Score
-from .alignmentUtils import orio_simmx, simmx, dp, maptimes
+from pyampact.performance import estimate_perceptual_parameters
+from pyampact.alignmentUtils import orio_simmx, simmx, dp, maptimes
 
 __all__ = [
     "run_alignment",
@@ -184,8 +183,8 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
         align['midiNote'] = np.append(align['midiNote'], midi_notes)
         spec = D # from align_midi_wav
 
-        df.loc[:,'ONSET_SEC'] = x[:,0]        
-        df.loc[:,'OFFSET_SEC'] = x[:,1]
+        # df.loc[:,'ONSET_SEC'] = x[:,0]
+        # df.loc[:,'OFFSET_SEC'] = x[:,1]
         df.at[df.index[0], 'ONSET_SEC'] = 0 # Set first value to 0 always
     
     
@@ -329,7 +328,7 @@ def alignment_visualiser(spec, fig=1):
     
 
 
-def ifgram(audiofile, tsr, win_ms):
+def ifgram(audiofile, tsr, win_ms):    
     # win_samps = int(tsr / win_ms) # low-res
     win_samps = 2048 # Placeholder for now, default
     y, sr = librosa.load(audiofile)
@@ -339,17 +338,8 @@ def ifgram(audiofile, tsr, win_ms):
                                                       n_fft=win_samps, reassign_frequencies=False)
   
     
-    mags_db = librosa.amplitude_to_db(mags, ref=np.max)
-    sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
-
-    # Calculate the Short-Time Fourier Transform (STFT)
-    D = librosa.stft(y)
-
-    # Extract the magnitude and phase information
-    mag_mat = np.abs(D)    
-
     
-    
+
     # Find the index of the maximum magnitude frequency bin for each time frame
     max_mag_index = np.argmax(mags, axis=0)
     
@@ -357,17 +347,25 @@ def ifgram(audiofile, tsr, win_ms):
     f0_values = freqs[max_mag_index]
     
 
-    fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
-    img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
-    ax[0].set(title="Spectrogram", xlabel=None)
-    ax[0].label_outer()
-    ax[1].scatter(times, freqs, c=mags_db, cmap="magma", alpha=0.1, s=5)
-    ax[1].set_title("Reassigned spectrogram")
-    fig.colorbar(img, ax=ax, format="%+2.f dB")
+    # Calculate the Short-Time Fourier Transform (STFT)
+    D = librosa.stft(y)
+
+    # Extract the magnitude and phase information
+    mags_mat = np.abs(D)    
+
+    
+
+    # fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
+    # img = librosa.display.specshow(mags_db, x_axis="s", y_axis="linear",sr=tsr, hop_length=win_samps//4, ax=ax[0])
+    # ax[0].set(title="Spectrogram", xlabel=None)
+    # ax[0].label_outer()
+    # ax[1].scatter(times, freqs, c=mags_db, cmap="magma", alpha=0.1, s=5)
+    # ax[1].set_title("Reassigned spectrogram")
+    # fig.colorbar(img, ax=ax, format="%+2.f dB")
                   
     # plt.show()
     
-    return freqs, times, mags_db, f0_values, sig_pwr, mag_mat
+    return freqs, times, mags, f0_values, mags_mat
 
 def get_ons_offs(onsoffs):
     """
