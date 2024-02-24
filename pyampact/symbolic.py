@@ -12,7 +12,7 @@ symbolic
 
 import ast
 import base64
-import copy
+from copy import deepcopy
 import math
 import music21 as m21
 m21.environment.set('autoDownload', 'allow')
@@ -151,7 +151,7 @@ class Score:
 
                 if root.tag.endswith('mei'):   # this is an mei file even if the fileExtension is .xml
                     parseEdited = False
-                    self._meiTree = copy.deepcopy(root)
+                    self._meiTree = deepcopy(root)
                     if not root.find('.//scoreDef'):   # this mei file doesn't have a scoreDef element, so construct one and add it to the score
                         parseEdited = True
                         self.insertScoreDef(root)
@@ -1354,6 +1354,47 @@ class Score:
             res.columns = df.columns
             return res
 
+    def contextualize(self, df, offsets=True, measures=True, beats=True):
+        """
+        Add measure and beat numbers to a DataFrame.
+
+        :param df: A DataFrame to which to add measure and beat numbers.
+        :param measures: Boolean, default True. If True, measure numbers will be added.
+        :param beats: Boolean, default True. If True, beat numbers will be added.
+        :return: A DataFrame with measure and beat numbers added.
+        """
+        toConcat = [df]
+        cols = df.columns.tolist()
+        if measures:
+            toConcat.append(self._measures().iloc[:, 0])
+            cols.append('Measure')
+        if beats:
+            toConcat.append(self._beats().apply(lambda row: row[row.first_valid_index()], axis=1))
+            cols.append('Beat')
+        ret = pd.concat(toConcat, axis=1).sort_index()
+        if offsets:
+            ret.index.name = 'Offset'
+        ret.columns = cols
+        if measures:
+            ret['Measure'] = ret['Measure'].ffill()
+        ret = ret.set_index(cols[len(df.columns):], append=True).dropna(how='all')
+        if not offsets:
+            ret.index = ret.index.droplevel(0)
+        return ret
+
+    def _beats(self):
+        """
+        Return a DataFrame of beat numbers for each part in the score.
+
+        :return: A DataFrame where each column corresponds to a part in the score,
+            and each row index is the offset of a beat. The values are the beat
+            numbers.
+        """
+        if '_beats' not in self._analyses:
+            df = self._parts(compact=True).map(lambda obj: obj.beat, na_action='ignore')
+            self._analyses['_beats'] = df
+        return self._analyses['_beats']
+
     def midiPitches(self, multi_index=False):
         """
         Return a DataFrame of notes and rests as MIDI pitches.
@@ -2030,21 +2071,15 @@ class Score:
             # assign column names in format (partNumber, voiceNumer) with no splitting up of chords
             events = self._parts(compact=True, number=True).copy()
             clefs = self._m21Clefs().copy()
-            mi = pd.MultiIndex.from_tuples([(x, 1) for x in range(1, len(clefs.columns) + 1)], names=['Staff', 'Layer'])
-            if 0.0 in clefs.index:
-                clefs.drop(0.0, inplace=True)
-            clefs.index = pd.MultiIndex.from_product([clefs.index, [-9]])
-            clefs.columns = mi
             ksigs = self._keySignatures(False).copy()
-            if 0.0 in ksigs.index:
-                ksigs.drop(0.0, inplace=True)
-            ksigs.index = pd.MultiIndex.from_product([ksigs.index, [-8]])
-            ksigs.columns = mi
             tsigs = self._timeSignatures(ratio=False).copy()
-            if 0.0 in tsigs.index:
-                tsigs.drop(0.0, inplace=True)
-            tsigs.index = pd.MultiIndex.from_product([tsigs.index, [-7]])
-            tsigs.columns = mi
+            mi = pd.MultiIndex.from_tuples([(x, 1) for x in range(1, len(clefs.columns) + 1)], names=['Staff', 'Layer'])
+            for i, staffInfo in enumerate((clefs, ksigs, tsigs)):
+                if 0.0 in staffInfo.index:
+                    staffInfo.drop(0.0, inplace=True)
+                staffInfo.index = pd.MultiIndex.from_product([staffInfo.index, [i - 9]])
+                staffInfo.columns = mi
+
             me = self._measures(compact=True)
             me.columns = events.columns
             parts = []
@@ -2060,22 +2095,22 @@ class Score:
                     ei = pd.concat((ci, ki, ti, ei)).sort_index()
                 mi.index = mi.index.set_levels([-10], level=1)   # force measures to come before any grace notes. # TODO: check case of nachschlag grace notes
                 part = pd.concat((ei, mi), axis=1)
-                p2 = part.dropna(how='all').sort_index(level=[0, 1])
-                part = p2
+                part = part.dropna(how='all').sort_index(level=[0, 1])
                 part.Measure = part.Measure.ffill()
                 parts.append(part.set_index('Measure', append=True))
             df = pd.concat(parts, axis=1).sort_index().droplevel([0, 1])
             df.columns = events.columns
-            stack = df.stack((0, 1)).sort_index(level=[0, 1, 2])
+            stack = df.stack((0, 1), future_stack=True).dropna().sort_index(level=[0, 1, 2])
             self._analyses['_meiStack'] = stack
         return self._analyses['_meiStack']
 
-    def toMEI(self, file_name='', indentation='\t', data='', start=None, stop=None):
+    def toMEI(self, file_name='', indentation='\t', data='', start=None, stop=None, dfs=None, analysis_tag='annot'):
         """
-        Create an MEI representation of the score. If no `file_name` is passed
-        then returns a string of the MEI representation. Otherwise a file called
-        `file_name` is created or overwritten in the `output_files` directory.
-        If `file_name` does not end in '.mei.xml' or '.mei', then the `.mei.xml`
+        Write or return an MEI score optionally including analysis data.
+
+        If no `file_name` is passed then returns a string of the MEI representation.
+        Otherwise a file called `file_name` is created or overwritten in the `output_files`
+        directory. If `file_name` does not end in '.mei.xml' or '.mei', then the `.mei.xml`
         file extension will be added to the `file_name`.
 
         :param file_name: Optional string representing the name to save the new
@@ -2101,6 +2136,8 @@ class Score:
             piece.toMEI(file_name='meiFile.mei.xml')
         """
         key = ('toMEI', data, start, stop)
+        if isinstance(dfs, pd.DataFrame):
+            dfs = {'analysis': dfs}
         if key not in self._analyses:
             root = ET.Element('mei', {'xmlns': 'http://www.music-encoding.org/ns/mei', 'meiversion': '5.1-dev'})
             
@@ -2121,7 +2158,6 @@ class Score:
             score = ET.SubElement(mdiv, 'score')
             section = ET.SubElement(score, 'section')
             self.insertScoreDef(root)
-
 
             stack = self._meiStack()
             if isinstance(start, int) or isinstance(stop, int):
@@ -2190,11 +2226,41 @@ class Score:
             indentMEI(root, indentation)
             self._analyses[key] = ET.ElementTree(root)
 
+        if dfs is None:
+            ret = self._analyses[key]
+        else:   # add analysis data
+            ret = deepcopy(self._analyses[key])
+            events = self._parts(compact=True, number=True)
+            for ii, (tag, df) in enumerate(dfs.items()):
+                _df = self.contextualize(df, offsets=False, measures=True, beats=True)
+                _df.columns = events.columns[:len(_df.columns)]
+                # TODO: trim _df to start and stop
+                dfstack = _df.stack((0, 1), future_stack=True).dropna()
+                # for
+                for measure in dfstack.index.get_level_values(0).unique():
+                    meas_el = ret.find(f'.//measure[@n="{measure}"]')
+                    if not meas_el:
+                        continue
+                    for ndx in dfstack.loc[measure].index:
+                        val = dfstack.loc[(measure, *ndx)]
+                        properties = {'xml:id': next(idGen), 'type': tag, 'tstamp': f'{ndx[0]}',
+                            'staff': f'{ndx[1]}', 'layer': f'{ndx[2]}'}
+                        if analysis_tag == 'harm':
+                            if ndx[2] % 2 == 1:
+                                properties['place'] = 'below'
+                            else:
+                                properties['place'] = 'above'
+                        analysis_el = ET.SubElement(meas_el, analysis_tag, properties)
+                        analysis_el.text = val
+            newRoot = ret.getroot()
+            indentMEI(newRoot, indentation)
+            ret = ET.ElementTree(newRoot)
+
         if not file_name:
-            return self._analyses[key]
+            return ret
         else:
             if not (file_name.endswith('.mei.xml') or file_name.endswith('.mei')):
                 file_name += '.mei.xml'
             with open(f'./output_files/{file_name}', 'w') as f:
                 f.write(meiDeclaration)
-                self._analyses[key].write(f, encoding='unicode')
+                ret.write(f, encoding='unicode')

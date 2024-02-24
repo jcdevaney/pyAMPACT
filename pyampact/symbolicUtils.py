@@ -61,7 +61,8 @@ __all__ = [
     "tinyNotation_pattern",
     "volpiano_pattern",
     "meiDeclaration",
-    "idGen"
+    "idGen"    
+
 ]
 
 def _escape_cdata(text):

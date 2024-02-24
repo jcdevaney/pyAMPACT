@@ -83,5 +83,4 @@ sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
 f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
-
-pyampact.data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file)
+data_compilation(f0_values, sig_pwr, freq_mat, mag_mat, nmat, target_sr, hop_length, audio_file)
