@@ -29,6 +29,7 @@ import re
 import requests
 import xml.etree.ElementTree as ET
 from fractions import Fraction
+idx = pd.IndexSlice
 
 # Comment for package build
 from pyampact.symbolicUtils import *
@@ -1380,23 +1381,29 @@ class Score:
         :param beats: Boolean, default True. If True, beat numbers will be added.
         :return: A DataFrame with measure and beat numbers added.
         """
-        toConcat = [df]
-        cols = df.columns.tolist()
+        _copy = df.copy()
+        _copy.columns = range(len(_copy.columns))
+        toConcat = [_copy]
+        cols = []
         if measures:
-            toConcat.append(self._measures().iloc[:, 0])
+            meas = self._measures().iloc[:, 0]
+            meas.name = 'Measure'
+            toConcat.append(meas)
             cols.append('Measure')
         if beats:
-            toConcat.append(self._beats().apply(lambda row: row[row.first_valid_index()], axis=1))
+            bts = self._beats().apply(lambda row: row[row.first_valid_index()], axis=1)
+            bts.name = 'Beat'
+            toConcat.append(bts)
             cols.append('Beat')
         ret = pd.concat(toConcat, axis=1).sort_index()
         if offsets:
             ret.index.name = 'Offset'
-        ret.columns = cols
         if measures:
             ret['Measure'] = ret['Measure'].ffill()
-        ret = ret.set_index(cols[len(df.columns):], append=True).dropna(how='all')
+        ret = ret.set_index(cols, append=True).dropna(how='all')
         if not offsets:
             ret.index = ret.index.droplevel(0)
+        ret.columns = df.columns
         return ret
 
     def _beats(self):
@@ -2137,6 +2144,11 @@ class Score:
         :param start: Optional integer representing the starting measure. If `start`
             is greater than `stop`, they will be swapped.
         :param stop: Optional integer representing the last measure.
+        :param dfs: Optional dictionary of pandas DataFrames to be added to the
+            new MEI file. The keys of the dictionary will be used as the `@type`
+            attribute of the `analysis_tag` parameter element.
+        :param analysis_tag: Optional string representing the name of the tag to
+            be used for the analysis data.
         :return: String of new MEI score if no `file_name` is given, or None if
             writing the new MEI file to `output_files/<file_name>.mei.xml`
 
@@ -2247,28 +2259,43 @@ class Score:
             ret = self._analyses[key]
         else:   # add analysis data
             ret = deepcopy(self._analyses[key])
+            if any((start, stop)):
+                for measure in ret.findall('.//measure'):
+                    measure_number = int(measure.get('n'))
+                    if (start and measure_number < start) or (stop and measure_number > stop):
+                        measure.getparent().remove(measure)
             events = self._parts(compact=True, number=True)
             for ii, (tag, df) in enumerate(dfs.items()):
-                _df = self.contextualize(df, offsets=False, measures=True, beats=True)
+                _df = self.contextualize(df, offsets=True, measures=True, beats=True)
                 _df.columns = events.columns[:len(_df.columns)]
-                # TODO: trim _df to start and stop
+                if any((start, stop)):   # trim _df to start and stop
+                    if start and stop:
+                        _df = _df.loc[idx[:, start:stop, :]]
+                        print('here')
+                    elif start:
+                        _df = _df.loc[idx[:, start:, :]]
+                    else:
+                        _df = _df.loc[idx[:, :stop, :]]
                 dfstack = _df.stack((0, 1), future_stack=True).dropna()
-                # for
-                for measure in dfstack.index.get_level_values(0).unique():
+                for measure in dfstack.index.get_level_values(1).unique():
                     meas_el = ret.find(f'.//measure[@n="{measure}"]')
                     if not meas_el:
                         continue
-                    for ndx in dfstack.loc[measure].index:
-                        val = dfstack.loc[(measure, *ndx)]
-                        properties = {'xml:id': next(idGen), 'type': tag, 'tstamp': f'{ndx[0]}',
-                            'staff': f'{ndx[1]}', 'layer': f'{ndx[2]}'}
+                    for ndx in dfstack.index:
+                        if ndx[1] > measure:
+                            break
+                        if ndx[1] < measure:
+                            continue
+                        val = dfstack.at[ndx]
+                        properties = {'xml:id': next(idGen), 'type': tag, 'tstamp': f'{ndx[2]}',
+                            'staff': f'{ndx[3]}', 'layer': f'{ndx[4]}'}
                         if analysis_tag == 'harm':
-                            if ndx[2] % 2 == 1:
+                            if ndx[4] % 2 == 1:
                                 properties['place'] = 'below'
                             else:
                                 properties['place'] = 'above'
                         analysis_el = ET.SubElement(meas_el, analysis_tag, properties)
-                        analysis_el.text = val
+                        analysis_el.text = f'{val}'
             newRoot = ret.getroot()
             indentMEI(newRoot, indentation)
             ret = ET.ElementTree(newRoot)
