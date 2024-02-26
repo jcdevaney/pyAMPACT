@@ -81,8 +81,7 @@ __all__ = [
 
 class Score:
     """
-    A class to import a musical score via music21 and expose AMPACT's analysis 
-    utilities.
+    A class to import a score via music21 and expose pyAMPACT's analysis utilities.
 
     The analysis utilities are generally formatted as pandas dataframes. This 
     class also ports over some matlab code to help with alignment of scores in 
@@ -575,7 +574,21 @@ class Score:
         self._analyses['xmlIDs'] = df
         return df
 
-    def lyrics(self):
+    def _lyricHelper(self, cell, strip):
+        """
+        Helper function for the lyrics method.
+
+        :param cell: A music21 object.
+        :return: The lyric of the music21 object.
+        """
+        if hasattr(cell, 'lyric'):
+            lyr = cell.lyric
+            if lyr and strip and len(lyr) > 1:
+                lyr = lyr.strip(' \n\t-_')
+            return lyr
+        return np.nan
+
+    def lyrics(self, strip=True):
         """
         Extract the lyrics from the score. 
 
@@ -583,6 +596,8 @@ class Score:
         where each column represents a part and each row represents a lyric. The 
         DataFrame is indexed by the offset of the lyrics.
 
+        :param strip: Boolean, default True. If True, the method will strip leading
+            and trailing whitespace from the lyrics.
         :return: A pandas DataFrame representing the lyrics in the score.
 
         See Also
@@ -596,9 +611,11 @@ class Score:
             piece = Score('https://raw.githubusercontent.com/alexandermorgan/AMPACT/main/test_files/busnoys.krn')
             piece.lyrics()
         """
-        if 'lyrics' not in self._analyses:
-            self._analyses['lyrics'] = self._parts().map(lambda cell: cell.lyric if hasattr(cell, 'lyric') else np.nan, na_action='ignore').dropna(how='all')
-        return self._analyses['lyrics'].copy()
+        key = ('lyrics', strip)
+        if key not in self._analyses:
+            df = self._parts().map(self._lyricHelper, na_action='ignore', **{'strip': strip}).dropna(how='all')
+            self._analyses[key] = df
+        return self._analyses[key].copy()
 
     def _m21Clefs(self):
         """

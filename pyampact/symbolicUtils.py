@@ -453,7 +453,7 @@ def kernFooter(fileExtension):
     return f"""!!!RDF**kern: %=rational rhythm
 !!!RDF**kern: l=long note in original notation
 !!!RDF**kern: i=editorial accidental
-!!!ONB: Translated from a {fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via AMPACT
+!!!ONB: Translated from a {fileExtension} file on {datetime.today().strftime("%Y-%m-%d")} via pyAMPACT
 !!!title: @{{OTL}}"""
 
 def kernHeader(metadata):
