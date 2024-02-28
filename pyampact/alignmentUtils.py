@@ -50,22 +50,19 @@ __all__ = [
 ]
 
 def dp(M):
-    # neg_M = -M  # Convert to minimization problem
-    # row_ind, col_ind = linear_sum_assignment(neg_M)
-    # return row_ind.tolist(), col_ind.tolist(), M[row_ind, col_ind]
-
-
     """
     Use dynamic programming to find a min-cost path through matrix M.
     Return state sequence in p,q
     """
+    import numpy as np
+    
     r, c = M.shape
-
+    
     # Initialize cost matrix D
     D = np.zeros((r + 1, c + 1))
-    # D[0, :] = np.nan
-    # D[:, 0] = np.nan
-    # D[0, 0] = 0
+    D[0, :] = np.nan
+    D[:, 0] = np.nan
+    D[0, 0] = 0
     D[1:, 1:] = M
 
     # Initialize traceback matrix phi
@@ -75,20 +72,31 @@ def dp(M):
     for i in range(r):
         for j in range(c):
             dmax = min(D[i, j], D[i, j + 1], D[i + 1, j])
-            tb = 1 if dmax == D[i, j] else (2 if dmax == D[i, j + 1] else 3)
+            if dmax == D[i, j]:
+                tb = 0
+            elif dmax == D[i, j + 1]:
+                tb = 3
+            else:
+                tb = 2
 
-            # dmax, tb = min([D[i, j], D[i, j + 1], D[i + 1, j]])
             D[i + 1, j + 1] = D[i + 1, j + 1] + dmax
             phi[i, j] = tb
 
-    # Traceback from top left
-    i = r - 1
-    j = c - 1
-    p = [i]
-    q = [j]
-    while i > 0 and j > 0:
-        tb = phi[i, j]
-        if tb == 1:
+    # Traceback from bottom right
+    # Traceback from bottom right
+        # Traceback from bottom right
+    # Traceback from bottom right
+    i = r
+    j = c
+    p = []
+    q = []
+    
+    while i > 1 or j > 1:  # Ensure both i and j are greater than 1
+        p.insert(0, i - 1)
+        q.insert(0, j - 1 + (c - len(set(q))))  # Adjust the starting value of q
+        print("i =", i, ", j =", j)
+        tb = phi[i - 1, j - 1]
+        if tb == 0:
             i = i - 1
             j = j - 1
         elif tb == 2:
@@ -97,14 +105,21 @@ def dp(M):
             j = j - 1
         else:
             raise ValueError("Invalid traceback value")
-        p.insert(0, i)
-        q.insert(0, j)
+
 
     # Strip off the edges of the D matrix before returning
-    D = D[1:r + 1, 1:c + 1]        
+    D = D[1:r + 1, 1:c + 1]         
 
-    return p, q, D
+    # Calculate the shift value to start q from 0
+    shift_value = -q[0]
 
+    # Shift the values of q
+    q_shifted = [value + shift_value for value in q]
+
+    # Ensure q_shifted ends with the last value of q
+    q_shifted[-1] = q_shifted[-2] + 1
+        
+    return p, q_shifted, D
 
 
 # Gaussian/Viterbi functions
@@ -440,22 +455,11 @@ def simmx(A, B):
     """
     A = A.values if isinstance(A, pd.DataFrame) else A
     B = B.values if isinstance(B, pd.DataFrame) else B
-    if B is None:
-        B = A
-
-    # Match array sizes
-    size_diff = len(A) - len(B)
-    if size_diff > 0:
-        A = A[:len(B)]
 
     EA = np.sqrt(np.sum(A**2, axis=0))
     EB = np.sqrt(np.sum(B**2, axis=0))
 
-    # Avoid division by zero
-    EA[EA == 0] = 1
-    EB[EB == 0] = 1
-
-    M = (A.T @ B) / (EA[:, np.newaxis] @ EB[np.newaxis, :])
+    M = (A.T @ B) / (EA[:, None] @ EB[None, :])
 
     return M
 
@@ -473,41 +477,26 @@ def maptimes(t, intime, outtime):
     Returns:
     - u: 2D numpy array, mapped times
     """
-
+    
     tr, tc = t.shape
-    t = t.flatten()    
+    t = t.reshape(1, -1)  # make into a row
     nt = len(t)
     nr = len(intime)
     
     # Decidedly faster than outer-product-array way
     u = t.flatten()
     for i in range(nt):
-        idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+        # Find the index in intime where the value is greater than t[i]
+        idx = np.argmax(intime > t[0, i])
+        
+        # Ensure that idx is within the bounds of outtime
+        idx = min(idx, len(outtime) - 1)        
         u[i] = outtime[idx]        
     
-    u = np.reshape(u, (tr, tc))
+    u = np.reshape(u, (tr, tc))  
+    
+        
     return u
-    
-    # # This is the new way                
-    # tr, tc = t.shape
-    # t = t.reshape(1, -1)  # make into a row
-    # nt = len(t)
-    # nr = len(intime)
-    
-    # # Decidedly faster than outer-product-array way
-    # u = t.flatten()
-    # for i in range(nt):
-    #     # Find the index in intime where the value is greater than t[i]
-    #     idx = np.argmax(intime > t[0, i])
-        
-    #     # Ensure that idx is within the bounds of outtime
-    #     idx = min(idx, len(outtime) - 1)        
-    #     u[i] = outtime[idx]        
-    
-    # u = np.reshape(u, (tr, tc))  
-    
-        
-    # return u
 
     
 

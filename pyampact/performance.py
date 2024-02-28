@@ -152,7 +152,7 @@ def perceived_pitch(f0s, sr, gamma=100000):
     # Set weights for the quickly changing vs slowly changing portions
     weights = np.exp(-gamma * np.abs(deriv))
 
-    # Calculate two versions of the perceived pitch    
+    # Calculate two versions of the perceived pitch 
     pp1 = np.dot(f0s, weights) / np.sum(weights)
     pp2 = np.dot(f0s[ind], weights[ind]) / np.sum(weights[ind])
 
