@@ -116,7 +116,7 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
     
     
     m, p, q, S, D, M, N = align_midi_wav(
-        piece, WF=y, sr=original_sr, TH=tres, ST=1, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
+        piece, WF=y, sr=original_sr, TH=tres, ST=0, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
     
     dtw = {
         'M': m,
@@ -172,10 +172,10 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
         
         
     
-    
-        # Reversed RA and MA
-        x = maptimes(combined_slice, dtw['MA'], dtw['RA'])  
-        # print('maptimes return, line 183 alignment.py', x)   
+                    
+        x = maptimes(combined_slice, dtw['RA'], dtw['MA'])          
+        # print('maptimes return, line 183 alignment.py', x)  
+        
 
         # Assign 'on', 'off', and 'midiNote' values from nmat
         align['on'] = np.append(align['on'], x[:,0])
@@ -183,8 +183,8 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
         align['midiNote'] = np.append(align['midiNote'], midi_notes)
         spec = D # from align_midi_wav
 
-        # df.loc[:,'ONSET_SEC'] = x[:,0]
-        # df.loc[:,'OFFSET_SEC'] = x[:,1]
+        df.loc[:,'ONSET_SEC'] = x[:,0]
+        df.loc[:,'OFFSET_SEC'] = x[:,1]
         df.at[df.index[0], 'ONSET_SEC'] = 0 # Set first value to 0 always
     
     
@@ -267,19 +267,22 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms):
     # Calculate the peak-structure-distance similarity matrix    
     print('M/D shapes, line 277 alignment.py')
     print(M.shape)
-    print(D.shape)    
+    print(D.shape)        
+
     if ST == 0:
         S = orio_simmx(M, D)
     else:
         S = simmx(M, D) # This works, but using orio_simmx
     
-    
-        
     # Ensure no NaNs (only going to happen with simmx)
     S[np.isnan(S)] = 0
    
     # Do the DP search
+    np.set_printoptions(threshold=np.inf)
+    
     p, q, D = dp(1 - S) 
+    print('p', p)
+    print('q', q)
     
    
 
