@@ -34,13 +34,7 @@ from .dataCompilation import (
 from .performance import (
     estimate_perceptual_parameters as estimate_perceptual_parameters,
     calculate_vibrato as calculate_vibrato,
-    perceived_pitch as perceived_pitch,
-    get_cent_vals as get_cent_vals,
-    smooth_note as smooth_note,
-    note_dct as note_dct,
-    find_mids as find_mids,
-    find_peaks as find_peaks,
-    find_steady as find_steady
+    perceived_pitch as perceived_pitch
 )
 
 from .symbolic import (

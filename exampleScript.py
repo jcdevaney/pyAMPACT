@@ -68,14 +68,14 @@ res, dtw, spec, newNmat = run_alignment(
 nmat = newNmat
 
 # Visualize the alignment
-alignment_visualiser(spec, 1)
+times = []
+freqs = []
+alignment_visualiser(spec, times, freqs, 1)
 
 # Data from IF gram/Reassigned Spec
 freqs, times, mags, f0_values, mags_mat = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms)
 mags_db = librosa.amplitude_to_db(mags, ref=np.max)
 
-# freqs 
-# print(times, mags_db = ifgram(audiofile=audio_file, tsr=target_sr, win_ms=win_ms))
 f0_values, sig_pwr = calculate_f0_est(audio_file, hop_length, win_ms, target_sr)
 sig_pwr = mags ** 2 # power of signal, magnitude/amplitude squared
 
@@ -84,4 +84,4 @@ f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
 
-data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file)
+data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file, y)
