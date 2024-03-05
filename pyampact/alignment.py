@@ -134,12 +134,12 @@ def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_
     
     spec = dtw['D']
     
-    print('alignment.py line 137')
-    print('Size of M', M.shape)
-    print('Size of D', spec.shape)
+    # print('alignment.py line 137')
+    # print('Size of M', M.shape)
+    # print('Size of D', spec.shape)
     
     # np.savetxt('./output_files/spec_runDWTAlignment.csv', spec, delimiter=',')
-    sys.exit()
+    # sys.exit()
     
     # Iterate through each key-value pair (dataframe) in the nmat dictionary
     for key, df in nmat.items():

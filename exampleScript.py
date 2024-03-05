@@ -29,15 +29,15 @@ cdata_file (path)
 
 
 # # Specify audio and MIDI file NAMES
-audio_file = './test_files/example3note.wav'
-midi_file = './test_files/monophonic3notes.mid'
+# audio_file = './test_files/example3note.wav'
+# midi_file = './test_files/monophonic3notes.mid'
 
 # # Poly
 # audio_file = './test_files/polyExample.wav'
 # midi_file = './test_files/polyExample.mid'
 
-# audio_file = './test_files/TAVERNaudio/B063_00_02.wav'
-# midi_file = './test_files/TAVERNaudio/B063_00_02.krn'
+audio_file = './test_files/TAVERNaudio/B063_00_02.wav'
+midi_file = './test_files/TAVERNaudio/B063_00_02.krn'
 
 # audio_file = './rihanna-files/rihanna-vocal tracks/Close to You vocals.wav'
 # midi_file = './rihanna-files/Close to You.mei'
