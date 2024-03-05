@@ -11,7 +11,7 @@ __all__ = [
     "data_compilation"
 ]
 
-def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, audio_file_path, export_path, y):    
+def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y, audio_file_path=None, export_path=None):    
     # total_rows = sum(len(df) for df in nmat.values())
     # Iterate over the indices of XML_IDs
     for key, df in nmat.items():
