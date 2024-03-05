@@ -2,7 +2,7 @@ from .version import show_versions as show_versions
 
 from .alignment import (
     run_alignment as run_alignment,
-    runDTWAlignment as runDTWAlignment,
+    run_DTW_alignment as run_DTW_alignment,
     align_midi_wav as align_midi_wav,
     alignment_visualiser as alignment_visualiser,
     ifgram as ifgram,
@@ -34,13 +34,7 @@ from .dataCompilation import (
 from .performance import (
     estimate_perceptual_parameters as estimate_perceptual_parameters,
     calculate_vibrato as calculate_vibrato,
-    perceived_pitch as perceived_pitch,
-    get_cent_vals as get_cent_vals,
-    smooth_note as smooth_note,
-    note_dct as note_dct,
-    find_mids as find_mids,
-    find_peaks as find_peaks,
-    find_steady as find_steady
+    perceived_pitch as perceived_pitch
 )
 
 from .symbolic import (

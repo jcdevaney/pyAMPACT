@@ -19,19 +19,17 @@ alignmentUtils
     simmx
     maptimes
     calculate_f0_est
-
 """
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import librosa
 
 from scipy.signal import gaussian
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 
-from scipy.optimize import linear_sum_assignment
+import sys
 
 __all__ = [
     "dp",
@@ -49,6 +47,7 @@ __all__ = [
     "calculate_f0_est"
 ]
 
+
 def dp(M):
     """
     Use dynamic programming to find a min-cost path through matrix M.
@@ -65,8 +64,11 @@ def dp(M):
     D[0, 0] = 0
     D[1:, 1:] = M
 
-    # Initialize traceback matrix phi
-    phi = np.zeros((r, c), dtype=int)
+    # Initialize traceback matrix phi 
+    # phi = np.zeros((r, c), dtype=int)
+
+    # Old way...
+    phi = np.zeros((r+1, c+1), dtype=int)
 
     # Dynamic programming loop
     for i in range(r):
@@ -81,34 +83,47 @@ def dp(M):
 
             D[i + 1, j + 1] = D[i + 1, j + 1] + dmax
             phi[i, j] = tb
-
-    # Traceback from bottom right
-    # Traceback from bottom right
-        # Traceback from bottom right
+    
     # Traceback from bottom right
     i = r
     j = c
     p = []
     q = []
     
-    while i > 1 or j > 1:  # Ensure both i and j are greater than 1
-        p.insert(0, i - 1)
-        q.insert(0, j - 1 + (c - len(set(q))))  # Adjust the starting value of q
-        print("i =", i, ", j =", j)
-        tb = phi[i - 1, j - 1]
+    # while i > 1 or j > 1:  # Ensure both i and j are greater than 1
+    #     p.insert(0, i - 1)
+    #     q.insert(0, j - 1 + (c - len(set(q))))  # Adjust the starting value of q        
+    #     tb = phi[i, j]
+    #     if tb == 0:
+    #         i = i - 1
+    #         j = j - 1
+    #     elif tb == 2:
+    #         i = i - 1
+    #     elif tb == 3:
+    #         j = j - 1
+    #     else:
+    #         raise ValueError("Invalid traceback value")
+    
+    # Old way...
+    while i > 0 and j > 0:
+        tb = phi[i, j]
         if tb == 0:
             i = i - 1
             j = j - 1
-        elif tb == 2:
+        elif tb == 1:
             i = i - 1
-        elif tb == 3:
+        elif tb == 2:
             j = j - 1
         else:
             raise ValueError("Invalid traceback value")
-
+        p.insert(0, i)
+        q.insert(0, j)
 
     # Strip off the edges of the D matrix before returning
-    D = D[1:r + 1, 1:c + 1]         
+    D = D[1:r + 1, 1:c + 1]            
+    # print(p)
+    # print(q)
+    # sys.exit()
 
     # Calculate the shift value to start q from 0
     shift_value = -q[0]
@@ -120,6 +135,7 @@ def dp(M):
     q_shifted[-1] = q_shifted[-2] + 1
         
     return p, q_shifted, D
+
 
 
 # Gaussian/Viterbi functions
@@ -183,6 +199,7 @@ def gh(v1, i1, v2, i2, domain, frac=0.5):
     return int(frac * x1 + (1 - frac) * x2)
  
 
+
 def flatTopGaussIdx(x, b1, bi1, t1, ti1, t2, ti2, b2, bi2):
     """
     Create a window function that is zeros, going up to 1s with the left
@@ -199,7 +216,9 @@ def flatTopGaussIdx(x, b1, bi1, t1, ti1, t2, ti2, b2, bi2):
     t1 = g(t1, ti1, x)
     t2 = g(t2, ti2, x)
     b2 = g(b2, bi2, x)
+    
     return flatTopGaussian(x, b1, t1, t2, b2)
+
 
 
 def g(vec, idx, domain):
@@ -215,6 +234,7 @@ def g(vec, idx, domain):
         return vec[idx - 1]
 
 
+
 def flatTopGaussian(x, b1, t1, t2, b2):
     """
     Create a window function that is zeros, going up to 1s with the left 
@@ -227,8 +247,6 @@ def flatTopGaussian(x, b1, t1, t2, b2):
     """
     if any([b1, t1, t2]) > any([t1, t2, b2]):
         print('Endpoints are not in order: ', b1, t1, t2, b2)
-    
-
 
     def custom_normalize(arr):
         return arr / np.max(np.abs(arr))
@@ -247,7 +265,9 @@ def flatTopGaussian(x, b1, t1, t2, b2):
 
         takeOneOut = t1 == t2
         w = np.concatenate((left[0:t1], middle, right[t2 + takeOneOut:]))
+        
         return w
+
 
 
 def viterbi_path(prior, transmat, obslik):
@@ -340,8 +360,7 @@ def mixgauss_prob(data, means, covariances, weights):
     gmm.fit(data)
 
     # Calculate the probabilities for each data point
-    probs = gmm.predict_proba(data)
-    # print('probs', probs)
+    probs = gmm.predict_proba(data)    
 
     # 'probs' now contains the conditional probabilities for each data point and each component.
     N = len(data)
@@ -396,6 +415,7 @@ def fill_trans_mat(trans_seed, notes):
     return trans
 
 
+
 def orio_simmx(M, D):
     """
     Calculate an Orio&Schwartz-style (Peak Structure Distance) similarity matrix
@@ -420,16 +440,6 @@ def orio_simmx(M, D):
     # Calculate the similarities
     S = np.zeros((M.shape[1], D.shape[1]))
 
-
-
-    # This way is slow
-    # for r in range(M.shape[1]):
-    #     for c in range(D.shape[1]):
-    #         nDc = np.linalg.norm(D[:, c])
-    #         nDc = nDc + (nDc == 0)
-    #         S[r, c] = np.linalg.norm(D[:, c] * M[:, r]) / nDc
-
-    # Doing it one row at a time is faster
     D = D**2
     M = M**2
 
@@ -464,6 +474,7 @@ def simmx(A, B):
     return M
 
 
+
 def maptimes(t, intime, outtime):    
     """
     Map the times in t according to the mapping that each point
@@ -478,6 +489,25 @@ def maptimes(t, intime, outtime):
     - u: 2D numpy array, mapped times
     """
     
+    
+    # tr, tc = t.shape
+    # t = t.flatten()    
+    # nt = len(t)
+    # nr = len(intime)
+    
+    # # Decidedly faster than outer-product-array way
+    # u = t.flatten()
+    # for i in range(nt):
+    #     idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+    #     u[i] = outtime[idx]        
+    
+    # u = np.reshape(u, (tr, tc))
+     
+    # # print(u)
+    
+    # return u
+
+    # Gives ons/offs from score
     tr, tc = t.shape
     t = t.reshape(1, -1)  # make into a row
     nt = len(t)
@@ -494,8 +524,7 @@ def maptimes(t, intime, outtime):
         u[i] = outtime[idx]        
     
     u = np.reshape(u, (tr, tc))  
-    
-        
+    # print(u)
     return u
 
     
@@ -532,102 +561,9 @@ def calculate_f0_est(filename, hop_length, win_ms, tsr):
     # Estimate power at each time frame (sum of magnitude squared)
     power = np.sum(magnitude**2, axis=0)
 
-    # Now you have f0 and power estimates for each time frame
-    # Time axis
+    # Now you have f0 and power estimates for each time frame    
     time = np.arange(len(instantaneous_freq[0])) * hop_length / sr
     new_time_value = time[-1] + hop_length / sr
     time = np.append(time, new_time_value)
-    
-    # # Plot Instantaneous Frequency
-    # plt.figure(figsize=(10, 6))
-    # plt.subplot(3, 1, 1)
-    # plt.imshow(instantaneous_freq, aspect='auto', origin='lower', cmap='viridis')
-    # plt.colorbar(label='Instantaneous Frequency (Hz)')
-    # plt.title('Instantaneous Frequency')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('Frequency Bin')
-
-    # # Plot f0 Estimate
-    # plt.subplot(3, 1, 2)
-    # plt.plot(time, f0)
-    # plt.title('Fundamental Frequency (f0) Estimate')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('Frequency (Hz)')
-
-    # # Plot Power Estimate
-    # plt.subplot(3, 1, 3)
-    # plt.plot(time, power)
-    # plt.title('Power Estimate')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('Power')
-    # plt.tight_layout()
-    # plt.show()
 
     return f0, power
-
-
-def f0_est_weighted_sum(x, f, f0i):
-    # Set default values if not provided    
-    fMax = 5000    
-    fThresh = 2 * np.median(np.diff(f[:, 0]))
-
-    x2 = np.abs(x) ** 2
-    wNum = np.zeros_like(x2)
-    wDen = np.zeros_like(x2)
-    strips = {}
-
-    maxI = int(np.max(fMax / f0i))
-    for i in range(1, maxI + 1):
-        strip = (np.abs(f - f0i * i) < fThresh) * x2        
-        strips[i] = strip
-        np.add(wNum, (1 / i) * strip)
-        np.add(wDen, strip)
-
-    
-    np.multiply(wNum, (f < fMax))
-    np.multiply(wDen, (f < fMax))
-
-    
-    f0 = np.sum(wNum * f, axis=0) / np.sum(wDen, axis=0)
-    pow = np.sum(wDen, axis=0)
-    
-
-    return f0, pow, strips
-
-
-def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, tsr, useIf=True):
-    # Use f0_est_weighted_sum on one note using spectrogram or IF features
-    print(noteStart_s)
-    print(noteEnd_s)
-    
-    win_s = 0.064
-    nIter = 10
-    
-    win = int(win_s * tsr)
-    hop = int(win / 8)
-    
-    inds = np.arange(round(noteStart_s * tsr / hop), round(noteEnd_s * tsr / hop) + 1)
-
-    x = np.abs(D[inds]) ** (1/6)
-    f = (np.arange(win // 2 + 1) * tsr) / win
-    
-    if useIf:
-        xf = F[:, inds]
-    else:
-        xf = np.tile(f[:, np.newaxis], (1, x.shape[1]))
-    
-    f0 = f0_est_weighted_sum(x, xf, f0i)
-    
-    for _ in range(nIter):
-        f0 = f0_est_weighted_sum(x, xf, f0)
-    
-    _, p, partials = f0_est_weighted_sum(x**6, xf, f0, 22050)
-    
-    M = partials[0]
-    
-    for i in range(1, len(partials)):
-        M += partials[i]
-    
-    # Calculate time values
-    t = np.arange(len(inds)) * hop / tsr    
-    return f0, p, t, M, xf

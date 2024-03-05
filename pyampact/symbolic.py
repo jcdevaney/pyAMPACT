@@ -1752,7 +1752,7 @@ class Score:
             sampled = self.sampled(bpm, obs)
             num_rows = int(2 ** round(math.log(winms / 1000 * sample_rate) / math.log(2) - 1)) + 1
             mask = pd.DataFrame(index=range(num_rows), columns=sampled.columns).infer_objects(copy=False).fillna(0)
-            fftlen = 2**round(math.log(winms / 1000 * sample_rate) / math.log(2))
+            fftlen = 2**round(math.log(winms / 1000 * sample_rate) / math.log(2))            
 
             for row in range(base_note, sampled.shape[0]):
                 note = base_note + row
