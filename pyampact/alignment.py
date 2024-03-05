@@ -78,7 +78,7 @@ def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr
     
     # Run DTW alignment
     align, spec, dtw, newNmat = run_DTW_alignment(
-        y, original_sr, piece, 0.025, width, target_sr, nharm, win_ms, nmat)   
+        y, original_sr, piece, 0.050, width, target_sr, nharm, win_ms, nmat)   
     
     nmat = newNmat
     return align, dtw, spec, nmat
