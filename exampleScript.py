@@ -29,19 +29,20 @@ cdata_file (path)
 
 
 # # Specify audio and MIDI file NAMES
-# audio_file = './test_files/example3note.wav'
-# midi_file = './test_files/monophonic3notes.mid'
+audio_file = './test_files/example3note.wav'
+midi_file = './test_files/monophonic3notes.mid'
 
 # # Poly
 # audio_file = './test_files/polyExample.wav'
 # midi_file = './test_files/polyExample.mid'
 
-audio_file = './test_files/TAVERNaudio/B063_00_03.wav'
-midi_file = './test_files/TAVERNaudio/B063_00_03.krn'
+# audio_file = './test_files/TAVERNaudio/B063_00_02.wav'
+# midi_file = './test_files/TAVERNaudio/B063_00_02.krn'
 
 # audio_file = './rihanna-files/rihanna-vocal tracks/Close to You vocals.wav'
 # midi_file = './rihanna-files/Close to You.mei'
 
+export_path = "./output_files"
 
 piece = Score(midi_file)
 nmat = piece.nmats()
@@ -62,10 +63,10 @@ win_ms = 100
 hop_length = 32
 
 
-res, dtw, spec, newNmat = run_alignment(
-    y, original_sr, piece, means, covars, width, target_sr, n_harm, win_ms, hop_length)
+res, dtw, spec, nmat = run_alignment(
+    y, original_sr, piece, means, covars, nmat, width, target_sr, n_harm, win_ms, hop_length)
 
-nmat = newNmat
+
 
 # Visualize the alignment
 times = []
@@ -84,4 +85,4 @@ f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
 
-data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file, y)
+data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file, export_path, y)

@@ -2,7 +2,7 @@ from .version import show_versions as show_versions
 
 from .alignment import (
     run_alignment as run_alignment,
-    runDTWAlignment as runDTWAlignment,
+    run_DTW_alignment as run_DTW_alignment,
     align_midi_wav as align_midi_wav,
     alignment_visualiser as alignment_visualiser,
     ifgram as ifgram,

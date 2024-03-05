@@ -7,7 +7,7 @@ alignment
     :toctree: generated/
 
     run_alignment    
-    runDTWAlignment
+    run_DTW_alignment
     align_midi_wav
     alignment_visualiser
     ifgram
@@ -29,7 +29,7 @@ from pyampact.alignmentUtils import orio_simmx, simmx, dp, maptimes
 
 __all__ = [
     "run_alignment",
-    "runDTWAlignment",
+    "run_DTW_alignment",
     "align_midi_wav",
     "alignment_visualiser",
     "ifgram",
@@ -38,7 +38,7 @@ __all__ = [
 
 
     
-def run_alignment(y, original_sr, piece, means, covars, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
+def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
@@ -77,15 +77,16 @@ def run_alignment(y, original_sr, piece, means, covars, width=3, target_sr=4000,
     y = y / np.sqrt(np.mean(y ** 2)) * 0.6
     
     # Run DTW alignment
-    align, spec, dtw, newNmat = runDTWAlignment(
-        y, original_sr, piece, 0.050, width, target_sr, nharm, win_ms)
+    align, spec, dtw, newNmat = run_DTW_alignment(
+        y, original_sr, piece, 0.025, width, target_sr, nharm, win_ms, nmat)   
+    
+    nmat = newNmat
+    return align, dtw, spec, nmat
 
-    return align, dtw, spec, newNmat
 
 
 
-
-def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms):    
+def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms, nmat):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
@@ -132,18 +133,23 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
     }
     
     spec = dtw['D']
-    unfiltered_nmat = piece.nmats()     
-    nmat = {}
+    
+    print('alignment.py line 137')
+    print('Size of M', M.shape)
+    print('Size of D', spec.shape)
+    
+    # np.savetxt('./output_files/spec_runDWTAlignment.csv', spec, delimiter=',')
+    sys.exit()
     
     # Iterate through each key-value pair (dataframe) in the nmat dictionary
-    for key, df in unfiltered_nmat.items():
+    for key, df in nmat.items():
         # Filter out rows where MIDI column is not equal to -1.0
         filtered_df = df[df['MIDI'] != -1.0]
         # Store the filtered dataframe in the filtered_nmat dictionary with the same key
         nmat[key] = filtered_df
               
     align = {
-        'nmat': nmat.copy(),  # Create an empty 2D array with 7 columns for nmat
+        'nmat': nmat.copy(),
         'on': np.empty(0),         # Create an empty 1D array
         'off': np.empty(0),        # Create an empty 1D array
         'midiNote': np.empty(0)    # Create an empty 1D array
@@ -169,7 +175,8 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
         combined_slice = [[on, off] for on, off in zip(onset_sec, offset_sec)]
         combined_slice = np.array(combined_slice)
                                         
-        x = maptimes(combined_slice, dtw['RA'], dtw['MA'])          
+        x = maptimes(combined_slice, dtw['RA'], dtw['MA'])  
+                
         
         # Assign 'on', 'off', and 'midiNote' values from nmat
         align['on'] = np.append(align['on'], x[:,0])
@@ -180,6 +187,7 @@ def runDTWAlignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms
         df.loc[:,'ONSET_SEC'] = x[:,0]
         df.loc[:,'OFFSET_SEC'] = x[:,1]
         df.at[df.index[0], 'ONSET_SEC'] = 0 # Set first value to 0 always
+    
     
     return align, spec, dtw, nmat
 
@@ -220,10 +228,15 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     ovlp = round(fft_len - TH*tsr)     
     y = librosa.resample(WF, orig_sr=sr, target_sr=tsr)
     
+    # print(fft_len)
+    # print(tsr)
+    # print(TH)
+    # print(ovlp)
     # Compute spectrogram    
     freqs, times, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
     # Access the magnitude spectrogram (D)
     D = np.abs(Sxx)
+
     
     if showSpec == True:
         alignment_visualiser(D, times, freqs)
@@ -241,7 +254,7 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     S[np.isnan(S)] = 0
    
     # Do the DP search
-    p, q, D = dp(1 - S) 
+    p, q, D_dp = dp(1 - S) 
 
     m = np.zeros(D.shape[0], dtype=int)
     for i in range(D.shape[0]):
@@ -254,7 +267,7 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
 
   
 
-def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1):    
+def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1, showSpec=False):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
     resulting from the HMM aligner on the output of YIN.  Trace(1,:)
@@ -269,22 +282,22 @@ def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1):
     :return: Visualized spectrogram    
     """    
 
-    # Plot spectrogram
-    plt.figure()
     
     
-    if (len(times) > 0 and len(freqs) > 0):
+    if (len(times) > 0 and len(freqs) > 0) and showSpec == True:
         plt.pcolormesh(times, freqs, 10 * np.log10(audio_spec), shading='auto', vmax=np.max(10 * np.log10(audio_spec)))  # Use vmax to set the color scale
         plt.ylabel('Frequency (Hz)')
         plt.xlabel('Time (s)')
-        plt.title('From Align')    
+        plt.title('Alignment Spectrogram')    
         plt.colorbar(label='Power/Frequency (dB/Hz)')
         plt.show()
+    else:
+        print("To show spectrogram, make sure to provide freqs/times and set showSpec=True")
     
     
 
 
-def ifgram(audiofile, tsr, win_ms, showSpec=True):    
+def ifgram(audiofile, tsr, win_ms, showSpec=False):    
     # win_samps = int(tsr / win_ms) # low-res
     win_samps = 2048 # Placeholder for now, default
     y, sr = librosa.load(audiofile)

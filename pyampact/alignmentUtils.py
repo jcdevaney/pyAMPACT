@@ -29,6 +29,8 @@ from scipy.signal import gaussian
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 
+import sys
+
 __all__ = [
     "dp",
     "fill_priormat_gauss",
@@ -62,8 +64,11 @@ def dp(M):
     D[0, 0] = 0
     D[1:, 1:] = M
 
-    # Initialize traceback matrix phi
-    phi = np.zeros((r, c), dtype=int)
+    # Initialize traceback matrix phi 
+    # phi = np.zeros((r, c), dtype=int)
+
+    # Old way...
+    phi = np.zeros((r+1, c+1), dtype=int)
 
     # Dynamic programming loop
     for i in range(r):
@@ -85,22 +90,40 @@ def dp(M):
     p = []
     q = []
     
-    while i > 1 or j > 1:  # Ensure both i and j are greater than 1
-        p.insert(0, i - 1)
-        q.insert(0, j - 1 + (c - len(set(q))))  # Adjust the starting value of q        
-        tb = phi[i - 1, j - 1]
+    # while i > 1 or j > 1:  # Ensure both i and j are greater than 1
+    #     p.insert(0, i - 1)
+    #     q.insert(0, j - 1 + (c - len(set(q))))  # Adjust the starting value of q        
+    #     tb = phi[i, j]
+    #     if tb == 0:
+    #         i = i - 1
+    #         j = j - 1
+    #     elif tb == 2:
+    #         i = i - 1
+    #     elif tb == 3:
+    #         j = j - 1
+    #     else:
+    #         raise ValueError("Invalid traceback value")
+    
+    # Old way...
+    while i > 0 and j > 0:
+        tb = phi[i, j]
         if tb == 0:
             i = i - 1
             j = j - 1
-        elif tb == 2:
+        elif tb == 1:
             i = i - 1
-        elif tb == 3:
+        elif tb == 2:
             j = j - 1
         else:
             raise ValueError("Invalid traceback value")
+        p.insert(0, i)
+        q.insert(0, j)
 
     # Strip off the edges of the D matrix before returning
-    D = D[1:r + 1, 1:c + 1]         
+    D = D[1:r + 1, 1:c + 1]            
+    # print(p)
+    # print(q)
+    # sys.exit()
 
     # Calculate the shift value to start q from 0
     shift_value = -q[0]
@@ -466,6 +489,25 @@ def maptimes(t, intime, outtime):
     - u: 2D numpy array, mapped times
     """
     
+    
+    # tr, tc = t.shape
+    # t = t.flatten()    
+    # nt = len(t)
+    # nr = len(intime)
+    
+    # # Decidedly faster than outer-product-array way
+    # u = t.flatten()
+    # for i in range(nt):
+    #     idx = np.min([np.argmax(intime > t[i]), len(outtime) - 1])
+    #     u[i] = outtime[idx]        
+    
+    # u = np.reshape(u, (tr, tc))
+     
+    # # print(u)
+    
+    # return u
+
+    # Gives ons/offs from score
     tr, tc = t.shape
     t = t.reshape(1, -1)  # make into a row
     nt = len(t)
@@ -482,7 +524,7 @@ def maptimes(t, intime, outtime):
         u[i] = outtime[idx]        
     
     u = np.reshape(u, (tr, tc))  
-        
+    # print(u)
     return u
 
     

@@ -1,12 +1,16 @@
-# Specific files
+# Specific files and folders to clean up repo
 notes.txt
 sandbox.py
-extra_scripts.py
+extraScript.py
 debug-notes.txt
 .DS_Store
 polyFiles/
+added_files/
+output_files/
 rihanna-files/
 rihannaScript.py
+
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
