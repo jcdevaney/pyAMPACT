@@ -85,4 +85,4 @@ f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
 
-data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, audio_file, export_path, y)
+data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, y, audio_file, export_path)
