@@ -141,7 +141,10 @@ class Score:
             if path:   # parse humdrum files differently to extract their function, and harm spines if they have them
                 imported_scores[self.path] = m21.converter.parse(path, format='humdrum')
             elif self.fileExtension in ('xml', 'musicxml', 'mei', 'mxl'):   # these files might be mei files and could lack elements music21 needs to be able to read them
-                tree = ET.parse(self.path)
+                if self.path.startswith('http'):
+                    tree = ET.ElementTree(ET.fromstring(requests.get(self.path).text))
+                else:
+                    tree = ET.parse(self.path)
                 remove_namespaces(tree)
                 root = tree.getroot()
                 hasFunctions = False
@@ -184,8 +187,11 @@ class Score:
                 temp = None
                 text = self.path
                 if self.fileExtension == 'txt':
-                    with open(self.path, 'r') as file:
-                        text = file.read()
+                    if self.path.startswith('http'):
+                        text = requests.get(self.path).text
+                    else:
+                        with open(self.path, 'r') as file:
+                            text = file.read()
                 if text.startswith('volpiano: ') or re.match(volpiano_pattern, text):
                     temp = m21.converter.parse(text, format='volpiano')
                 elif text.startswith('tinyNotation: ') or re.match(tinyNotation_pattern, text):
@@ -196,7 +202,11 @@ class Score:
                     imported_scores[self.path] = _score
 
         if self.path not in imported_scores:   # check again to catch valid tree files
-            imported_scores[self.path] = m21.converter.parse(self.path)
+            if self.path.startswith('http') and self.fileExtension in ('mid', 'midi'):
+                midi_bytes = requests.get(self.path).content
+                imported_scores[self.path] = m21.converter.parse(midi_bytes)
+            else:
+                imported_scores[self.path] = m21.converter.parse(self.path)
         self.score = imported_scores[self.path]
         self.metadata = {'title': "Title not found", 'composer': "Composer not found"}
         if self.score.metadata is not None:
