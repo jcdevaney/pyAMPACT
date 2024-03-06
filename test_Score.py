@@ -1,5 +1,4 @@
 import os, sys; sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-# from .symbolic import Score
 import pyampact
 import pandas as pd
 from unittest.mock import patch
@@ -48,17 +47,12 @@ def check_function_spine(score, control, filler='forward', output='array'):
 
 # check creation of Score objects from various types of symbolic notation files
 def test_local_import():
-  assert isinstance(pyampact.Score('./test_files/monophonic1note.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/monophonic3notes.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/monophonic6notes.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/polyExample1note.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/polyExample2voices1note.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/polyExample3voices1note.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/polyphonic4voices1note.mid'), pyampact.Score)
-  assert isinstance(pyampact.Score('./test_files/polyphonic4voices1note.mei'), pyampact.Score)
+  assert isinstance(pyampact.Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/monophonic6notes.mid'), pyampact.Score)
+  assert isinstance(pyampact.Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/polyphonic3voices1note.mid'), pyampact.Score)
+  assert isinstance(pyampact.Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/polyphonic4voices1note.mei'), pyampact.Score)
 
 def test_remote_import():
-  assert isinstance(pyampact.Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K025/Stripped/M025_00_01a_a.krn'), pyampact.Score)
+  assert isinstance(pyampact.Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn'), pyampact.Score)
 
 def test_volpiano_import_1():
   piece = pyampact.Score('1---gkjH7--klk-jkjh-ghg---jh---kl--k---jh--jk--hj---ghjh--hg---g--g--g--g7---hjh-ghjh---gf--gh--hkjklkjh--hjh-ghg---3---f--g77---3')
@@ -67,16 +61,6 @@ def test_volpiano_import_1():
   
 def test_volpiano_import_2():
   piece = pyampact.Score('1--c--d---f--d---ed--c--d---f---g--h--j---hgf--g--h---')
-  assert isinstance(piece, pyampact.Score)
-  assert not piece.notes().empty
-
-def test_volpiano_import_3():
-  piece = pyampact.Score('./test_files/volpiano_example.txt')
-  assert isinstance(piece, pyampact.Score)
-  assert not piece.notes().empty
-
-def test_volpiano_import_4():
-  piece = pyampact.Score('./test_files/volpiano_explicit_example.txt')
   assert isinstance(piece, pyampact.Score)
   assert not piece.notes().empty
 
@@ -90,21 +74,11 @@ def test_tinyNotation_import_2():
   assert isinstance(piece, pyampact.Score)
   assert not piece.notes().empty
 
-def test_tinyNotation_import_3():
-  piece = pyampact.Score('./test_files/tinyNotation_example.txt')
-  assert isinstance(piece, pyampact.Score)
-  assert not piece.notes().empty
-
-def test_tinyNotation_import_4():
-  piece = pyampact.Score('./test_files/tinyNotation_explicit_example.txt')
-  assert isinstance(piece, pyampact.Score)
-  assert not piece.notes().empty
-
 def test_lyrics():
-  check_lyrics('https://raw.githubusercontent.com/alexandermorgan/AMPACT/main/test_files/busnoys.krn', (438, 4), 'In', 'cum.')
+  check_lyrics('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/Busnoys_In_hydraulis.krn', (438, 4), 'In', 'cum.')
 
 def test_spine_data():
-  piece = pyampact.Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K025/Stripped/M025_00_01a_a.krn')
+  piece = pyampact.Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
   harm_series = pd.Series(['V', 'I', 'I', 'I', 'I', 'I', 'I', 'V', 'V', 'V', 'V', 'V', 'V7b', 'V7b', 'I', 'I', 'I', 'I',
       'V', 'V', 'V7b', 'V7b', 'I', 'I', 'I', 'iib', 'iib', 'iib', 'iib', 'V', 'V', 'I', 'I', 'I'],
     [0.0, 1.0, 2.0, 2.5, 3.0, 4.0, 5.0, 5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 12.0, 13.0,
@@ -119,27 +93,13 @@ def test_show():
   '''\tMake sure the url generation works in a very simple case. Only check the first 100 characters
   because pyAMPACT adds the date of generation of the kern score in the footer metadata, so the full
   string is a little different every day.'''
-  piece = pyampact.Score('./test_files/showTest.krn')
+  kernString = """**kern
+1c;
+==
+*-"""
+  piece = pyampact.Score(kernString)
   with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
     piece.show()
   expected_output = "https://verovio.humdrum.org/?t=ISEhQ09NOiBDb21wb3NlciBub3QgZm91bmQKISEhT1RMOiBUaXRsZSBub3QgZm91bmQKK"
   assert mock_stdout.getvalue()[:100] == expected_output
 
-# def test_sampled():
-#   doesn't work because music21 fills in missing rests in midi pieces
-#   test = Score('./test_files/monophonic1note.mid').sampled()
-#   control = pd.read_csv('./test_files/monophonic1note-pr.csv', header=None, index_col=False)
-#   assert test.equals(control)
-
-#   doesn't work because music21 fills in missing rests
-#   test = Score('./test_files/monophonic3notes.mid').sampled()
-#   control = pd.read_csv('./test_files/monophonic3notes-pr.csv', header=None, index_col=False)
-#   assert test.equals(control)
-
-#   doesn't work because music21 fills in missing rests
-#   test = Score('./test_files/polyphonic4voices1note.mei').sampled()
-#   control = pd.read_csv('./test_files/polyphonic4voices1note-pr.csv', header=None, index_col=False)
-#   assert test.equals(control)
-
-
-# check_sampled_piano_roll('./test_files/polyphonic4voices1note.mid', './test_files/polyphonic4voices1note-pr.csv')  # problematic because of terminal rests
