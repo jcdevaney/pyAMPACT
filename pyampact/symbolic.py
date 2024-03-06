@@ -100,7 +100,7 @@ class Score:
     --------
     .. code-block:: python
 
-        url_or_path = 'https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn'
+        url_or_path = 'https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn'
         piece = Score(url_or_path)
     """
     def __init__(self, score_path):
@@ -544,7 +544,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.xmlIDs()
         """
         if 'xmlIDs' in self._analyses:
@@ -619,7 +619,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/AMPACT/main/test_files/busnoys.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/Busnoys_In_hydraulis.krn')
             piece.lyrics()
         """
         key = ('lyrics', strip)
@@ -698,7 +698,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.dynamics()
         """
         if 'dynamics' not in self._analyses:
@@ -739,7 +739,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.harmKeys()
 
         If you want to align these results so that they match the columnar (time) axis
@@ -755,7 +755,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             harmKeys = piece.harmKeys(snap_to=pianoRoll)
             combined = pd.concat((pianoRoll, harmKeys))
@@ -816,7 +816,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             harm = piece.harm(snap_to=pianoRoll, output='series')
             combined = pd.concat((pianoRoll, harm))
@@ -862,7 +862,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.functions()
 
         If you want to align these results so that they match the columnar (time) axis
@@ -878,7 +878,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             functions = piece.functions(snap_to=pianoRoll)
             combined = pd.concat((pianoRoll, functions))
@@ -926,7 +926,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.chords()
 
         If you want to align these results so that they match the columnar (time) axis
@@ -942,7 +942,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             chords = piece.chords(snap_to=pianoRoll)
             combined = pd.concat((pianoRoll, chords))
@@ -991,7 +991,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.cdata()
 
         If you want to align these results so that they match the columnar (time) axis
@@ -1007,7 +1007,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             cdata = piece.cdata(snap_to=pianoRoll)
             combined = pd.concat((pianoRoll, cdata))
@@ -1076,7 +1076,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/jcdevaney/pyAMPACT/blob/master/test_files/O_virgo_miserere_mei.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/O_Virgo_Miserere.krn')
             rdiss = piece.getSpines('cdata-rdiss')
 
         See Also
@@ -1175,7 +1175,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://raw.githubusercontent.com/alexandermorgan/TAVERN/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             pianoRoll = piece.pianoRoll()
             romanNumerals = piece.romanNumerals(snap_to=pianoRoll)
 
@@ -1352,7 +1352,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.durations()
         """
         if df is None:
@@ -1453,7 +1453,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.midiPitches()
         """
         key = ('midiPitches', multi_index)
@@ -1490,7 +1490,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.notes()
         """
         if 'notes' not in self._analyses:
@@ -1525,7 +1525,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.kernNotes()
         """
         if 'kernNotes' not in self._analyses:
@@ -1564,7 +1564,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K179/Krn/K179.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/Mozart_K179_seg.krn')
             piece.nmats()
         """
         if not json_path:   # user must pass a json_path if they want the cdata to be included
@@ -1659,7 +1659,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.pianoRoll()
         """
         if 'pianoRoll' not in self._analyses:
@@ -1700,7 +1700,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.sampled()
         """
         key = ('sampled', bpm, obs)
@@ -1753,7 +1753,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K455/Stripped/M455_00_03c_a.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.mask()
         """
         key = ('mask', winms, sample_rate, num_harmonics, width, bpm, aFreq, base_note, tuning_factor)
@@ -1921,7 +1921,7 @@ class Score:
         -------
         .. code-block:: python
 
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K398/Krn/K398.krn')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/M025_00_01a_a.krn')
             piece.show(5, 10)
         """
         if isinstance(start, int) and isinstance(stop, int) and start > stop:
@@ -1984,7 +1984,7 @@ class Score:
         .. code-block:: python
 
             # create a kern file from a different symbolic notation file
-            piece = Score('https://github.com/alexandermorgan/TAVERN/blob/master/Mozart/K179/Krn/K179.xml')
+            piece = Score('https://github.com/pyampact/pyAMPACTtutorials/blob/main/test_files/K179.xml')
             piece.toKern()
         """
         key = ('toKern', data)
