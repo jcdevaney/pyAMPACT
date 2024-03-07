@@ -1826,7 +1826,7 @@ class Score:
         get passed as attributes to the <avFile> element. The performance element 
         will nest the DataFrame data in the <performance> element as a child of 
         <music> and a sibling of <body>. A new file will be saved to the 
-        `output_filename` in the output_files directory.
+        `output_filename` in the current working directory.
 
         .. parsed-literal::
 
@@ -1899,7 +1899,7 @@ class Score:
                     break
                 lines.append(line)
         header = ''.join(lines)
-        with open(f'./output_files/{output_filename}', 'w') as f:
+        with open(f'./{output_filename}', 'w') as f:
             f.write(header)
             ET.ElementTree(self._meiTree).write(f, encoding='unicode')
 
@@ -2141,12 +2141,12 @@ class Score:
         Write or return an MEI score optionally including analysis data.
 
         If no `file_name` is passed then returns a string of the MEI representation.
-        Otherwise a file called `file_name` is created or overwritten in the `output_files`
+        Otherwise a file called `file_name` is created or overwritten in the current working
         directory. If `file_name` does not end in '.mei.xml' or '.mei', then the `.mei.xml`
         file extension will be added to the `file_name`.
 
         :param file_name: Optional string representing the name to save the new
-            MEI file to in the `output_files` directory.
+            MEI file to the current working directory.
         :param data: Optional string of the path of score data in json format to
             be added to the the new mei file.
         :param start: Optional integer representing the starting measure. If `start`
@@ -2158,7 +2158,7 @@ class Score:
         :param analysis_tag: Optional string representing the name of the tag to
             be used for the analysis data.
         :return: String of new MEI score if no `file_name` is given, or None if
-            writing the new MEI file to `output_files/<file_name>.mei.xml`
+            writing the new MEI file to the current working directory.
 
         See Also
         --------
