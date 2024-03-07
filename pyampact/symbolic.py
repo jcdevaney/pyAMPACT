@@ -2084,8 +2084,6 @@ class Score:
         else:
             if not path_name.endswith('.krn'):
                 path_name += '.krn'
-            if '/' not in path_name:
-                path_name = './output_files/' + path_name
             with open(path_name, 'w') as f:
                 f.write(self._analyses[key])
 
@@ -2313,8 +2311,10 @@ class Score:
         if not file_name:
             return ret
         else:
-            if not (file_name.endswith('.mei.xml') or file_name.endswith('.mei')):
+            if file_name.endswith('.mei'):
+                file_name += '.xml'
+            elif not file_name.endswith('.mei.xml'):
                 file_name += '.mei.xml'
-            with open(f'./output_files/{file_name}', 'w') as f:
+            with open(f'./{file_name}', 'w') as f:
                 f.write(meiDeclaration)
                 ret.write(f, encoding='unicode')
