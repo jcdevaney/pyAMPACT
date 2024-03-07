@@ -354,7 +354,8 @@ def fromJSON(json_path):
         with open(json_path) as json_data:
             data = json.load(json_data)
 
-    if (isinstance(json_path, str) and json_path.lower().endswith('.dez')) or json_path.name.lower().endswith('.dez'):
+    if ((isinstance(json_path, str) and json_path.lower().endswith('.dez'))
+        or (hasattr(json_path, 'name') and json_path.name.lower().endswith('.dez'))):
         df = pd.DataFrame.from_records(data['labels'])
         if 'start' in df.columns:
             df['start'] = df['start'].fillna(0.0)
