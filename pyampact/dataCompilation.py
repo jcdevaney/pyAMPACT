@@ -1,11 +1,8 @@
 import numpy as np
-import pandas as pd
-import os
-import json
-import sys
 
 
 from pyampact.performance import estimate_perceptual_parameters
+from pyampact.symbolic import Score
 
 __all__ = [
     "data_compilation"
@@ -29,9 +26,9 @@ def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y
             perceptual_params = estimate_perceptual_parameters(f0_vals=f0_chunk, pwr_vals=pwr_chunk, M=mag_mat_chunk, SR=target_sr, hop=hop_length, gt_flag=True, y=y)        
 
             pwr_chunk = perceptual_params['pwr_vals'][start_idx:end_idx]
-            slope_chunk = perceptual_params['spec_slope'][start_idx:end_idx]
-            flux_chunk = perceptual_params['spec_flux'][start_idx:end_idx]
-            flat_chunk = perceptual_params['spec_flat'][start_idx:end_idx]    
+            # slope_chunk = perceptual_params['spec_slope'][start_idx:end_idx]
+            # flux_chunk = perceptual_params['spec_flux'][start_idx:end_idx]
+            # flat_chunk = perceptual_params['spec_flat'][start_idx:end_idx]    
 
 
             # Create a dictionary for the current time interval - added np.mean                
@@ -54,24 +51,7 @@ def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y
             df.loc[i,'mean_spec_flat'] = perceptual_params['mean_spec_flat']        
             # Add other parameters and their corresponding chunks here
 
-
-    # Convert each DataFrame to a dictionary
-    # Create an empty dictionary to hold the structured data
-    dfs_dict = {}
-
-    for part, df in nmat.items():
-        part_data = {}
-        for xml_id, row in df.iterrows():        
-            part_data[str(xml_id)] = row.to_dict()    
-        dfs_dict[part] = part_data
+    nmat, jsonData = Score.toJSON(nmat)
     
-
-    # Uncomment to export JSON
-    # if not export_path.endswith("/"):
-    #     export_path += "/"
-
-    # audio_file_name = os.path.splitext(os.path.basename(audio_file_path))[0]
-    # # output_file = f"./output_files/alignment_cdata_{audio_file_name}.json"
-    # output_file = f"{export_path}{audio_file_name}.json"
-    # with open(output_file, "w") as f:
-    #     json.dump(dfs_dict, f, indent=4)
+    return nmat, jsonData
+    

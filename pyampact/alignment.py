@@ -228,22 +228,26 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     ovlp = round(fft_len - TH*tsr)     
     y = librosa.resample(WF, orig_sr=sr, target_sr=tsr)
     
-    # print(fft_len)
-    # print(tsr)
-    # print(TH)
-    # print(ovlp)
-    # Compute spectrogram    
+    
+    # Compute spectrogram - librosa future work    
+    # Sxx = librosa.feature.melspectrogram(y=y, sr=tsr, n_fft=fft_len, center=True)
+    # times = []
+    # freqs = []
+
+    # Compute spectrogram - current scipy work
     freqs, times, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
     # Access the magnitude spectrogram (D)
     D = np.abs(Sxx)
 
+    
     
     if showSpec == True:
         alignment_visualiser(D, times, freqs)
     
     M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width, winms=wms)        
         
-
+    # print('M Shape', M.shape)
+    # print('D Shape', D.shape)
     # Calculate the peak-structure-distance similarity matrix    
     if ST == 0:
         S = orio_simmx(M, D)
@@ -292,7 +296,8 @@ def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1, showSpec=Fal
         plt.colorbar(label='Power/Frequency (dB/Hz)')
         plt.show()
     else:
-        print("To show spectrogram, make sure to provide freqs/times and set showSpec=True")
+        # print("To show spectrogram, make sure to provide freqs/times and set showSpec=True")
+        return
     
     
 

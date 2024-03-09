@@ -2318,3 +2318,15 @@ class Score:
             with open(f'./{file_name}', 'w') as f:
                 f.write(meiDeclaration)
                 ret.write(f, encoding='unicode')
+    
+    def toJSON(performanceNmat):                
+        # Convert each DataFrame to a dictionary
+        # Create an empty dictionary to hold the structured data            
+        jsonData = {}
+        for part, df in performanceNmat.items():
+            part_data = {}
+            for xml_id, row in df.iterrows():        
+                part_data[str(xml_id)] = row.to_dict()    
+            jsonData[part] = part_data       
+        
+        return performanceNmat, jsonData

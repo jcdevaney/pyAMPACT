@@ -36,13 +36,14 @@ cdata_file (path)
 # audio_file = './test_files/polyExample.wav'
 # midi_file = './test_files/polyExample.mid'
 
-audio_file = './test_files/TAVERNaudio/B063_00_02.wav'
-midi_file = './test_files/TAVERNaudio/B063_00_02.krn'
+# audio_file = './test_files/TAVERNaudio/B063_00_03.wav'
+# midi_file = './test_files/TAVERNaudio/B063_00_03.krn'
+
+audio_file = './test_files/Mozart_K179_seg.wav'
+midi_file = './test_files/Mozart_K179_seg.krn'
 
 # audio_file = './rihanna-files/rihanna-vocal tracks/Close to You vocals.wav'
 # midi_file = './rihanna-files/Close to You.mei'
-
-export_path = "./output_files"
 
 piece = Score(midi_file)
 nmat = piece.nmats()
@@ -85,4 +86,4 @@ f0_values = f0_values[~np.isnan(f0_values)]
 sig_pwr = sig_pwr[sig_pwr != 0]
 
 
-data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, y, audio_file, export_path)
+data_compilation(f0_values, sig_pwr, mags_mat, nmat, target_sr, hop_length, y, audio_file)
