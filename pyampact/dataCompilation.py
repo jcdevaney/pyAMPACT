@@ -52,6 +52,6 @@ def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y
             # Add other parameters and their corresponding chunks here
 
     nmat, jsonData = Score.toJSON(nmat)
-    
+    print(nmat)
     return nmat, jsonData
     

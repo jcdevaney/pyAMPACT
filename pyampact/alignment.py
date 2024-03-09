@@ -224,20 +224,14 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
 
         
     # Calculate spectrogram    
-    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))    
-    ovlp = round(fft_len - TH*tsr)     
+    fft_len = int(2**np.round(np.log(wms/1000*tsr)/np.log(2)))      
     y = librosa.resample(WF, orig_sr=sr, target_sr=tsr)
     
     
-    # Compute spectrogram - librosa future work    
-    # Sxx = librosa.feature.melspectrogram(y=y, sr=tsr, n_fft=fft_len, center=True)
-    # times = []
-    # freqs = []
-
-    # Compute spectrogram - current scipy work
-    freqs, times, Sxx = spectrogram(y, fs=tsr, nperseg=fft_len, noverlap=ovlp, window='hann')
-    # Access the magnitude spectrogram (D)
-    D = np.abs(Sxx)
+    # Compute spectrogram - librosa future work        
+    D = librosa.stft(y, n_fft=fft_len)
+    times = []
+    freqs = []
 
     
     
@@ -246,8 +240,7 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     
     M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width, winms=wms)        
         
-    # print('M Shape', M.shape)
-    # print('D Shape', D.shape)
+    
     # Calculate the peak-structure-distance similarity matrix    
     if ST == 0:
         S = orio_simmx(M, D)
