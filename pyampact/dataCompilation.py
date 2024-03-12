@@ -9,7 +9,6 @@ __all__ = [
 ]
 
 def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y, audio_file_path=None, export_path=None):    
-    # total_rows = sum(len(df) for df in nmat.values())
     # Iterate over the indices of XML_IDs
     for key, df in nmat.items():
         total_duration = df['OFFSET_SEC'].iloc[-1]
@@ -51,7 +50,6 @@ def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y
             df.loc[i,'mean_spec_flat'] = perceptual_params['mean_spec_flat']        
             # Add other parameters and their corresponding chunks here
 
-    nmat, jsonData = Score.toJSON(nmat)
-    print(nmat)
+    nmat, jsonData = Score.toJSON(nmat)    
     return nmat, jsonData
     

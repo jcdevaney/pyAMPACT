@@ -61,34 +61,18 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, M, SR, hop, gt_flag, y):
     M_slope = M_sqrt - np.tile(mu_x, (M.shape[0], 1))
 
     # Check if M is empty
-    if M.size == 0:
-        # Handle the case where M is empty
-        # print("Warning: M is empty. Cannot calculate mean or perform operations.")
-        # You may choose to handle this situation differently based on your requirements
-        # For example, you could assign default values to res_spec_flux and res_mean_spec_flux
-        res_spec_flux = np.nan  # or any other appropriate value or action
-        res_mean_spec_flux = np.nan  # or any other appropriate value or action
-        res_spec_slope = np.nan  # or any other appropriate value or action
-        res_mean_spec_slope = np.nan  # or any other appropriate value or action
+    if M.size == 0:        
+        res_spec_flux = np.nan
+        res_mean_spec_flux = np.nan
+        res_spec_slope = np.nan
+        res_mean_spec_slope = np.nan
     else:
-        # Calculate res_spec_flux
         afDeltaX = np.diff(np.hstack((M[:, 0:1], M)), axis=1)
-        res_spec_flux = np.sqrt(np.sum(afDeltaX**2, axis=0)) / M.shape[0]
-        # Calculate res_mean_spec_flux
+        res_spec_flux = np.sqrt(np.sum(afDeltaX**2, axis=0)) / M.shape[0]        
         res_mean_spec_flux = np.mean(res_spec_flux)
-         # Calculate res_spec_slope
-        res_spec_slope = np.dot(kmu, M_slope) / np.dot(kmu, kmu)
-        # Calculate res_mean_spec_slope
+        res_spec_slope = np.dot(kmu, M_slope) / np.dot(kmu, kmu)        
         res_mean_spec_slope = np.mean(res_spec_slope)
 
-    # res_spec_slope = np.dot(kmu, M_slope) / np.dot(kmu, kmu)
-    # res_mean_spec_slope = np.mean(res_spec_slope)
-
-    
-    # # Spectral Flux    
-    # afDeltaX = np.diff(np.hstack((M[:, 0:1], M)), axis=1)
-    # res_spec_flux = np.sqrt(np.sum(afDeltaX**2, axis=0)) / M.shape[0]
-    # res_mean_spec_flux = np.mean(res_spec_flux)
     
 
     # Spectral Flatness

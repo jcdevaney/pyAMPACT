@@ -29,8 +29,8 @@ cdata_file (path)
 
 
 # # Specify audio and MIDI file NAMES
-# audio_file = './test_files/example3note.wav'
-# midi_file = './test_files/monophonic3notes.mid'
+audio_file = './test_files/example3note.wav'
+midi_file = './test_files/monophonic3notes.mid'
 
 # # Poly
 # audio_file = './test_files/polyExample.wav'
@@ -39,8 +39,8 @@ cdata_file (path)
 # audio_file = './test_files/TAVERNaudio/B063_00_03.wav'
 # midi_file = './test_files/TAVERNaudio/B063_00_03.krn'
 
-audio_file = './test_files/Mozart_K179_seg.wav'
-midi_file = './test_files/Mozart_K179_seg.krn'
+# audio_file = './test_files/Mozart_K179_seg.wav'
+# midi_file = './test_files/Mozart_K179_seg.krn'
 
 # audio_file = './rihanna-files/rihanna-vocal tracks/Close to You vocals.wav'
 # midi_file = './rihanna-files/Close to You.mei'
@@ -51,12 +51,9 @@ nmat = piece.nmats()
 y, original_sr = librosa.load(audio_file)
   
 
-# Load singing means and covariances
-means = pd.read_csv('./test_files/SingingMeans.csv', sep=' ').values
-covars = pd.read_csv('./test_files/SingingCovars.csv', sep=' ').values
-
 
 # Run the alignment
+showSpec = True
 width = 3
 target_sr = 4000
 n_harm = 3
@@ -65,7 +62,7 @@ hop_length = 32
 
 
 res, dtw, spec, nmat = run_alignment(
-    y, original_sr, piece, means, covars, nmat, width, target_sr, n_harm, win_ms, hop_length)
+    y, original_sr, piece, nmat, width, target_sr, n_harm, win_ms, hop_length, showSpec)
 
 
 

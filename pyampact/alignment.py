@@ -38,7 +38,7 @@ __all__ = [
 
 
     
-def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32):
+def run_alignment(y, original_sr, piece, nmat, width=3, target_sr=4000, nharm=3, win_ms=100, hop=32, showSpec=False):
     """    
     Calls the DTW alignment function and refines the results with the HMM
     alignment algorithm, with both a basic and modified state spaces (based on the lyrics).
@@ -55,6 +55,7 @@ def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr
     :param nharm: Number of harmonics (you need to specify this value)
     :param win_ms: Window size in milliseconds (you need to specify this value)
     :param hop: Number of samples between successive frames
+    :param showSpec: Boolean to show the spectrogram
 
     :returns: 
         - align: Dynamic time warping MIDI-audio alignment structure
@@ -78,7 +79,7 @@ def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr
     
     # Run DTW alignment
     align, spec, dtw, newNmat = run_DTW_alignment(
-        y, original_sr, piece, 0.050, width, target_sr, nharm, win_ms, nmat)   
+        y, original_sr, piece, 0.050, width, target_sr, nharm, win_ms, hop, nmat, showSpec)   
     
     nmat = newNmat
     return align, dtw, spec, nmat
@@ -86,7 +87,7 @@ def run_alignment(y, original_sr, piece, means, covars, nmat, width=3, target_sr
 
 
 
-def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms, nmat):    
+def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_ms, hop, nmat, showSpec):    
     """
     Perform a dynamic time warping alignment between specified audio and MIDI files.
 
@@ -101,6 +102,7 @@ def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_
     :param target_sr: Target sample rate (you need to specify this value)
     :param nharm: Number of harmonics (you need to specify this value)
     :param win_ms: Window size in milliseconds (you need to specify this value)
+    :param showSpec: Boolean to show the spectrogram
 
     :returns:
         - align: Dynamic time warping MIDI-audio alignment structure
@@ -120,7 +122,7 @@ def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_
     
     
     m, p, q, S, D, M, N = align_midi_wav(
-        piece, WF=y, sr=original_sr, TH=tres, ST=0, width=width, tsr=target_sr, nhar=nharm, wms=win_ms)
+        piece, WF=y, sr=original_sr, TH=tres, ST=0, width=width, tsr=target_sr, nhar=nharm, hop=hop, wms=win_ms, showSpec=showSpec)
     
     dtw = {
         'M': m,
@@ -134,12 +136,6 @@ def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_
     
     spec = dtw['D']
     
-    # print('alignment.py line 137')
-    # print('Size of M', M.shape)
-    # print('Size of D', spec.shape)
-    
-    # np.savetxt('./output_files/spec_runDWTAlignment.csv', spec, delimiter=',')
-    # sys.exit()
     
     # Iterate through each key-value pair (dataframe) in the nmat dictionary
     for key, df in nmat.items():
@@ -193,7 +189,7 @@ def run_DTW_alignment(y, original_sr, piece, tres, width, target_sr, nharm, win_
 
 
 
-def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):    
+def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, hop, showSpec):    
     """
     Align a midi file to a wav file using the "peak structure
     distance" of Orio et al. that use the MIDI notes to build 
@@ -203,6 +199,7 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     :param WF: Audio time series of file
     :param TH: is the time step resolution (default 0.050)
     :param ST: is the similarity type: 0 (default) is triangle inequality
+    :param showSpec: Boolean to show the spectrogram
 
     :returns:
         - m: Is the map s.t. M(:,m)          
@@ -229,19 +226,18 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
     
     
     # Compute spectrogram - librosa future work        
-    D = librosa.stft(y, n_fft=fft_len)
-    times = []
-    freqs = []
+    D = librosa.stft(y, n_fft=fft_len, hop_length=hop)
+    times = librosa.times_like(D, sr=sr, hop_length=hop)
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=fft_len)
 
     
-    
     if showSpec == True:
-        alignment_visualiser(D, times, freqs)
+        alignment_visualiser(D, times, freqs, showSpec=showSpec)
     
     M = piece.mask(sample_rate=tsr, num_harmonics=nhar, width=width, winms=wms)        
         
     
-    # Calculate the peak-structure-distance similarity matrix    
+    # Calculate the peak-structure-distance similarity matrix        
     if ST == 0:
         S = orio_simmx(M, D)
     else:
@@ -264,7 +260,7 @@ def align_midi_wav(piece, WF, sr, TH, ST, width, tsr, nhar, wms, showSpec=True):
 
   
 
-def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1, showSpec=False):    
+def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1, showSpec=True):    
     """    
     Plots a gross DTW alignment overlaid with the fine alignment
     resulting from the HMM aligner on the output of YIN.  Trace(1,:)
@@ -282,14 +278,14 @@ def alignment_visualiser(audio_spec, times=None, freqs=None, fig=1, showSpec=Fal
     
     
     if (len(times) > 0 and len(freqs) > 0) and showSpec == True:
-        plt.pcolormesh(times, freqs, 10 * np.log10(audio_spec), shading='auto', vmax=np.max(10 * np.log10(audio_spec)))  # Use vmax to set the color scale
+        plt.pcolormesh(times, freqs, 10 * np.log10(np.abs(audio_spec)), shading='auto')  # Convert complex to real and take the magnitude
         plt.ylabel('Frequency (Hz)')
         plt.xlabel('Time (s)')
         plt.title('Alignment Spectrogram')    
         plt.colorbar(label='Power/Frequency (dB/Hz)')
         plt.show()
     else:
-        # print("To show spectrogram, make sure to provide freqs/times and set showSpec=True")
+        # print("To show spectrogram, make sure to provide freqs/times matrices and set showSpec=True")
         return
     
     
