@@ -53,6 +53,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, M, SR, hop, gt_flag, y):
     
     S, phase = librosa.magphase(librosa.stft(y=y))
     res_spec_centroid = librosa.feature.spectral_centroid(S=S)
+    res_mean_spec_centroid = np.mean(res_spec_centroid)    
 
     # Spectral Slope                
     mu_x = np.mean(M, axis=0)        
@@ -91,6 +92,7 @@ def estimate_perceptual_parameters(f0_vals, pwr_vals, M, SR, hop, gt_flag, y):
         "pwr_vals": res_pwr_vals,
         "f0_vals": res_f0_vals,        
         "spec_centroid": res_spec_centroid,
+        "mean_spec_centroid": res_mean_spec_centroid,
         "spec_slope": res_spec_slope,
         "mean_spec_slope": res_mean_spec_slope,
         "spec_flux": res_spec_flux,
