@@ -358,7 +358,7 @@ class Score:
             if kernStrands:
                 toConcat = self._analyses['_kernStrands']
             elif compact:
-                toConcat = self._analyses['_partList']
+                toConcat = self._partList()
                 if number:
                     partNameToNum = {part: i + 1 for i, part in enumerate(self.partNames)}
                     colTuples = []
@@ -721,7 +721,8 @@ class Score:
             if self.fileExtension != 'krn':
                 priority = pd.DataFrame()
             else:
-                priority = self._parts().map(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
+                parts = self._parts(compact=True)   # use compact to avoid losing priorities of chords
+                priority = parts.map(lambda cell: cell.priority, na_action='ignore').ffill(axis=1).iloc[:, -1].astype('Int16')
                 priority = pd.DataFrame({'Priority': priority.values, 'Offset': priority.index})
             self._analyses['_priority'] = priority
         return self._analyses['_priority']
