@@ -1710,6 +1710,9 @@ class Score:
             timepoints = pd.Index([t/slices for t in range(0, int(self.score.highestTime * slices))])
             pr = self.pianoRoll().copy()
             pr.columns = [col if col in timepoints else timepoints.asof(col) for col in pr.columns]
+            pr = pr.T
+            pr = pr.iloc[~pr.index.duplicated(keep='last')]
+            pr = pr.T
             sampled = pr.reindex(columns=timepoints, method='ffill')
             self._analyses[key] = sampled
         return self._analyses[key]
