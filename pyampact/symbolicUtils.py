@@ -626,7 +626,7 @@ def snapTo(data, snap_to=None, filler='forward', output='array'):
     if isinstance(filler, str):
         filler = filler.lower()
         if filler == 'forward':
-            _data.ffill(inplace=True)
+            _data.infer_objects(copy=False).ffill(inplace=True)
         else:
             if filler in ('nan', 'drop'):
                 _data.fillna(np.nan, inplace=True)
