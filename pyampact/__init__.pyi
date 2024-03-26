@@ -24,6 +24,8 @@ from .alignmentUtils import (
     simmx as simmx,
     maptimes as maptimes,
     calculate_f0_est as calculate_f0_est,
+    f0_est_weighted_sum as f0_est_weighted_sum,
+    f0_est_weighted_sum_spec as f0_est_weighted_sum_spec
 
 )
 
@@ -59,5 +61,6 @@ from .symbolicUtils import (
     noteRestHelper as noteRestHelper,
     remove_namespaces as remove_namespaces,
     removeTied as removeTied,
-    snapTo as snapTo
+    snapTo as snapTo,
+    githubURLtoRaw as githubURLtoRaw
 )

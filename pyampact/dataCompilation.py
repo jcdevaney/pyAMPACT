@@ -47,7 +47,6 @@ def data_compilation(f0_values, sig_pwr, mag_mat, nmat, target_sr, hop_length, y
             df.loc[i,'meanSpecFlat'] = perceptual_params['mean_spec_flat']        
             # Add other parameters and their corresponding chunks here
 
-    nmat, jsonData = Score.toJSON(nmat)
-    print(nmat)
+    nmat, jsonData = Score.toJSON(nmat)    
     return nmat, jsonData
     

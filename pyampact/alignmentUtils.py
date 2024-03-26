@@ -18,7 +18,7 @@ alignmentUtils
     orio_simmx
     simmx
     maptimes
-    calculate_f0_est
+    calculate_f0_est    
 """
 
 import numpy as np
@@ -45,7 +45,9 @@ __all__ = [
     "orio_simmx",
     "simmx",
     "maptimes",
-    "calculate_f0_est"
+    "calculate_f0_est",
+    "f0_est_weighted_sum",
+    "f0_est_weighted_sum_spec"
 ]
 
 
@@ -495,7 +497,7 @@ def maptimes(t, intime, outtime):
     return u
 
     
-
+# Old function... March 16
 def calculate_f0_est(filename, hop_length, win_ms, tsr):    
             
     y, sr = librosa.load(filename, sr=tsr)
@@ -534,3 +536,71 @@ def calculate_f0_est(filename, hop_length, win_ms, tsr):
     time = np.append(time, new_time_value)
 
     return f0, power
+
+
+
+# These are the new functions to replace calculate_f0_est
+def f0_est_weighted_sum(x, f, f0i, fMax=None, fThresh=None):
+    if fMax is None:
+        fMax = 5000
+    if fThresh is None:
+        fThresh = 2 * np.median(np.diff(f[:, 0]))
+
+    x2 = np.abs(x) ** 2
+    wNum = np.zeros_like(x2)
+    wDen = np.zeros_like(x2)
+
+    strips = {}
+    maxI = np.max(fMax / f0i)
+    for i in range(1, int(maxI) + 1):
+        strip = ((np.abs(np.subtract.outer(f, f0i * i)) < fThresh) * x2)
+        strips[i] = strip
+        wNum += 1 / i * strip
+        wDen += strip
+
+    wNum *= (f < fMax)
+    wDen *= (f < fMax)
+
+    f0 = np.sum(wNum * f, axis=0) / np.sum(wDen, axis=0)
+    pow = np.sum(wDen, axis=0)
+
+    return f0, pow, strips
+
+def f0_est_weighted_sum_spec(F, D, noteStart_s, noteEnd_s, f0i, sr, useIf=True):
+    win_s = 0.064
+    nIter = 10
+
+    win = round(win_s * sr)
+    hop = round(win / 8)
+
+    print(noteStart_s)
+    print(noteEnd_s)
+    print(hop)
+    print(D.shape[1])
+
+    noteStart_hop = int(noteStart_s * sr / hop)
+    noteEnd_hop = min(int(noteEnd_s * sr / hop), D.shape[1])
+
+    inds = range(noteStart_hop, noteEnd_hop)    
+
+    x = np.abs(D[:, inds])**(1/6)
+    f = np.arange(win/2 + 1) * sr / win
+
+    if useIf:
+        xf = f
+    else:
+        xf = np.tile(f, (x.shape[1], 1)).T
+
+    f0 = f0_est_weighted_sum(x, xf, f0i)
+    for _ in range(nIter):
+        f0 = f0_est_weighted_sum(x, xf, f0)
+
+    _, p, partials = f0_est_weighted_sum(x ** 6, xf, f0, sr)
+
+    M = partials[0]
+    for i in range(1, len(partials)):
+        M += partials[i]
+
+    t = np.arange(len(inds)) * win_s
+
+    return f0, p, t, M, xf
