@@ -61,8 +61,7 @@ __all__ = [
     "tinyNotation_pattern",
     "volpiano_pattern",
     "meiDeclaration",
-    "idGen",
-    "githubURLtoRaw"    
+    "idGen"    
 
 ]
 
