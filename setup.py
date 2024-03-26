@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="pyampact",
-    version="0.4.8",
+    version="0.4.9",
     description="A example Python package",
     url="https://pyampact.github.io",
     author="Anonymous",
